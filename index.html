@@ -7,49 +7,34 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <header>
-        <div>
-          <p class="eyebrow">KiCad sourcing assistant</p>
-          <h1>auto_<span>BOM</span></h1>
-          <p class="intro">Turn a raw board export into a clean component list before sourcing exact parts.</p>
-        </div>
-        <div class="status"><span></span> Local prototype</div>
-      </header>
-
-      <section class="upload-panel">
-        <div>
-          <h2>Import a BOM</h2>
-          <p>Choose a CSV containing reference, value, footprint, and optional quantity fields.</p>
-        </div>
+    <header class="site-header">
+      <div><h1>auto_BOM</h1><p>KiCad BOM cleanup and component sourcing</p></div>
+      <span id="api-status" class="api-status">Checking API setup…</span>
+    </header>
+    <main>
+      <section class="panel import-panel">
+        <div><h2>1. Import a BOM</h2><p>Load a CSV exported from KiCad. Files stay local until you choose to search or review a part.</p></div>
         <div class="actions">
-          <button id="sample-button" class="secondary" type="button">Load sample</button>
-          <label class="file-button">
-            Choose CSV
-            <input id="file-input" type="file" accept=".csv,text/csv" />
-          </label>
+          <button id="sample-button" class="button secondary" type="button">Load sample</button>
+          <label class="button primary">Choose CSV<input id="file-input" type="file" accept=".csv,text/csv" /></label>
         </div>
       </section>
-
-      <section id="empty-state" class="empty-state">
-        <div class="board-icon" aria-hidden="true">⌁</div>
-        <h2>No BOM loaded</h2>
-        <p>Try the included <strong>sample_bom.csv</strong> to see the parser in action.</p>
+      <div id="message" class="message hidden" role="status"></div>
+      <section id="empty-state" class="panel empty-state"><h2>No BOM loaded</h2><p>Use the sample file to try the importer.</p></section>
+      <section id="results" class="panel hidden">
+        <div class="results-header">
+          <div><h2>2. Review imported parts</h2><p><span id="line-count">0</span> lines · <span id="part-count">0</span> parts · <span id="warning-count">0</span> warnings</p></div>
+          <button id="export-button" class="button secondary" type="button">Export JSON</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>References</th><th>Value</th><th>Normalized</th><th>Footprint</th><th>Qty</th><th>Import check</th><th></th></tr></thead><tbody id="bom-body"></tbody></table></div>
       </section>
-
-      <section id="results" class="results hidden">
-        <div class="summary">
-          <article><span id="line-count">0</span><small>Grouped lines</small></article>
-          <article><span id="part-count">0</span><small>Total parts</small></article>
-          <article><span id="warning-count">0</span><small>Warnings</small></article>
-          <button id="export-button" type="button">Export JSON</button>
+      <section id="candidate-panel" class="panel hidden">
+        <div class="results-header">
+          <div><h2>3. DigiKey candidates</h2><p id="candidate-context"></p></div>
+          <button id="ai-button" class="button primary" type="button">AI double-check</button>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>References</th><th>Value</th><th>Normalized</th><th>Footprint</th><th>Qty</th><th>Status</th></tr></thead>
-            <tbody id="bom-body"></tbody>
-          </table>
-        </div>
+        <div id="ai-result" class="review hidden"></div>
+        <div class="table-wrap"><table><thead><tr><th>Part number</th><th>Manufacturer</th><th>Description</th><th>Stock</th><th>Unit price</th><th>Status</th></tr></thead><tbody id="candidate-body"></tbody></table></div>
       </section>
     </main>
     <script type="module" src="app.js"></script>
