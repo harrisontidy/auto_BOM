@@ -13,7 +13,7 @@
     </header>
     <main>
       <section class="panel import-panel">
-        <div><h2>1. Import a BOM</h2><p>Load a CSV exported from KiCad. Files stay local until you choose to search or review a part.</p></div>
+        <div><h2>1. Import a BOM</h2><p>Load a CSV export. The app parses it, asks AI to review the structure, then searches every line automatically.</p></div>
         <div class="actions">
           <button id="sample-button" class="button secondary" type="button">Load sample</button>
           <label class="button primary">Choose CSV<input id="file-input" type="file" accept=".csv,text/csv" /></label>
@@ -23,16 +23,13 @@
       <section id="empty-state" class="panel empty-state"><h2>No BOM loaded</h2><p>Use the sample file to try the importer.</p></section>
       <section id="results" class="panel hidden">
         <div class="results-header">
-          <div><h2>2. Review imported parts</h2><p><span id="line-count">0</span> lines · <span id="part-count">0</span> parts · <span id="warning-count">0</span> warnings</p></div>
+          <div><h2>2. Completed BOM</h2><p><span id="line-count">0</span> lines · <span id="part-count">0</span> parts · <span id="warning-count">0</span> missing fields</p></div>
           <button id="export-button" class="button secondary" type="button">Export JSON</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>References</th><th>Value</th><th>Normalized</th><th>Footprint</th><th>Qty</th><th>Import check</th><th></th></tr></thead><tbody id="bom-body"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>References</th><th>Requested part</th><th>Qty</th><th>Manufacturer part #</th><th>DigiKey part #</th><th>Stock</th><th>Unit price</th><th>Status</th><th></th></tr></thead><tbody id="bom-body"></tbody></table></div>
       </section>
       <section id="candidate-panel" class="panel hidden">
-        <div class="results-header">
-          <div><h2>3. DigiKey candidates</h2><p id="candidate-context"></p></div>
-          <button id="ai-button" class="button primary" type="button">AI double-check</button>
-        </div>
+        <div class="results-header"><div><h2>3. DigiKey candidates</h2><p id="candidate-context"></p></div></div>
         <div id="ai-result" class="review hidden"></div>
         <div class="table-wrap"><table><thead><tr><th>Part number</th><th>Manufacturer</th><th>Description</th><th>Stock</th><th>Unit price</th><th>Status</th></tr></thead><tbody id="candidate-body"></tbody></table></div>
       </section>
