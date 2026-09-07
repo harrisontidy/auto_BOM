@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildSearchQuery } from "./services/digikey.js";
 
 test("builds a DigiKey query from normalized value and KiCad footprint", () => {
-  assert.equal(buildSearchQuery({ value: "4k7", normalizedValue: "4.7 kΩ", footprint: "Resistor_SMD:R_0603_1608Metric" }), "4.7 kΩ 0603");
+  assert.equal(buildSearchQuery({ value: "4k7", normalizedValue: "4.7 kΩ", footprint: "Resistor_SMD:R_0603_1608Metric" }), "4.7 kohm 0603");
 });
 
 test("keeps named footprints when no standard size is present", () => {

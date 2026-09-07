@@ -3,7 +3,8 @@ let cachedToken = null;
 export function buildSearchQuery(component) {
   if (component.supplierPartNumber) return component.supplierPartNumber.trim();
   if (component.aiSearchTerms) return component.aiSearchTerms.trim();
-  return [component.componentType, component.normalizedValue || component.value, simplifyFootprint(component.footprint)].filter(Boolean).join(" ").trim();
+  const searchableValue = (component.normalizedValue || component.value || "").replaceAll("Ω", "ohm").replaceAll("µ", "u");
+  return [component.componentType, searchableValue, simplifyFootprint(component.footprint)].filter(Boolean).join(" ").trim();
 }
 
 export async function searchDigiKey(component, environment = process.env) {
