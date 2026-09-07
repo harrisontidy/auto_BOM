@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>auto_BOM</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <p class="eyebrow">KiCad sourcing assistant</p>
+          <h1>auto_<span>BOM</span></h1>
+          <p class="intro">Turn a raw board export into a clean component list before sourcing exact parts.</p>
+        </div>
+        <div class="status"><span></span> Local prototype</div>
+      </header>
+
+      <section class="upload-panel">
+        <div>
+          <h2>Import a BOM</h2>
+          <p>Choose a CSV containing reference, value, footprint, and optional quantity fields.</p>
+        </div>
+        <div class="actions">
+          <button id="sample-button" class="secondary" type="button">Load sample</button>
+          <label class="file-button">
+            Choose CSV
+            <input id="file-input" type="file" accept=".csv,text/csv" />
+          </label>
+        </div>
+      </section>
+
+      <section id="empty-state" class="empty-state">
+        <div class="board-icon" aria-hidden="true">⌁</div>
+        <h2>No BOM loaded</h2>
+        <p>Try the included <strong>sample_bom.csv</strong> to see the parser in action.</p>
+      </section>
+
+      <section id="results" class="results hidden">
+        <div class="summary">
+          <article><span id="line-count">0</span><small>Grouped lines</small></article>
+          <article><span id="part-count">0</span><small>Total parts</small></article>
+          <article><span id="warning-count">0</span><small>Warnings</small></article>
+          <button id="export-button" type="button">Export JSON</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>References</th><th>Value</th><th>Normalized</th><th>Footprint</th><th>Qty</th><th>Status</th></tr></thead>
+            <tbody id="bom-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+Reference,Value,Footprint,Quantity
+R1,4k7,Resistor_SMD:R_0603_1608Metric,1
+R2,4.7K,Resistor_SMD:R_0603_1608Metric,1
+R3,10K,Resistor_SMD:R_0603_1608Metric,1
+C1,0.1uF,Capacitor_SMD:C_0603_1608Metric,1
+C2,100nF,Capacitor_SMD:C_0603_1608Metric,1
+U1,ATmega328P-AU,Package_QFP:TQFP-32_7x7mm_P0.8mm,1
+D1,LED,,1
+
