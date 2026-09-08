@@ -11,7 +11,7 @@ export async function searchDigiKey(component, environment = process.env) {
   requireVariables(environment, ["DIGIKEY_CLIENT_ID", "DIGIKEY_CLIENT_SECRET"]);
   const host = environment.DIGIKEY_ENV === "production" ? "https://api.digikey.com" : "https://sandbox-api.digikey.com";
   const token = await getToken(host, environment);
-  const queries = [...new Set([buildSearchQuery(component), buildFallbackQuery(component)].filter(Boolean))];
+  const queries = buildSearchQueries(component);
   let lastResult = { query: queries[0] || "", candidates: [] };
   for (const query of queries) {
     lastResult = await runKeywordSearch(host, token, query, component, environment);
@@ -20,7 +20,62 @@ export async function searchDigiKey(component, environment = process.env) {
   return lastResult;
 }
 
+export function buildSearchQueries(component) {
+  const explicitPartNumber = String(component.supplierPartNumber || "").trim();
+  if (explicitPartNumber) return [explicitPartNumber];
+  const fallbackFirst = component.componentType === "Capacitor";
+  return [...new Set([
+    buildSpecializedQuery(component),
+    fallbackFirst ? buildFallbackQuery(component) : buildSearchQuery(component),
+    fallbackFirst ? buildSearchQuery(component) : buildFallbackQuery(component),
+  ].filter(Boolean))];
+}
+
+export function isExactPartNumberMatch(requestedPartNumber, candidate) {
+  const requested = normalizePartNumber(requestedPartNumber);
+  if (!requested) return true;
+  return [candidate.manufacturerPartNumber, candidate.digiKeyPartNumber]
+    .some((partNumber) => normalizePartNumber(partNumber) === requested);
+}
+
+export function isCompatibleCandidate(component, candidate) {
+  const explicitPartNumber = String(component.supplierPartNumber || "").trim();
+  if (explicitPartNumber) return isExactPartNumberMatch(explicitPartNumber, candidate);
+  const type = String(component.componentType || "").toLowerCase();
+  const parameterName = /resistor/.test(type) ? "Resistance"
+    : /capacitor/.test(type) ? "Capacitance"
+      : /inductor|choke/.test(type) ? "Inductance" : "";
+  if (parameterName) {
+    const requestedValue = parseEngineeringValue(component.normalizedValue || component.value, parameterName);
+    const candidateValue = parseEngineeringValue(candidate.parameters?.[parameterName], parameterName);
+    if (requestedValue !== null && (candidateValue === null || !approximatelyEqual(requestedValue, candidateValue))) return false;
+  }
+  const packageSize = simplifyFootprint(component.footprint);
+  if (/^(0201|0402|0603|0805|1206|1210)$/.test(packageSize)) {
+    const candidatePackage = String(candidate.parameters?.["Package / Case"] || "");
+    if (!new RegExp(`(?:^|[^0-9])${packageSize}(?:[^0-9]|$)`, "i").test(candidatePackage)) return false;
+  }
+  return true;
+}
+
+export function buildSpecializedQuery(component) {
+  const type = String(component.componentType || "");
+  if (!/regulator|converter|power management/i.test(type)) return "";
+  const text = [component.originalQuery, component.summary, component.value, ...(component.requirements || []), component.aiSearchTerms].filter(Boolean).join(" ");
+  const labeledOutput = text.match(/(?:output(?:\s+of)?|regulated\s+to|\bto)\s*(\d+(?:\.\d+)?)\s*V/i)?.[1]
+    || text.match(/(\d+(?:\.\d+)?)\s*V\s*(?:output|out\b)/i)?.[1];
+  const inputVoltage = text.match(/(\d+(?:\.\d+)?)\s*V\s*(?:input|in\b)/i)?.[1];
+  const voltages = [...text.matchAll(/(\d+(?:\.\d+)?)\s*V\b/gi)].map((match) => match[1]);
+  const outputVoltage = labeledOutput || voltages.find((voltage) => voltage !== inputVoltage) || voltages[0];
+  const outputCurrent = text.match(/(\d+(?:\.\d+)?)\s*A/i)?.[1];
+  const topology = /\bbuck\b|step[ -]?down/i.test(text) ? "buck"
+    : /\bboost\b|step[ -]?up/i.test(text) ? "boost"
+      : /\blinear\b|\bldo\b/i.test(text) ? "linear" : "switching";
+  return [outputVoltage && `${outputVoltage}V`, outputCurrent && `${outputCurrent}A`, topology, "regulator"].filter(Boolean).join(" ");
+}
+
 async function runKeywordSearch(host, token, query, component, environment) {
+  const requestedQuantity = Math.max(Number(component.quantity) || 1, 1);
   const response = await fetch(`${host}/products/v4/search/keyword`, {
     method: "POST",
     headers: {
@@ -29,15 +84,16 @@ async function runKeywordSearch(host, token, query, component, environment) {
       "X-DIGIKEY-Locale-Currency": environment.DIGIKEY_CURRENCY || "CAD",
     },
     body: JSON.stringify({ Keywords: query, Limit: 12, Offset: 0, FilterOptionsRequest: {
-      MinimumQuantityAvailable: Math.max(component.quantity || 1, 1), MarketPlaceFilter: "ExcludeMarketPlace", SearchOptions: ["InStock", "NormallyStocking"],
+      MinimumQuantityAvailable: requestedQuantity, MarketPlaceFilter: "ExcludeMarketPlace", SearchOptions: ["InStock", "NormallyStocking"],
     } }),
   });
   if (response.status === 403) throw new Error(`DigiKey denied Product Information V4 for this ${environment.DIGIKEY_ENV === "production" ? "production" : "sandbox"} Client ID. Use credentials from the same DigiKey app that has Product Information V4 enabled.`);
   const data = await readJson(response, "DigiKey search");
   const seen = new Set();
-  const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map((product) => normalizeProduct(product, component.quantity || 1)).filter((candidate) => {
+  const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map((product) => normalizeProduct(product, requestedQuantity)).filter((candidate) => {
     const key = candidate.digiKeyPartNumber || candidate.manufacturerPartNumber;
-    if (!key || seen.has(key)) return false;
+    if (!key || seen.has(key) || !candidateCanFulfill(candidate, requestedQuantity)
+        || !isCompatibleCandidate(component, candidate)) return false;
     seen.add(key); return true;
   }).sort(compareCandidates).slice(0, 8);
   return { query, candidates };
@@ -61,19 +117,19 @@ function searchValue(component) {
   return value.replace(/\s+/g, "");
 }
 
-function normalizeProduct(product, requestedQuantity = 1) {
-  const variation = [...(product.ProductVariations || [])].sort((a, b) => variationScore(b) - variationScore(a))[0] || {};
+export function normalizeProduct(product, requestedQuantity = 1) {
+  const variation = selectProductVariation(product.ProductVariations || [], requestedQuantity);
   const pricing = variation.StandardPricing || product.StandardPricing || [];
   const priceTier = [...pricing].filter((tier) => Number(tier.BreakQuantity || 1) <= requestedQuantity)
     .sort((a, b) => Number(b.BreakQuantity || 1) - Number(a.BreakQuantity || 1))[0] || pricing[0];
   const unitPrice = priceTier?.UnitPrice ?? product.UnitPrice;
   const checks = [];
   if (product.Discontinued || product.EndOfLife) checks.push("Lifecycle warning");
-  if ((product.QuantityAvailable || 0) < 1) checks.push("Out of stock");
+  if ((variation.QuantityAvailableforPackageType || 0) < requestedQuantity) checks.push("Out of stock");
   return {
     digiKeyPartNumber: variation.DigiKeyProductNumber || "", manufacturerPartNumber: product.ManufacturerProductNumber || "",
     manufacturer: product.Manufacturer?.Name || "Unknown", description: product.Description?.ProductDescription || product.Description?.DetailedDescription || "",
-    quantityAvailable: variation.QuantityAvailableforPackageType ?? product.QuantityAvailable ?? 0,
+    quantityAvailable: variation.QuantityAvailableforPackageType ?? 0,
     minimumOrderQuantity: variation.MinimumOrderQuantity || 1,
     packageType: variation.PackageType?.Name || "",
     unitPrice: Number.isFinite(unitPrice) ? unitPrice : null,
@@ -82,10 +138,24 @@ function normalizeProduct(product, requestedQuantity = 1) {
   };
 }
 
-function variationScore(variation) {
+export function selectProductVariation(variations, requestedQuantity = 1) {
+  const needed = Math.max(Number(requestedQuantity) || 1, 1);
+  return [...variations]
+    .filter((variation) => Number(variation.QuantityAvailableforPackageType || 0) >= needed
+      && Number(variation.MinimumOrderQuantity || 1) <= needed)
+    .sort((a, b) => variationScore(b, needed) - variationScore(a, needed))[0] || {};
+}
+
+export function candidateCanFulfill(candidate, requestedQuantity = 1) {
+  const needed = Math.max(Number(requestedQuantity) || 1, 1);
+  return Number(candidate?.quantityAvailable || 0) >= needed
+    && Number(candidate?.minimumOrderQuantity || 1) <= needed;
+}
+
+function variationScore(variation, requestedQuantity = 1) {
   const packageBonus = /cut tape/i.test(variation.PackageType?.Name || "") ? 1e12 : 0;
   const inStock = variation.QuantityAvailableforPackageType || 0;
-  const lowMinimumBonus = variation.MinimumOrderQuantity <= 1 ? 1e9 : 0;
+  const lowMinimumBonus = Number(variation.MinimumOrderQuantity || 1) <= requestedQuantity ? 1e9 : 0;
   return packageBonus + lowMinimumBonus + inStock;
 }
 
@@ -112,6 +182,26 @@ function simplifyFootprint(footprint = "") {
   const size = footprint.match(/(?:^|[_:])(0201|0402|0603|0805|1206|1210)(?:_|$)/i);
   return size ? size[1] : footprint.split(":").at(-1).replaceAll("_", " ");
 }
+function parseEngineeringValue(value, parameterName) {
+  const text = String(value || "").trim().replaceAll(",", "").replaceAll("µ", "u").replaceAll("Ω", "ohm");
+  const units = parameterName === "Resistance" ? "(?:ohms?)"
+    : parameterName === "Capacitance" ? "(?:f|farads?)"
+      : "(?:h|henrys?)";
+  const match = text.match(new RegExp(`(-?\\d+(?:\\.\\d+)?)\\s*([pnumkM]?)\\s*${units}\\b`, "i"));
+  if (!match) return null;
+  const rawPrefix = match[2];
+  const scale = rawPrefix === "p" || rawPrefix === "P" ? 1e-12
+    : rawPrefix === "n" || rawPrefix === "N" ? 1e-9
+      : rawPrefix === "u" || rawPrefix === "U" ? 1e-6
+        : rawPrefix === "m" ? 1e-3
+          : rawPrefix === "k" || rawPrefix === "K" ? 1e3
+            : rawPrefix === "M" ? 1e6 : 1;
+  return Number(match[1]) * scale;
+}
+function approximatelyEqual(left, right) {
+  return Math.abs(left - right) <= Math.max(Math.abs(left), Math.abs(right), 1e-30) * 1e-6;
+}
+function normalizePartNumber(value = "") { return String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 function requireVariables(environment, names) { const missing = names.filter((name) => !environment[name]); if (missing.length) throw new Error(`DigiKey is not configured. Add ${missing.join(" and ")} to your environment.`); }
 async function readJson(response, label) {
   const rawBody = await response.text();

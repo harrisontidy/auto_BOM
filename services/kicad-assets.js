@@ -18,6 +18,7 @@ export async function resolveKiCadAssets(component, candidate, environment = pro
   return {
     symbolId,
     footprintId,
+    exactSymbol: Boolean(exactSymbol),
     symbolSource: exactSymbol ? "Exact KiCad library match" : symbolId ? "KiCad generic symbol" : "No safe symbol match",
     footprintSource: exactSymbol?.footprintId ? "Footprint from KiCad symbol library" : footprintId ? "Matched KiCad footprint" : "No safe footprint match",
     modelExpected,
@@ -45,7 +46,7 @@ export function genericSymbol(type, packageText = "", pinCount = 0) {
   if (/led/.test(type)) return "Device:LED";
   if (/diode/.test(type)) return "Device:D";
   if (/crystal/.test(type)) return "Device:Crystal";
-  if (/connector|header/.test(type) && pinCount > 0 && pinCount <= 40) return `Connector_Generic:Conn_01x${String(pinCount).padStart(2, "0")}`;
+  if (isSafeGenericPinHeader(type, packageText, pinCount)) return `Connector_Generic:Conn_01x${String(pinCount).padStart(2, "0")}`;
   return "";
 }
 
@@ -61,7 +62,7 @@ export function footprintFor(type, packageText = "", pinCount = 0) {
   if (/\bsmb\b/.test(text)) return "Diode_SMD:D_SMB";
   if (/soic8|so8/.test(text)) return "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm";
   if (/sot23(?!\d)/.test(text)) return "Package_TO_SOT_SMD:SOT-23";
-  if (/connector|header/.test(type) && pinCount > 0) return `Connector_PinHeader_2.54mm:PinHeader_1x${String(pinCount).padStart(2, "0")}_P2.54mm_Vertical`;
+  if (isSafeGenericPinHeader(type, packageText, pinCount)) return `Connector_PinHeader_2.54mm:PinHeader_1x${String(pinCount).padStart(2, "0")}_P2.54mm_Vertical`;
   return "";
 }
 
@@ -77,8 +78,18 @@ async function findExactSymbol(partNumber, symbolDirectory) {
 function partNumberKeys(value) {
   const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const keys = [normalized];
-  for (const suffix of ["TR", "CT", "DKR", "13", "EL"]) if (normalized.endsWith(suffix)) keys.push(normalized.slice(0, -suffix.length));
+  for (const suffix of ["TRPBF", "PBF", "DKR", "TR", "CT", "13", "EL", "R"])
+    if (normalized.endsWith(suffix)) keys.push(normalized.slice(0, -suffix.length));
   return [...new Set(keys.filter((key) => key.length >= 3))];
+}
+
+function isSafeGenericPinHeader(type, packageText, pinCount) {
+  const text = String(packageText || "").toLowerCase();
+  return /connector|header/.test(String(type).toLowerCase())
+    && pinCount > 0 && pinCount <= 40
+    && /(?:pin\s*header|header)/.test(text)
+    && /(?:2[.]54\s*mm|p2[.]54|[.]1\s*(?:in|inch|\"))/.test(text)
+    && !/(?:right[ -]?angle|horizontal)/.test(text);
 }
 
 async function getSymbolIndex(directory) {

@@ -1,74 +1,95 @@
 # auto_BOM
 
-`auto_BOM` is a component finder and BOM completion tool built into KiCad. Describe the part you need in plain language, compare live DigiKey options, and place it into the schematic. A separate native BOM window reads the open schematic, finds missing supplier numbers, and writes its selections back to KiCad.
+`auto_BOM` adds component sourcing and BOM completion directly to KiCad. Describe a component in plain language, compare current DigiKey results, and place a compatible part into the schematic. When the design is ready, KiCad's existing **Generate Bill of Materials** dialog can fill missing manufacturer and DigiKey part numbers before exporting.
 
 ## Current prototype
 
-The current prototype can:
+The KiCad integration has two native workflows:
 
-- turn a natural-language component request into concise DigiKey search requirements;
-- return inexpensive, in-stock DigiKey candidates with current unit pricing;
-- use AI to select and explain the closest result;
-- resolve an exact KiCad library symbol when one exists, with safe generic symbols for ordinary passives;
-- assign a matching KiCad footprint and its standard 3D model;
-- place the selected part from the docked Schematic Editor panel;
-- attach manufacturer part number, DigiKey part number, and datasheet fields to the symbol;
-- read and update the open KiCad schematic through its existing symbol fields;
-- complete missing manufacturer and DigiKey part numbers automatically, especially for common passives;
-- open a separate BOM completion window from KiCad's Tools menu;
-- retain CSV import as a separate final check;
-- recognize common column names such as `Reference`, `Designator`, `Value`, `Designation`, `Footprint`, and `Quantity`;
-- split comma-separated designators and derive safe component/package facts from references and footprints;
-- normalize resistor and capacitor values such as `4k7`, `10K`, `0.1uF`, and `100nF`;
-- group duplicate component rows;
-- flag missing values, footprints, and references;
-- export the cleaned BOM as JSON;
-- have AI review the raw CSV and correct the deterministic first-pass interpretation;
-- search every unique BOM line through DigiKey Product Information V4 using two-legged OAuth;
-- use AI for candidate review when the choice is electrically meaningful, while selecting ordinary passives deterministically to reduce cost;
-- run inside a real docked panel in a custom KiCad 10.0.6 Schematic Editor build.
+### Component Finder
 
-The browser performs a deterministic first pass so malformed data fails clearly. When AI is configured, imported CSV data is sent for semantic review. Live schematic completion searches unassigned symbols through DigiKey and writes the selected manufacturer part number, DigiKey part number, datasheet, and missing footprint back into KiCad as one undoable edit.
+- Opens as a docked wxWidgets panel in the Schematic Editor. It is not an embedded webpage.
+- Accepts requests such as `efficient 5 V 3 A buck regulator` or `10 kOhm 0805 resistor`.
+- Uses AI to turn natural language into concise requirements, then searches DigiKey Product Information V4.
+- Shows in-stock candidates with manufacturer part number, DigiKey part number, stock, unit price, package, and a short recommendation.
+- Resolves symbols, footprints, and standard 3D models from the KiCad libraries installed on this computer.
+- Places a selected result on the cursor and writes its manufacturer, supplier, pricing, product URL, and datasheet fields into the symbol.
+- Uses exact installed symbols for known ICs and safe generic symbols for ordinary passives. It does not invent IC pinouts.
 
-## Run it
+### BOM completion
 
-For the full workflow, double-click the **Auto BOM for KiCad** desktop shortcut. Press **Ctrl+Alt+A** or use the Component Finder toolbar button to show or hide the panel. Enter a request such as `10 kOhm 0805 resistor, inexpensive`, choose a result, and click **Place in schematic**. Move the attached symbol to its position and click once in KiCad.
+- Lives inside KiCad's existing **Tools → Generate Bill of Materials...** dialog.
+- Adds **Fill Missing Parts** and **Use AI when filling missing part numbers** controls to the normal BOM editor and exporter.
+- Reads the open schematic directly, respects the active variant and BOM/DNP exclusions, and preserves part numbers already chosen by the designer.
+- Searches missing lines automatically, fills the schematic fields as one undoable edit, refreshes KiCad's BOM preview, and then uses KiCad's normal export formats.
+- Can run automatically when **Export** is pressed; unresolved lines stay visible for review instead of being silently exported.
 
-Use **Tools → Complete BOM with DigiKey...** to open the separate BOM window. It scans the current schematic and leaves symbols with existing DigiKey numbers alone while completing the missing ones.
+The component panel contains only the finder. BOM tables, CSV import controls, and final checks are kept in KiCad's normal BOM window.
 
-The web version is also available at `http://localhost:4173`, but placing parts requires the docked KiCad panel.
+## Run it in KiCad
 
-Click **Load stress test** to run the fictional EV high-voltage power-management BOM in `examples/ev_hv_power_management_stress_test.csv`. It intentionally includes common passives, high-voltage parts, generic IC requirements, connectors, test points, mounting holes, and DNP rows so parser and sourcing failures are easy to find.
-
-On Windows, the **auto_BOM** desktop shortcut opens the standalone web version. It runs `Start auto_BOM.ps1` and starts the server in the background when needed.
-
-For the native Schematic Editor panel, run `Start Auto BOM in KiCad.ps1`. Build and patch details are in `integrations/kicad-native/README.md`.
-
-If Node.js is installed, you can run the parser checks:
+The first build is large. Build the patched KiCad applications and required runtime files once:
 
 ```powershell
-node --test
+& ".\integrations\kicad-native\Build custom KiCad.ps1"
 ```
 
+Then launch the integrated KiCad manager:
+
 ```powershell
-node server.js
+& ".\Start KiCad.ps1"
 ```
+
+If setup has retargeted the regular **KiCad 10.0** desktop or Start-menu shortcut, opening that shortcut runs the same launcher. The original stock shortcut can be kept alongside it as **KiCad 10.0 (Stock)**.
+
+In the Schematic Editor, press **Ctrl+Alt+A**, click the Component Finder toolbar button, or use **View → Panels → Component Finder**. Type a request and press Enter or click **Find Parts**. When a candidate has an installed symbol and footprint, click **Place in Schematic** and place it normally on the sheet.
+
+Open **Tools → Generate Bill of Materials...** to complete missing part numbers and export the finished BOM.
+
+Build, patch, and launcher details are in [integrations/kicad-native/README.md](integrations/kicad-native/README.md).
 
 ## API configuration
 
-Copy `.env.example` to a file named `.env` and fill in your keys. The server loads it automatically, and Git ignores it so real secrets are not committed. DigiKey sandbox credentials come from a DigiKey developer application subscribed to Product Information V4. The server uses sandbox unless `DIGIKEY_ENV=production` is set.
+Copy `.env.example` to `.env` and add the credentials for your DigiKey developer application and OpenAI account. `.env` is ignored by Git and the local server only listens on `127.0.0.1`.
 
-DigiKey's sandbox is only for checking authentication and response handling; its catalog response is sample data and cannot produce a real price/stock BOM. A completed purchasing list requires credentials from an approved production app and `DIGIKEY_ENV=production`.
+```text
+DIGIKEY_CLIENT_ID=...
+DIGIKEY_CLIENT_SECRET=...
+DIGIKEY_ENV=production
+OPENAI_API_KEY=...
+```
 
-The AI review uses `OPENAI_API_KEY`, strict JSON schemas, and `store: false`. `OPENAI_MODEL` defaults to `gpt-5-mini` to keep requests inexpensive. AI translates the request and ranks real DigiKey results; it is instructed not to invent IC pinouts, voltage ratings, packages, or part numbers. The person designing the circuit remains responsible for electrical compatibility.
+DigiKey sandbox credentials are useful for authentication testing, but the sandbox catalog contains sample data. Live price and stock results require an approved production application subscribed to Product Information V4 and `DIGIKEY_ENV=production`.
+
+`OPENAI_MODEL` defaults to `gpt-5-mini`. AI interprets requests and reviews meaningful choices; deterministic checks enforce common passive values and packages and prevent approximate DigiKey matches from replacing exact manufacturer part-number searches. The circuit designer still needs to verify electrical compatibility against the datasheet.
+
+## Architecture
+
+The patched KiCad UI communicates with a local Node.js service at `http://127.0.0.1:4173`:
+
+```text
+Native KiCad panel ── component request ──► local service ──► OpenAI + DigiKey
+Native KiCad BOM dialog ── schematic BOM ─► local service ──► completed fields
+```
+
+Credentials stay in the local `.env` file and are never compiled into KiCad. A small standalone browser finder remains available at `http://localhost:4173` for backend development, but schematic placement and integrated BOM completion require the patched KiCad build.
+
+CAD resolution currently uses libraries already installed with KiCad. The prototype does not yet download or import external symbol, footprint, or 3D-model files from DigiKey or third-party CAD providers. A result without a safe installed symbol and footprint can be reviewed and opened on DigiKey, but its **Place in Schematic** button remains disabled.
+
+## Development
+
+Run the local service and automated checks with Node.js:
+
+```powershell
+npm start
+npm test
+```
+
+Changes to the Node service, AI logic, or DigiKey logic do not require a KiCad rebuild. Changes to the native panel or BOM dialog do.
 
 ## Planned milestones
 
-1. Add more deterministic electrical and package constraints.
-2. Import manufacturer CAD assets when KiCad has no matching symbol.
+1. Import verified manufacturer CAD assets when KiCad has no matching library part.
+2. Add more deterministic electrical and package constraints.
 3. Save projects and approved selections in SQLite.
 4. Create a DigiKey cart from the approved final BOM.
-
-## Why the design starts small
-
-Supplier search and AI recommendations are only useful if the imported data is reliable. This prototype establishes a visible, testable input pipeline first. Electrical compatibility rules will remain deterministic; AI will help interpret incomplete notes and compare candidates.

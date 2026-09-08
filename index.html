@@ -3,54 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Auto BOM Component Finder</title>
+    <title>KiCad Component Finder</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
-      <div><strong id="app-title">Component Finder</strong><span>for KiCad</span></div>
-      <span id="api-status" class="api-status">Connecting…</span>
+      <div>
+        <span class="eyebrow">KiCad assistant</span>
+        <strong>Component Finder</strong>
+      </div>
+      <span id="api-status" class="api-status">Checking services</span>
     </header>
     <main>
-      <div id="message" class="message hidden" role="status"></div>
-      <section id="finder-view">
-        <form id="component-form" class="search-panel">
-          <label for="component-query">What component do you need?</label>
-          <textarea id="component-query" rows="4" placeholder="Example: 3.3 V buck regulator, 2 A or more, 12 V input, small SMD package"></textarea>
-          <div class="search-actions"><button id="component-search" class="button primary" type="submit">Find parts</button></div>
-        </form>
-        <section id="interpreted-request" class="request-summary hidden"></section>
-        <section id="component-results" class="hidden">
-          <div class="section-heading"><h2>Matching DigiKey parts</h2><span id="result-count"></span></div>
-          <div id="component-cards" class="component-list"></div>
-        </section>
-      </section>
-      <section id="bom-view" class="hidden">
-        <section id="schematic-bom-panel" class="panel import-panel hidden">
-          <div><h2>Complete schematic BOM</h2><p>Parts come directly from the open schematic. Missing DigiKey fields are filled back into KiCad.</p></div>
-          <button id="schematic-refresh" class="button secondary" type="button">Refresh schematic</button>
-        </section>
-        <section id="csv-import-panel" class="panel import-panel">
-          <div><h2>Final BOM check</h2><p>Import a KiCad CSV after the schematic is designed to catch missing or unavailable parts.</p></div>
-          <div class="actions">
-            <button id="sample-button" class="button secondary" type="button">Sample</button>
-            <button id="stress-test-button" class="button secondary" type="button">Stress test</button>
-            <label class="button primary">Choose CSV<input id="file-input" type="file" accept=".csv,text/csv" /></label>
-          </div>
-        </section>
-        <section id="empty-state" class="panel empty-state"><p>No BOM loaded.</p></section>
-        <section id="results" class="panel hidden">
-          <div class="results-header">
-            <div><h2>Completed BOM</h2><p><span id="line-count">0</span> lines · <span id="part-count">0</span> parts · <span id="warning-count">0</span> missing fields</p></div>
-            <button id="export-button" class="button secondary" type="button">Export JSON</button>
-          </div>
-          <div class="table-wrap"><table><thead><tr><th>References</th><th>Requested part</th><th>Qty</th><th>Manufacturer part #</th><th>DigiKey part #</th><th>Stock</th><th>Unit price</th><th>Status</th><th></th></tr></thead><tbody id="bom-body"></tbody></table></div>
-        </section>
-        <section id="candidate-panel" class="panel hidden">
-          <div class="results-header"><div><h2>DigiKey candidates</h2><p id="candidate-context"></p></div></div>
-          <div id="ai-result" class="review hidden"></div>
-          <div class="table-wrap"><table><thead><tr><th>Part number</th><th>Manufacturer</th><th>Description</th><th>Stock</th><th>Unit price</th><th>Status</th></tr></thead><tbody id="candidate-body"></tbody></table></div>
-        </section>
+      <form id="component-form" class="search-panel">
+        <label for="component-query">Describe the component you need</label>
+        <p class="hint">Include the job it must do and any limits that matter.</p>
+        <div class="search-row">
+          <input id="component-query" autocomplete="off" placeholder="5 V, 3 A buck regulator with a 12 V input" />
+          <button id="component-search" class="button primary" type="submit">Find parts</button>
+        </div>
+      </form>
+      <div id="message" class="message hidden" role="status" aria-live="polite"></div>
+      <section id="interpreted-request" class="request-summary hidden"></section>
+      <section id="component-results" class="hidden">
+        <div class="section-heading"><h2>Suggested parts</h2><span id="result-count"></span></div>
+        <div id="component-cards" class="component-list"></div>
       </section>
     </main>
     <script type="module" src="app.js"></script>

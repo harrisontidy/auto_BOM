@@ -1,0 +1,2036 @@
+From 5f527dcf9ebd2e7a8333c60cb1ad6a2735b14615 Mon Sep 17 00:00:00 2001
+From: harrisontidy <harrisontidy@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 22:28:36 -0700
+Subject: [PATCH] Replace Auto BOM WebView with native KiCad integration
+
+---
+ eeschema/CMakeLists.txt                       |   1 +
+ .../dialogs/dialog_symbol_fields_table.cpp    | 378 +++++++++-
+ eeschema/dialogs/dialog_symbol_fields_table.h |  27 +
+ eeschema/menubar.cpp                          |   1 -
+ eeschema/sch_edit_frame.cpp                   | 309 ++++----
+ eeschema/sch_edit_frame.h                     |  16 +-
+ eeschema/tools/sch_actions.cpp                |   7 -
+ eeschema/tools/sch_actions.h                  |   1 -
+ eeschema/tools/sch_editor_control.cpp         |   8 -
+ eeschema/tools/sch_editor_control.h           |   1 -
+ eeschema/widgets/panel_auto_bom_assistant.cpp | 706 ++++++++++++++++++
+ eeschema/widgets/panel_auto_bom_assistant.h   |  96 +++
+ 12 files changed, 1379 insertions(+), 172 deletions(-)
+ create mode 100644 eeschema/widgets/panel_auto_bom_assistant.cpp
+ create mode 100644 eeschema/widgets/panel_auto_bom_assistant.h
+
+diff --git a/eeschema/CMakeLists.txt b/eeschema/CMakeLists.txt
+index 7b853e62..89f54deb 100644
+--- a/eeschema/CMakeLists.txt
++++ b/eeschema/CMakeLists.txt
+@@ -294,6 +294,7 @@ set( EESCHEMA_SIM_SRCS
+ 
+ set( EESCHEMA_WIDGETS
+     widgets/hierarchy_pane.cpp
++    widgets/panel_auto_bom_assistant.cpp
+     widgets/panel_sch_selection_filter_base.cpp
+     widgets/panel_sch_selection_filter.cpp
+     widgets/panel_symbol_chooser.cpp
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index b1dc7d6b..37314183 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -22,6 +22,9 @@
+  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+  */
+ 
++#include <curl/curl.h>
++#include <kicad_curl/kicad_curl_easy.h>
++#include <thread_pool.h>
+ #include <advanced_config.h>
+ #include <common.h>
+ #include <base_units.h>
+@@ -52,12 +55,17 @@
+ #include <wx/textdlg.h>
+ #include <wx/filedlg.h>
+ #include <wx/msgdlg.h>
++#include <wx/gauge.h>
++#include <wx/checkbox.h>
++#include <wx/stattext.h>
+ #include <dialogs/eda_view_switcher.h>
+ #include "dialog_symbol_fields_table.h"
+ #include <fields_data_model.h>
+ #include <eda_list_dialog.h>
+ #include <project_sch.h>
+ #include <jobs/job_export_sch_bom.h>
++#include <nlohmann/json.hpp>
++#include <chrono>
+ 
+ wxDEFINE_EVENT( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxCommandEvent );
+ 
+@@ -76,6 +84,70 @@ enum
+     MYID_SHOW_DATASHEET
+ };
+ 
++
++static std::string autoBomUtf8( const wxString& aText )
++{
++    return std::string( aText.utf8_str() );
++}
++
++
++static const wxString AUTO_BOM_EXPORT_FIELDS[] = {
++    wxS( "Manufacturer" ),
++    wxS( "Manufacturer Part Number" ),
++    wxS( "DigiKey Part Number" ),
++    wxS( "DigiKey Stock" ),
++    wxS( "DigiKey Unit Price" ),
++    wxS( "DigiKey Product URL" )
++};
++
++
++static std::string postAutoBomRequest( const std::string& aRequest,
++                                       const std::shared_ptr<std::atomic_bool>& aCancel )
++{
++    KICAD_CURL_EASY curl;
++    curl.SetUserAgent( "KiCad-AutoBOM/1.0" );
++    curl.SetHeader( "Content-Type", "application/json" );
++    curl.SetConnectTimeout( 3 );
++    curl.SetTimeout( 180 );
++    curl.SetTransferCallback(
++            [aCancel]( size_t, size_t, size_t, size_t ) -> int
++            {
++                return aCancel && aCancel->load() ? 1 : 0;
++            },
++            0 );
++
++    if( !curl.SetURL( "http://127.0.0.1:4173/api/bom/complete" )
++        || !curl.SetPostFields( aRequest ) )
++        throw std::runtime_error( "Could not prepare the Auto BOM request." );
++
++    const int result = curl.Perform();
++    if( result != CURLE_OK )
++        throw std::runtime_error( "Auto BOM service is unavailable: " + curl.GetErrorText( result ) );
++
++    const std::string response = curl.GetBuffer();
++    const int status = curl.GetResponseStatusCode();
++    nlohmann::json parsed;
++
++    try
++    {
++        parsed = nlohmann::json::parse( response );
++    }
++    catch( const std::exception& )
++    {
++        throw std::runtime_error( "Auto BOM returned an unreadable response." );
++    }
++
++    if( status < 200 || status >= 300 )
++    {
++        const std::string detail = parsed.contains( "error" ) && parsed["error"].is_string()
++                                       ? parsed["error"].get<std::string>()
++                                       : "The request failed.";
++        throw std::runtime_error( detail );
++    }
++
++    return response;
++}
++
+ class VIEW_CONTROLS_GRID_TRICKS : public GRID_TRICKS
+ {
+ public:
+@@ -195,7 +267,12 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent,
+         m_viewControlsDataModel( nullptr ),
+         m_dataModel( nullptr ),
+         m_schSettings( parent->Schematic().Settings() ),
+-        m_job( aJob )
++        m_job( aJob ),
++        m_autoBomUseAi( nullptr ),
++        m_autoBomComplete( nullptr ),
++        m_autoBomStatus( nullptr ),
++        m_autoBomProgress( nullptr ),
++        m_autoBomTimer( this )
+ {
+     // Get all symbols from the list of schematic sheets
+     m_parent->Schematic().Hierarchy().GetSymbols( m_symbolsList, SYMBOL_FILTER_NON_POWER );
+@@ -217,6 +294,42 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent,
+ 
+     m_sidebarButton->SetBitmap( KiBitmapBundle( BITMAPS::left ) );
+ 
++    if( !m_job )
++    {
++        wxPanel* sourcingPanel = new wxPanel( m_rightPanel );
++        wxBoxSizer* sourcingSizer = new wxBoxSizer( wxVERTICAL );
++        wxBoxSizer* sourcingControls = new wxBoxSizer( wxHORIZONTAL );
++        m_autoBomUseAi = new wxCheckBox( sourcingPanel, wxID_ANY,
++                                         _( "Use AI when filling missing part numbers" ) );
++        m_autoBomUseAi->SetValue( true );
++        m_autoBomComplete = new wxButton( sourcingPanel, wxID_ANY, _( "Fill Missing Parts" ) );
++        m_autoBomStatus = new wxStaticText( sourcingPanel, wxID_ANY, _( "Ready" ) );
++        m_autoBomProgress = new wxGauge( sourcingPanel, wxID_ANY, 100, wxDefaultPosition,
++                                         FromDIP( wxSize( 90, -1 ) ), wxGA_HORIZONTAL );
++        m_autoBomProgress->Hide();
++        sourcingControls->Add( m_autoBomUseAi, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT,
++                               FromDIP( 12 ) );
++        sourcingControls->Add( m_autoBomComplete, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT,
++                               FromDIP( 10 ) );
++        sourcingControls->Add( m_autoBomProgress, 0, wxALIGN_CENTER_VERTICAL );
++        sourcingSizer->Add( sourcingControls, 0, wxEXPAND );
++        sourcingSizer->Add( m_autoBomStatus, 0, wxEXPAND | wxTOP, FromDIP( 6 ) );
++        sourcingPanel->SetSizer( sourcingSizer );
++
++        wxSizer* rightSizer = m_rightPanel->GetSizer();
++        rightSizer->Insert( rightSizer->GetItemCount() - 1, sourcingPanel, 0,
++                            wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP( 10 ) );
++        m_autoBomComplete->Bind( wxEVT_BUTTON, &DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomComplete,
++                                 this );
++        m_autoBomUseAi->Bind( wxEVT_CHECKBOX,
++                              [this]( wxCommandEvent& )
++                              {
++                                  m_autoBomCompleted = false;
++                              } );
++        Bind( wxEVT_TIMER, &DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer, this,
++              m_autoBomTimer.GetId() );
++    }
++
+     // Do not OptOut the notebook. That would also exclude its child controls such as the
+     // scope selector from being persisted. The active page is forced by the opening tool.
+ 
+@@ -363,6 +476,14 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent,
+ 
+ DIALOG_SYMBOL_FIELDS_TABLE::~DIALOG_SYMBOL_FIELDS_TABLE()
+ {
++    m_autoBomTimer.Stop();
++
++    if( m_autoBomCancel )
++        m_autoBomCancel->store( true );
++
++    if( m_autoBomFuture.valid() )
++        m_autoBomFuture.wait();
++
+     savePresetsToSchematic();
+ 
+     EESCHEMA_SETTINGS::PANEL_SYMBOL_FIELDS_TABLE& cfg = m_parent->eeconfig()->m_FieldEditorPanel;
+@@ -573,6 +694,10 @@ bool DIALOG_SYMBOL_FIELDS_TABLE::TransferDataToWindow()
+     }
+ 
+     ApplyBomPreset( preset );
++
++    if( !m_job )
++        showAutoBomExportFields();
++
+     syncBomPresetSelection();
+ 
+     // Load BOM export format presets
+@@ -1217,6 +1342,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnViewControlsCellChanged( wxGridEvent& aEvent
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnTableValueChanged( wxGridEvent& aEvent )
+ {
++    if( !m_autoBomApplying )
++        m_autoBomCompleted = false;
+     m_grid->ForceRefresh();
+ }
+ 
+@@ -1495,7 +1622,245 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSidebarToggle( wxCommandEvent& event )
+ }
+ 
+ 
++void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomComplete( wxCommandEvent& aEvent )
++{
++    StartAutoBomCompletion( false );
++}
++
++
++void DIALOG_SYMBOL_FIELDS_TABLE::showAutoBomExportFields()
++{
++    for( const wxString& fieldName : AUTO_BOM_EXPORT_FIELDS )
++    {
++        const int col = m_dataModel->GetFieldNameCol( fieldName );
++
++        if( col < 0 )
++            continue;
++
++        m_dataModel->SetShowColumn( col, true );
++        m_grid->ShowCol( col );
++
++        for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); ++row )
++        {
++            if( m_viewControlsDataModel->GetCanonicalFieldName( row ) == fieldName )
++            {
++                m_viewControlsDataModel->SetValueAsBool( row, SHOW_FIELD_COLUMN, true );
++                break;
++            }
++        }
++    }
++
++    m_viewControlsGrid->ForceRefresh();
++    m_grid->ForceRefresh();
++}
++
++
++bool DIALOG_SYMBOL_FIELDS_TABLE::AutoBomCompletionNeeded() const
++{
++    try
++    {
++        const nlohmann::json schematic = nlohmann::json::parse(
++                autoBomUtf8( m_parent->GetAutoBomSchematicJson() ) );
++
++        if( !schematic.contains( "symbols" ) || !schematic["symbols"].is_array() )
++            return true;
++
++        for( const nlohmann::json& symbol : schematic["symbols"] )
++        {
++            const char* requiredPartNumbers[] = {
++                "manufacturerPartNumber",
++                "digiKeyPartNumber"
++            };
++
++            for( const char* fieldName : requiredPartNumbers )
++            {
++                if( !symbol.contains( fieldName ) || !symbol[fieldName].is_string() )
++                    return true;
++
++                wxString partNumber = wxString::FromUTF8(
++                        symbol[fieldName].get<std::string>() );
++                partNumber.Trim( true ).Trim( false );
++
++                if( partNumber.IsEmpty() )
++                    return true;
++            }
++        }
++
++        return false;
++    }
++    catch( const std::exception& )
++    {
++        // Let the completion request report a useful error.  Export still remains available
++        // through the confirmation shown when that request cannot be prepared or completed.
++        return true;
++    }
++}
++
++
++bool DIALOG_SYMBOL_FIELDS_TABLE::ConfirmExportCurrentBom( const wxString& aDetail )
++{
++    wxString message = _( "Auto BOM could not complete every missing DigiKey part number." );
++
++    if( !aDetail.IsEmpty() )
++        message += wxS( "\n\n" ) + aDetail;
++
++    message += _( "\n\nExport the current BOM anyway?" );
++
++    return wxMessageBox( message, _( "BOM Completion Incomplete" ),
++                         wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this ) == wxYES;
++}
++
++
++void DIALOG_SYMBOL_FIELDS_TABLE::StartAutoBomCompletion( bool aExportWhenDone )
++{
++    if( !m_autoBomComplete || !m_autoBomUseAi || m_autoBomFuture.valid() )
++        return;
++
++    if( !TransferDataFromWindow() )
++        return;
++
++    nlohmann::json request;
++
++    try
++    {
++        request = nlohmann::json::parse( autoBomUtf8( m_parent->GetAutoBomSchematicJson() ) );
++    }
++    catch( const std::exception& )
++    {
++        const wxString message = _( "Could not read the open schematic for BOM completion." );
++
++        if( aExportWhenDone )
++        {
++            if( ConfirmExportCurrentBom( message ) )
++                ExportNow();
++        }
++        else
++        {
++            DisplayError( this, message );
++        }
++
++        return;
++    }
++
++    request["useAi"] = m_autoBomUseAi->IsChecked();
++    m_autoBomExportWhenDone = aExportWhenDone;
++    m_autoBomComplete->Disable();
++    m_autoBomUseAi->Disable();
++    m_buttonExport->Disable();
++    m_grid->Disable();
++    m_variantListBox->Disable();
++    m_autoBomProgress->Show();
++    m_autoBomProgress->Pulse();
++    m_autoBomStatus->SetLabel( _( "Finding in-stock parts..." ) );
++    m_rightPanel->Layout();
++
++    const std::string payload = request.dump();
++    m_autoBomCancel = std::make_shared<std::atomic_bool>( false );
++    const std::shared_ptr<std::atomic_bool> cancel = m_autoBomCancel;
++    m_autoBomFuture = GetKiCadThreadPool().submit_task(
++            [payload, cancel]() -> std::string
++            {
++                return postAutoBomRequest( payload, cancel );
++            } );
++    m_autoBomTimer.Start( 120 );
++}
++
++
++void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
++{
++    if( !m_autoBomFuture.valid() )
++        return;
++
++    if( m_autoBomFuture.wait_for( std::chrono::seconds( 0 ) ) != std::future_status::ready )
++    {
++        m_autoBomProgress->Pulse();
++        return;
++    }
++
++    m_autoBomTimer.Stop();
++    m_autoBomProgress->Hide();
++    m_autoBomComplete->Enable();
++    m_autoBomUseAi->Enable();
++    m_buttonExport->Enable();
++    m_grid->Enable();
++    m_variantListBox->Enable();
++
++    try
++    {
++        const std::string responseText = m_autoBomFuture.get();
++        const nlohmann::json response = nlohmann::json::parse( responseText );
++        const int failed = response.value( "failed", 0 );
++
++        m_autoBomApplying = true;
++        const int changed = m_parent->ApplyAutoBomCompletionJson( wxString::FromUTF8( responseText ) );
++        m_autoBomApplying = false;
++        const bool unresolved = failed > 0 || AutoBomCompletionNeeded();
++        m_autoBomCompleted = !unresolved;
++
++        showAutoBomExportFields();
++
++        const wxString summary = wxString::FromUTF8( response.value( "summary", std::string() ) );
++        const int completed = response.value( "completed", 0 );
++        m_autoBomStatus->SetLabel( !unresolved
++                                           ? wxString::Format( _( "%d BOM lines complete." ), completed )
++                                           : failed > 0
++                                                     ? wxString::Format(
++                                                               _( "%d complete; %d need review." ),
++                                                               completed, failed )
++                                                     : _( "Some BOM lines need review." ) );
++        m_autoBomStatus->SetToolTip( summary );
++        PreviewRefresh();
++
++        if( m_autoBomExportWhenDone )
++        {
++            if( !unresolved || ConfirmExportCurrentBom( summary ) )
++                ExportNow();
++        }
++        else if( unresolved )
++        {
++            DisplayError( this, summary + _( "\n\nReview the unresolved rows before exporting." ) );
++        }
++        else if( changed == 0 )
++            m_autoBomStatus->SetLabel( _( "All BOM part numbers were already complete." ) );
++    }
++    catch( const std::exception& error )
++    {
++        m_autoBomApplying = false;
++        m_autoBomCompleted = false;
++        const wxString message = wxString::FromUTF8( error.what() );
++        m_autoBomStatus->SetLabel( _( "Completion failed" ) );
++        m_autoBomStatus->SetToolTip( message );
++
++        if( m_autoBomExportWhenDone )
++        {
++            if( ConfirmExportCurrentBom( message ) )
++                ExportNow();
++        }
++        else
++        {
++            DisplayError( this, message );
++        }
++    }
++
++    m_autoBomExportWhenDone = false;
++    m_autoBomCancel.reset();
++    m_rightPanel->Layout();
++}
++
++
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnExport( wxCommandEvent& aEvent )
++{
++    if( m_autoBomComplete && !m_autoBomCompleted && AutoBomCompletionNeeded() )
++    {
++        StartAutoBomCompletion( true );
++        return;
++    }
++
++    ExportNow();
++}
++
++
++void DIALOG_SYMBOL_FIELDS_TABLE::ExportNow()
+ {
+     if( m_dataModel->IsEdited() )
+     {
+@@ -2507,6 +2872,9 @@ void DIALOG_SYMBOL_FIELDS_TABLE::savePresetsToSchematic()
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsAdded( SCHEMATIC& aSch, std::vector<SCH_ITEM*>& aSchItem )
+ {
++    if( !m_autoBomApplying )
++        m_autoBomCompleted = false;
++
+     std::set<wxString> savedSelection = SaveGridSelection();
+ 
+     SCH_REFERENCE_LIST allRefs;
+@@ -2556,6 +2924,9 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsAdded( SCHEMATIC& aSch, std::vector<S
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsRemoved( SCHEMATIC& aSch, std::vector<SCH_ITEM*>& aSchItem )
+ {
++    if( !m_autoBomApplying )
++        m_autoBomCompleted = false;
++
+     std::set<wxString> savedSelection = SaveGridSelection();
+ 
+     for( SCH_ITEM* item : aSchItem )
+@@ -2575,6 +2946,9 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsRemoved( SCHEMATIC& aSch, std::vector
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsChanged( SCHEMATIC& aSch, std::vector<SCH_ITEM*>& aSchItem )
+ {
++    if( !m_autoBomApplying )
++        m_autoBomCompleted = false;
++
+     std::set<wxString> savedSelection = SaveGridSelection();
+ 
+     SCH_REFERENCE_LIST allRefs;
+@@ -2640,6 +3014,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchSheetChanged( SCHEMATIC& aSch )
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchCurrentVariantChanged( SCHEMATIC& aSch )
+ {
++    m_autoBomCompleted = false;
++
+     if( m_syncingVariantSelection )
+         return;
+ 
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.h b/eeschema/dialogs/dialog_symbol_fields_table.h
+index e336cbfc..5262d137 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.h
++++ b/eeschema/dialogs/dialog_symbol_fields_table.h
+@@ -24,7 +24,11 @@
+ 
+ #pragma once
+ 
++#include <atomic>
+ #include <set>
++#include <future>
++#include <memory>
++#include <wx/timer.h>
+ 
+ #include <dialog_symbol_fields_table_base.h>
+ #include <sch_reference_list.h>
+@@ -36,6 +40,10 @@ wxDECLARE_EVENT( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxCommandEvent );
+ class SCHEMATIC_SETTINGS;
+ class SCH_EDIT_FRAME;
+ class JOB_EXPORT_SCH_BOM;
++class wxButton;
++class wxCheckBox;
++class wxGauge;
++class wxStaticText;
+ 
+ 
+ class DIALOG_SYMBOL_FIELDS_TABLE : public DIALOG_SYMBOL_FIELDS_TABLE_BASE, public SCHEMATIC_LISTENER
+@@ -90,6 +98,8 @@ private:
+ 
+     void OnSidebarToggle( wxCommandEvent& event ) override;
+     void OnExport( wxCommandEvent& aEvent ) override;
++    void OnAutoBomComplete( wxCommandEvent& aEvent );
++    void OnAutoBomTimer( wxTimerEvent& aEvent );
+     void OnSaveAndContinue( wxCommandEvent& aEvent ) override;
+     void OnCancel( wxCommandEvent& aEvent ) override;
+     void OnOk( wxCommandEvent& aEvent ) override;
+@@ -99,6 +109,10 @@ private:
+     void OnPageChanged( wxNotebookEvent& event ) override;
+     void OnPreviewRefresh( wxCommandEvent& event ) override;
+     void PreviewRefresh();
++    bool AutoBomCompletionNeeded() const;
++    bool ConfirmExportCurrentBom( const wxString& aDetail );
++    void StartAutoBomCompletion( bool aExportWhenDone );
++    void ExportNow();
+ 
+     std::vector<BOM_PRESET> GetUserBomPresets() const;
+     void                    SetUserBomPresets( std::vector<BOM_PRESET>& aPresetList );
+@@ -153,6 +167,8 @@ private:
+ 
+     void savePresetsToSchematic();
+ 
++    void showAutoBomExportFields();
++
+     void onAddVariant( wxCommandEvent& aEvent ) override;
+     void onDeleteVariant( wxCommandEvent& aEvent ) override;
+     void onRenameVariant( wxCommandEvent& aEvent ) override;
+@@ -192,5 +208,16 @@ private:
+ 
+     JOB_EXPORT_SCH_BOM* m_job;
+ 
++    wxCheckBox*          m_autoBomUseAi;
++    wxButton*            m_autoBomComplete;
++    wxStaticText*        m_autoBomStatus;
++    wxGauge*             m_autoBomProgress;
++    wxTimer              m_autoBomTimer;
++    std::future<std::string> m_autoBomFuture;
++    std::shared_ptr<std::atomic_bool> m_autoBomCancel;
++    bool                 m_autoBomExportWhenDone = false;
++    bool                 m_autoBomCompleted = false;
++    bool                 m_autoBomApplying = false;
++
+     bool m_syncingVariantSelection = false;
+ };
+diff --git a/eeschema/menubar.cpp b/eeschema/menubar.cpp
+index 42be703b..c3a3fa0a 100644
+--- a/eeschema/menubar.cpp
++++ b/eeschema/menubar.cpp
+@@ -319,7 +319,6 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
+     toolsMenu->Add( SCH_ACTIONS::assignFootprints );
+     toolsMenu->Add( SCH_ACTIONS::generateBOM );
+     toolsMenu->Add( SCH_ACTIONS::generateBOMLegacy );
+-    toolsMenu->Add( SCH_ACTIONS::completeAutoBom );
+ 
+     toolsMenu->AppendSeparator();
+     toolsMenu->Add( ACTIONS::updateSchematicFromPcb )->Enable( !Kiface().IsSingle() );
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 34094fa4..80917d5f 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -34,6 +34,7 @@
+ #include <dialogs/dialog_symbol_fields_table.h>
+ #include <widgets/sch_design_block_pane.h>
+ #include <widgets/panel_remote_symbol.h>
++#include <widgets/panel_auto_bom_assistant.h>
+ #include <wx/srchctrl.h>
+ #include <mail_type.h>
+ #include <wx/clntdata.h>
+@@ -109,7 +110,6 @@
+ #include <widgets/bitmap_button.h>
+ #include <widgets/sch_properties_panel.h>
+ #include <widgets/sch_search_pane.h>
+-#include <widgets/webview_panel.h>
+ #include <wildcards_and_files_ext.h>
+ #include <wx/cmdline.h>
+ #include <wx/app.h>
+@@ -124,7 +124,6 @@
+ #include <wx/log.h>
+ #include <wx/choicdlg.h>
+ #include <wx/textdlg.h>
+-#include <wx/frame.h>
+ #include <wx/generic/treectlg.h>
+ #include <nlohmann/json.hpp>
+ 
+@@ -179,21 +178,25 @@ static std::string jsonUtf8( const wxString& aText )
+ }
+ 
+ 
+-static wxString autoBomFieldText( const SCH_SYMBOL* aSymbol, const wxString& aName )
++static wxString autoBomFieldText( const SCH_SYMBOL* aSymbol, const wxString& aName,
++                                  const SCH_SHEET_PATH* aPath = nullptr,
++                                  const wxString& aVariant = wxEmptyString )
+ {
+-    if( const SCH_FIELD* field = aSymbol->GetField( aName ) )
+-        return field->GetText();
++    if( aSymbol->GetField( aName ) )
++        return aSymbol->GetFieldText( aName, aPath, aVariant );
+ 
+     return wxString();
+ }
+ 
+ 
+ static wxString autoBomFirstFieldText( const SCH_SYMBOL* aSymbol,
+-                                       std::initializer_list<wxString> aNames )
++                                       std::initializer_list<wxString> aNames,
++                                       const SCH_SHEET_PATH* aPath = nullptr,
++                                       const wxString& aVariant = wxEmptyString )
+ {
+     for( const wxString& name : aNames )
+     {
+-        const wxString text = autoBomFieldText( aSymbol, name );
++        const wxString text = autoBomFieldText( aSymbol, name, aPath, aVariant );
+ 
+         if( !text.IsEmpty() )
+             return text;
+@@ -211,32 +214,62 @@ static void setAutoBomField( SCH_SYMBOL* aSymbol, const wxString& aName, const w
+     SCH_FIELD* field = aSymbol->GetField( aName );
+ 
+     if( !field )
++    {
+         field = aSymbol->AddField( SCH_FIELD( aSymbol, FIELD_T::USER, aName ) );
++        field->SetVisible( false );
++    }
+ 
+     field->SetText( aValue );
+ }
+ 
+ 
+-static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload )
++static void setAutoBomFieldIfEmpty( SCH_SYMBOL* aSymbol, const wxString& aName,
++                                    const wxString& aValue, const SCH_SHEET_PATH* aPath,
++                                    const wxString& aVariant )
++{
++    if( aValue.IsEmpty() || !autoBomFieldText( aSymbol, aName, aPath, aVariant ).IsEmpty() )
++        return;
++
++    if( !aSymbol->GetField( aName ) )
++    {
++        SCH_FIELD* field = aSymbol->AddField( SCH_FIELD( aSymbol, FIELD_T::USER, aName ) );
++        field->SetVisible( false );
++    }
++
++    aSymbol->SetFieldText( aName, aValue, aPath, aVariant );
++}
++
++
++static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload,
++                                wxString& aError )
+ {
+     try
+     {
+-        const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
++        const nlohmann::json message = nlohmann::json::parse( jsonUtf8( aPayload ) );
+ 
+         if( jsonString( message, "command" ) != wxS( "place" ) )
+-            return;
++        {
++            aError = _( "The placement request was invalid." );
++            return false;
++        }
+ 
+         const wxString symbolIdText = jsonString( message, "symbolId" );
+         const int separator = symbolIdText.Find( ':' );
+ 
+         if( separator <= 0 || separator >= static_cast<int>( symbolIdText.length() ) - 1 )
+-            return;
++        {
++            aError = _( "This result does not have a valid KiCad symbol." );
++            return false;
++        }
+ 
+         LIB_ID symbolId( symbolIdText.Left( separator ), symbolIdText.Mid( separator + 1 ) );
+         LIB_SYMBOL* libSymbol = aFrame->GetLibSymbol( symbolId );
+ 
+         if( !libSymbol )
+-            return;
++        {
++            aError = wxString::Format( _( "KiCad could not load symbol '%s'." ), symbolIdText );
++            return false;
++        }
+ 
+         SCH_SYMBOL* symbol = new SCH_SYMBOL( *libSymbol, symbolId, &aFrame->GetCurrentSheet(), 1 );
+         symbol->SetParent( aFrame->GetScreen() );
+@@ -250,9 +283,24 @@ static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+         if( !footprint.IsEmpty() )
+             symbol->SetFootprintFieldText( footprint );
+ 
++        const wxString stock = message.contains( "quantityAvailable" )
++                                       && message["quantityAvailable"].is_number()
++                               ? wxString::Format( wxS( "%lld" ),
++                                                   message["quantityAvailable"].get<long long>() )
++                               : wxString();
++        const wxString unitPrice = message.contains( "unitPrice" )
++                                           && message["unitPrice"].is_number()
++                                   ? wxString::Format( wxS( "%.4f %s" ),
++                                                       message["unitPrice"].get<double>(),
++                                                       jsonString( message, "currency" ) )
++                                   : wxString();
+         const std::pair<const char*, wxString> fields[] = {
++            { "Manufacturer", jsonString( message, "manufacturer" ) },
+             { "Manufacturer Part Number", jsonString( message, "manufacturerPartNumber" ) },
+             { "DigiKey Part Number", jsonString( message, "digiKeyPartNumber" ) },
++            { "DigiKey Stock", stock },
++            { "DigiKey Unit Price", unitPrice },
++            { "DigiKey Product URL", jsonString( message, "productUrl" ) },
+             { "Datasheet", jsonString( message, "datasheetUrl" ) }
+         };
+ 
+@@ -268,22 +316,32 @@ static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+         if( EESCHEMA_SETTINGS* cfg = aFrame->eeconfig(); cfg && cfg->m_AutoplaceFields.enable )
+             symbol->AutoplaceFields( nullptr, AUTOPLACE_AUTO );
+ 
++        auto* toolManager = aFrame->GetToolManager();
++
++        if( !toolManager )
++        {
++            delete symbol;
++            aError = _( "KiCad's symbol placement tool is unavailable." );
++            return false;
++        }
++
+         aFrame->Raise();
+-        aFrame->GetToolManager()->PostAction( SCH_ACTIONS::placeSymbol,
+-                                              SCH_ACTIONS::PLACE_SYMBOL_PARAMS{ symbol, true } );
++        toolManager->PostAction( SCH_ACTIONS::placeSymbol,
++                                 SCH_ACTIONS::PLACE_SYMBOL_PARAMS{ symbol, true } );
++        return true;
+     }
+     catch( const std::exception& error )
+     {
+         wxLogError( "Auto BOM placement failed: %s", error.what() );
++        aError = wxString::Format( _( "Could not prepare this part for placement: %s" ),
++                                   wxString::FromUTF8( error.what() ) );
++        return false;
+     }
+ }
+ 
+ 
+-void SCH_EDIT_FRAME::SendAutoBomSchematic( WEBVIEW_PANEL* aPanel )
++wxString SCH_EDIT_FRAME::GetAutoBomSchematicJson()
+ {
+-    if( !aPanel )
+-        return;
+-
+     SCH_REFERENCE_LIST references;
+     Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
+     nlohmann::json symbols = nlohmann::json::array();
+@@ -292,84 +350,70 @@ void SCH_EDIT_FRAME::SendAutoBomSchematic( WEBVIEW_PANEL* aPanel )
+     {
+         SCH_REFERENCE& reference = references[i];
+         SCH_SYMBOL* symbol = reference.GetSymbol();
+-
+-        if( !symbol || reference.GetSymbolExcludedFromBOM() || reference.GetSheetPath().GetExcludedFromBOM() )
++        const wxString variant = Schematic().GetCurrentVariant();
++        const SCH_SHEET_PATH& sheetPath = reference.GetSheetPath();
++
++        if( !symbol
++            || symbol->ResolveExcludedFromBOM( &sheetPath, variant )
++            || sheetPath.GetExcludedFromBOM( variant )
++            || symbol->ResolveDNP( &sheetPath, variant )
++            || sheetPath.GetDNP( variant ) )
+             continue;
+ 
+         symbols.push_back( {
+             { "reference", jsonUtf8( reference.GetFullRef( false ) ) },
+-            { "value", jsonUtf8( symbol->GetValue( true, &reference.GetSheetPath(), false ) ) },
+-            { "footprint", jsonUtf8( symbol->GetFootprintFieldText( true, &reference.GetSheetPath(), false ) ) },
++            { "value", jsonUtf8( symbol->GetValue( true, &sheetPath, false, variant ) ) },
++            { "footprint", jsonUtf8( symbol->GetFootprintFieldText( true, &sheetPath, false,
++                                                                     variant ) ) },
+             { "symbolId", jsonUtf8( UnescapeString( symbol->GetLibId().Format() ) ) },
+             { "manufacturerPartNumber", jsonUtf8( autoBomFirstFieldText(
+                     symbol, { wxS( "Manufacturer Part Number" ), wxS( "MPN" ),
+-                              wxS( "MFR Part Number" ) } ) ) },
++                              wxS( "MFR Part Number" ) }, &sheetPath, variant ) ) },
+             { "digiKeyPartNumber", jsonUtf8( autoBomFirstFieldText(
+                     symbol, { wxS( "DigiKey Part Number" ), wxS( "Digi-Key Part Number" ),
+-                              wxS( "Digi-Key_PN" ), wxS( "DigiKey" ) } ) ) },
+-            { "datasheetUrl", jsonUtf8( autoBomFieldText( symbol, wxS( "Datasheet" ) ) ) }
++                              wxS( "Digi-Key_PN" ), wxS( "DigiKey" ) }, &sheetPath,
++                    variant ) ) },
++            { "datasheetUrl", jsonUtf8( autoBomFieldText( symbol, wxS( "Datasheet" ),
++                                                            &sheetPath, variant ) ) }
+         } );
+     }
+ 
+-    nlohmann::json detail = { { "symbols", std::move( symbols ) } };
+-    const wxString script = wxS( "window.dispatchEvent(new CustomEvent('autobom-schematic',{detail:" )
+-                            + wxString::FromUTF8( detail.dump() ) + wxS( "}));" );
+-    aPanel->RunScriptAsync( script );
++    return wxString::FromUTF8( nlohmann::json( { { "symbols", std::move( symbols ) } } ).dump() );
+ }
+ 
+ 
+-void SCH_EDIT_FRAME::HandleAutoBomMessage( WEBVIEW_PANEL* aPanel, const wxString& aPayload )
++int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+ {
+     try
+     {
+-        const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
+-        const wxString command = jsonString( message, "command" );
++        const nlohmann::json message = nlohmann::json::parse( jsonUtf8( aPayload ) );
++        if( !message.contains( "parts" ) || !message["parts"].is_array() )
++            return 0;
+ 
+-        if( command == wxS( "ping" ) )
+-        {
+-            aPanel->RunScriptAsync(
+-                    wxS( "window.dispatchEvent(new CustomEvent('autobom-native',{detail:{connected:true}}));" ) );
+-            return;
+-        }
++        SCH_REFERENCE_LIST references;
++        Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
++        SCH_COMMIT commit( this );
++        std::unordered_set<SCH_SYMBOL*> modified;
+ 
+-        if( command == wxS( "openUrl" ) )
++        for( const nlohmann::json& part : message["parts"] )
+         {
+-            const wxString url = jsonString( message, "url" );
+-
+-            if( url.StartsWith( wxS( "https://" ) ) || url.StartsWith( wxS( "http://" ) ) )
+-                wxLaunchDefaultBrowser( url );
+-
+-            return;
+-        }
+-
+-        if( command == wxS( "getSchematic" ) )
+-        {
+-            SendAutoBomSchematic( aPanel );
+-            return;
+-        }
+-
+-        if( command == wxS( "updateBomFields" ) )
+-        {
+-            if( !message.contains( "references" ) || !message["references"].is_array() )
+-                return;
++            if( !part.contains( "references" ) || !part["references"].is_array()
++                || jsonString( part, "status" ) != wxS( "completed" ) )
++                continue;
+ 
+             std::unordered_set<std::string> requestedReferences;
+-
+-            for( const nlohmann::json& reference : message["references"] )
++            for( const nlohmann::json& reference : part["references"] )
+             {
+                 if( reference.is_string() )
+                     requestedReferences.insert( reference.get<std::string>() );
+             }
+ 
+-            SCH_REFERENCE_LIST references;
+-            Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
+-            SCH_COMMIT commit( this );
+-            std::unordered_set<SCH_SYMBOL*> modified;
+-
+             for( size_t i = 0; i < references.GetCount(); ++i )
+             {
+                 SCH_REFERENCE& reference = references[i];
+                 SCH_SYMBOL* symbol = reference.GetSymbol();
++                const SCH_SHEET_PATH& sheetPath = reference.GetSheetPath();
++                const wxString variant = Schematic().GetCurrentVariant();
+ 
+                 if( !symbol || !requestedReferences.contains( jsonUtf8( reference.GetFullRef( false ) ) ) )
+                     continue;
+@@ -377,35 +421,61 @@ void SCH_EDIT_FRAME::HandleAutoBomMessage( WEBVIEW_PANEL* aPanel, const wxString
+                 if( modified.insert( symbol ).second )
+                     commit.Modify( symbol, reference.GetSheetPath().LastScreen() );
+ 
+-                setAutoBomField( symbol, wxS( "Manufacturer Part Number" ),
+-                                 jsonString( message, "manufacturerPartNumber" ) );
+-                setAutoBomField( symbol, wxS( "DigiKey Part Number" ),
+-                                 jsonString( message, "digiKeyPartNumber" ) );
+-                setAutoBomField( symbol, wxS( "Datasheet" ), jsonString( message, "datasheetUrl" ) );
+-
+-                const wxString footprint = jsonString( message, "footprintId" );
+-
+-                if( symbol->GetFootprintFieldText( true, &reference.GetSheetPath(), false ).IsEmpty()
++                setAutoBomFieldIfEmpty( symbol, wxS( "Manufacturer" ),
++                                        jsonString( part, "manufacturer" ), &sheetPath, variant );
++                setAutoBomFieldIfEmpty( symbol, wxS( "Manufacturer Part Number" ),
++                                        jsonString( part, "manufacturerPartNumber" ), &sheetPath,
++                                        variant );
++                setAutoBomFieldIfEmpty( symbol, wxS( "DigiKey Part Number" ),
++                                        jsonString( part, "digiKeyPartNumber" ), &sheetPath,
++                                        variant );
++                setAutoBomFieldIfEmpty(
++                        symbol, wxS( "DigiKey Stock" ),
++                        part.contains( "stock" ) && part["stock"].is_number()
++                                ? wxString::Format( wxS( "%lld" ), part["stock"].get<long long>() )
++                                : wxString(), &sheetPath, variant );
++                setAutoBomFieldIfEmpty(
++                        symbol, wxS( "DigiKey Unit Price" ),
++                        part.contains( "unitPrice" ) && part["unitPrice"].is_number()
++                                ? wxString::Format( wxS( "%.4f %s" ),
++                                                   part["unitPrice"].get<double>(),
++                                                   jsonString( part, "currency" ) )
++                                : wxString(), &sheetPath, variant );
++                setAutoBomFieldIfEmpty( symbol, wxS( "DigiKey Product URL" ),
++                                        jsonString( part, "productUrl" ), &sheetPath, variant );
++                setAutoBomFieldIfEmpty( symbol, wxS( "Datasheet" ),
++                                        jsonString( part, "datasheetUrl" ), &sheetPath, variant );
++
++                const wxString footprint = jsonString( part, "footprintId" );
++                if( symbol->GetFootprintFieldText( true, &sheetPath, false, variant ).IsEmpty()
+                     && !footprint.IsEmpty() )
+-                    symbol->SetFootprintFieldText( footprint );
+-            }
+-
+-            if( !modified.empty() )
+-            {
+-                commit.Push( _( "Complete BOM fields" ) );
+-                OnModify();
++                {
++                    SCH_FIELD* footprintField = symbol->GetField( FIELD_T::FOOTPRINT );
++                    symbol->SetFieldText( footprintField->GetName(), footprint, &sheetPath,
++                                          variant );
++                }
+             }
++        }
+ 
+-            return;
++        if( !modified.empty() )
++        {
++            commit.Push( _( "Complete BOM with DigiKey" ) );
++            OnModify();
+         }
++
++        return static_cast<int>( modified.size() );
+     }
+     catch( const std::exception& error )
+     {
+-        wxLogError( "Auto BOM message failed: %s", error.what() );
+-        return;
++        wxLogError( "Auto BOM completion failed: %s", error.what() );
++        return 0;
+     }
++}
++
+ 
+-    placeAutoBomSymbol( this, aPayload );
++bool SCH_EDIT_FRAME::PlaceAutoBomPart( const wxString& aPayload, wxString& aError )
++{
++    return placeAutoBomSymbol( this, aPayload, aError );
+ }
+ 
+ 
+@@ -423,8 +493,6 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+         m_designBlocksPane( nullptr ),
+         m_remoteSymbolPane( nullptr ),
+         m_autoBomPanel( nullptr ),
+-        m_autoBomManagerFrame( nullptr ),
+-        m_autoBomManagerPanel( nullptr ),
+         m_currentVariantCtrl( nullptr )
+ {
+     m_maximizeByDefault = true;
+@@ -487,15 +555,12 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_searchPane = new SCH_SEARCH_PANE( this );
+     m_propertiesPanel = new SCH_PROPERTIES_PANEL( this, this );
+     m_remoteSymbolPane = new PANEL_REMOTE_SYMBOL( this );
+-    m_autoBomPanel = new WEBVIEW_PANEL( this );
+-    m_autoBomPanel->AddMessageHandler( wxS( "autobom" ),
+-                                       [this]( const wxString& aPayload )
+-                                       {
+-                                           HandleAutoBomMessage( m_autoBomPanel, aPayload );
+-                                       } );
+-    m_autoBomPanel->SetHandleExternalLinks( true );
+-    m_autoBomPanel->BindLoadedEvent();
+-    m_autoBomPanel->LoadURL( wxS( "http://127.0.0.1:4173/?embedded=kicad" ) );
++    m_autoBomPanel = new PANEL_AUTO_BOM_ASSISTANT(
++            this,
++            [this]( const wxString& aPayload, wxString& aError )
++            {
++                return PlaceAutoBomPart( aPayload, aError );
++            } );
+ 
+     m_propertiesPanel->SetSplitterProportion( eeconfig()->m_AuiPanels.properties_splitter );
+ 
+@@ -574,6 +639,9 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+                       .Show( m_show_search ) );
+ 
+     RestoreAuiLayout();
++    // Older Auto BOM builds stored the previous pane caption in the saved AUI layout.
++    // Keep the current native panel name after restoring that layout.
++    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Component Finder" ) );
+     FinishAUIInitialization();
+ 
+     wxAuiPaneInfo& hierarchy_pane = m_auimgr.GetPane( SchematicHierarchyPaneName() );
+@@ -2357,6 +2425,7 @@ void SCH_EDIT_FRAME::ShowChangedLanguage()
+     m_auimgr.GetPane( m_propertiesPanel ).Caption( _( "Properties" ) );
+     m_auimgr.GetPane( m_designBlocksPane ).Caption( _( "Design Blocks" ) );
+     m_auimgr.GetPane( RemoteSymbolPaneName() ).Caption( _( "Remote Symbols" ) );
++    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Component Finder" ) );
+     m_auimgr.Update();
+     m_hierarchy->UpdateHierarchyTree();
+ 
+@@ -3330,7 +3399,7 @@ void SCH_EDIT_FRAME::ToggleAutoBomPanel()
+         else
+             m_auimgr.Update();
+ 
+-        m_autoBomPanel->LoadURL( wxS( "http://127.0.0.1:4173/?embedded=kicad" ) );
++        m_autoBomPanel->FocusSearch();
+     }
+     else
+     {
+@@ -3339,54 +3408,6 @@ void SCH_EDIT_FRAME::ToggleAutoBomPanel()
+ }
+ 
+ 
+-void SCH_EDIT_FRAME::ShowAutoBomManager()
+-{
+-    if( !m_autoBomManagerFrame )
+-    {
+-        m_autoBomManagerFrame = new wxFrame( this, wxID_ANY, _( "Complete BOM with DigiKey" ),
+-                                             wxDefaultPosition, FromDIP( wxSize( 1180, 760 ) ),
+-                                             wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+-        m_autoBomManagerFrame->SetMinSize( FromDIP( wxSize( 760, 520 ) ) );
+-        m_autoBomManagerPanel = new WEBVIEW_PANEL( m_autoBomManagerFrame );
+-        m_autoBomManagerPanel->AddMessageHandler( wxS( "autobom" ),
+-                                                  [this]( const wxString& aPayload )
+-                                                  {
+-                                                      HandleAutoBomMessage( m_autoBomManagerPanel,
+-                                                                            aPayload );
+-                                                  } );
+-        m_autoBomManagerPanel->SetHandleExternalLinks( true );
+-        m_autoBomManagerPanel->BindLoadedEvent();
+-        m_autoBomManagerPanel->LoadURL(
+-                wxS( "http://127.0.0.1:4173/?embedded=kicad&view=bom" ) );
+-
+-        wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
+-        sizer->Add( m_autoBomManagerPanel, 1, wxEXPAND );
+-        m_autoBomManagerFrame->SetSizer( sizer );
+-        m_autoBomManagerFrame->Bind( wxEVT_CLOSE_WINDOW,
+-                                     [this]( wxCloseEvent& aEvent )
+-                                     {
+-                                         if( aEvent.CanVeto() )
+-                                         {
+-                                             m_autoBomManagerFrame->Hide();
+-                                             aEvent.Veto();
+-                                         }
+-                                         else
+-                                         {
+-                                             aEvent.Skip();
+-                                         }
+-                                     } );
+-    }
+-    else
+-    {
+-        m_autoBomManagerPanel->LoadURL(
+-                wxS( "http://127.0.0.1:4173/?embedded=kicad&view=bom" ) );
+-    }
+-
+-    m_autoBomManagerFrame->Show();
+-    m_autoBomManagerFrame->Raise();
+-}
+-
+-
+ void SCH_EDIT_FRAME::SetSchematic( SCHEMATIC* aSchematic )
+ {
+     wxCHECK( aSchematic, /* void */ );
+diff --git a/eeschema/sch_edit_frame.h b/eeschema/sch_edit_frame.h
+index ec67252d..4cf31caa 100644
+--- a/eeschema/sch_edit_frame.h
++++ b/eeschema/sch_edit_frame.h
+@@ -60,6 +60,7 @@ class SCHEMATIC;
+ class SCH_COMMIT;
+ class SCH_DESIGN_BLOCK_PANE;
+ class PANEL_REMOTE_SYMBOL;
++class PANEL_AUTO_BOM_ASSISTANT;
+ class DIALOG_BOOK_REPORTER;
+ class DIALOG_ERC;
+ class DIALOG_SYMBOL_FIELDS_TABLE;
+@@ -70,9 +71,7 @@ class DIALOG_SCHEMATIC_SETUP;
+ class PROGRESS_REPORTER;
+ class wxSearchCtrl;
+ class wxGenericTreeCtrl;
+-class wxFrame;
+ class BITMAP_BUTTON;
+-class WEBVIEW_PANEL;
+ 
+ 
+ /// Schematic search type used by the socket link with Pcbnew
+@@ -854,7 +853,11 @@ public:
+ 
+     void ToggleAutoBomPanel();
+ 
+-    void ShowAutoBomManager();
++    bool PlaceAutoBomPart( const wxString& aPayload, wxString& aError );
++
++    wxString GetAutoBomSchematicJson();
++
++    int ApplyAutoBomCompletionJson( const wxString& aPayload );
+ 
+     static const wxString AutoBomPaneName() { return wxT( "AutoBomAssistant" ); }
+ 
+@@ -1105,12 +1108,7 @@ private:
+     std::vector<LIB_ID>         m_designBlockHistoryList;
+     SCH_DESIGN_BLOCK_PANE*      m_designBlocksPane;
+     PANEL_REMOTE_SYMBOL*        m_remoteSymbolPane;
+-    WEBVIEW_PANEL*              m_autoBomPanel;
+-    wxFrame*                    m_autoBomManagerFrame;
+-    WEBVIEW_PANEL*              m_autoBomManagerPanel;
+-
+-    void HandleAutoBomMessage( WEBVIEW_PANEL* aPanel, const wxString& aPayload );
+-    void SendAutoBomSchematic( WEBVIEW_PANEL* aPanel );
++    PANEL_AUTO_BOM_ASSISTANT*   m_autoBomPanel;
+ 
+     wxChoice*                   m_currentVariantCtrl;
+ 
+diff --git a/eeschema/tools/sch_actions.cpp b/eeschema/tools/sch_actions.cpp
+index b30f9729..8673f94e 100644
+--- a/eeschema/tools/sch_actions.cpp
++++ b/eeschema/tools/sch_actions.cpp
+@@ -140,13 +140,6 @@ TOOL_ACTION SCH_ACTIONS::showAutoBomPanel( TOOL_ACTION_ARGS()
+         .ToolbarState( TOOLBAR_STATE::TOGGLE )
+         .Icon( BITMAPS::post_bom ) );
+ 
+-TOOL_ACTION SCH_ACTIONS::completeAutoBom( TOOL_ACTION_ARGS()
+-        .Name( "eeschema.AutoBom.completeBom" )
+-        .Scope( AS_GLOBAL )
+-        .FriendlyName( _( "Complete BOM with DigiKey..." ) )
+-        .Tooltip( _( "Find DigiKey part numbers for unassigned schematic symbols" ) )
+-        .Icon( BITMAPS::file_bom ) );
+-
+ TOOL_ACTION SCH_ACTIONS::saveSheetAsDesignBlock( TOOL_ACTION_ARGS()
+         .Name( "eeschema.SchDesignBlockControl.saveSheetAsDesignBlock" )
+         .Scope( AS_GLOBAL )
+diff --git a/eeschema/tools/sch_actions.h b/eeschema/tools/sch_actions.h
+index 82ac035c..2b8aa05f 100644
+--- a/eeschema/tools/sch_actions.h
++++ b/eeschema/tools/sch_actions.h
+@@ -208,7 +208,6 @@ public:
+     static TOOL_ACTION showDesignBlockPanel;
+     static TOOL_ACTION showRemoteSymbolPanel;
+     static TOOL_ACTION showAutoBomPanel;
+-    static TOOL_ACTION completeAutoBom;
+     static TOOL_ACTION saveSheetAsDesignBlock;
+     static TOOL_ACTION saveSelectionAsDesignBlock;
+     static TOOL_ACTION updateDesignBlockFromSheet;
+diff --git a/eeschema/tools/sch_editor_control.cpp b/eeschema/tools/sch_editor_control.cpp
+index 73daa470..0255d71c 100644
+--- a/eeschema/tools/sch_editor_control.cpp
++++ b/eeschema/tools/sch_editor_control.cpp
+@@ -3162,13 +3162,6 @@ int SCH_EDITOR_CONTROL::ToggleAutoBomPanel( const TOOL_EVENT& aEvent )
+ }
+ 
+ 
+-int SCH_EDITOR_CONTROL::CompleteAutoBom( const TOOL_EVENT& aEvent )
+-{
+-    getEditFrame<SCH_EDIT_FRAME>()->ShowAutoBomManager();
+-    return 0;
+-}
+-
+-
+ int SCH_EDITOR_CONTROL::ToggleHiddenPins( const TOOL_EVENT& aEvent )
+ {
+     EESCHEMA_SETTINGS* cfg = m_frame->eeconfig();
+@@ -3597,7 +3590,6 @@ void SCH_EDITOR_CONTROL::setTransitions()
+     Go( &SCH_EDITOR_CONTROL::ToggleLibraryTree,       SCH_ACTIONS::showDesignBlockPanel.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleRemoteSymbolPanel, SCH_ACTIONS::showRemoteSymbolPanel.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleAutoBomPanel,     SCH_ACTIONS::showAutoBomPanel.MakeEvent() );
+-    Go( &SCH_EDITOR_CONTROL::CompleteAutoBom,        SCH_ACTIONS::completeAutoBom.MakeEvent() );
+ 
+     Go( &SCH_EDITOR_CONTROL::ToggleHiddenPins,        SCH_ACTIONS::toggleHiddenPins.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleHiddenFields,      SCH_ACTIONS::toggleHiddenFields.MakeEvent() );
+diff --git a/eeschema/tools/sch_editor_control.h b/eeschema/tools/sch_editor_control.h
+index 5954061d..d8a6902b 100644
+--- a/eeschema/tools/sch_editor_control.h
++++ b/eeschema/tools/sch_editor_control.h
+@@ -155,7 +155,6 @@ public:
+     int ToggleLibraryTree( const TOOL_EVENT& aEvent );
+     int ToggleRemoteSymbolPanel( const TOOL_EVENT& aEvent );
+     int ToggleAutoBomPanel( const TOOL_EVENT& aEvent );
+-    int CompleteAutoBom( const TOOL_EVENT& aEvent );
+ 
+     int ToggleHiddenPins( const TOOL_EVENT& aEvent );
+     int ToggleHiddenFields( const TOOL_EVENT& aEvent );
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.cpp b/eeschema/widgets/panel_auto_bom_assistant.cpp
+new file mode 100644
+index 00000000..38f0dcdd
+--- /dev/null
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -0,0 +1,706 @@
++/*
++ * This program source code file is part of KiCad, a free EDA CAD application.
++ *
++ * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
++ *
++ * This program is free software: you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation, either version 3 of the License, or (at your
++ * option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++// Keep the curl wrapper ahead of wxWidgets headers on Windows.
++#include <kicad_curl/kicad_curl_easy.h>
++
++#include <algorithm>
++#include <exception>
++#include <utility>
++
++#include <nlohmann/json.hpp>
++
++#include <wx/activityindicator.h>
++#include <wx/button.h>
++#include <wx/intl.h>
++#include <wx/numformatter.h>
++#include <wx/scrolwin.h>
++#include <wx/settings.h>
++#include <wx/sizer.h>
++#include <wx/statline.h>
++#include <wx/stattext.h>
++#include <wx/textctrl.h>
++#include <wx/thread.h>
++#include <wx/utils.h>
++
++#include <widgets/panel_auto_bom_assistant.h>
++#include <widgets/ui_common.h>
++
++
++namespace
++{
++const int ID_AUTO_BOM_SEARCH_RESULT = wxWindow::NewControlId();
++
++
++std::string toUtf8( const wxString& aText )
++{
++    const wxScopedCharBuffer text = aText.utf8_str();
++    return text ? std::string( text.data(), text.length() ) : std::string();
++}
++
++
++wxString fromUtf8( const std::string& aText )
++{
++    return wxString::FromUTF8( aText.data(), aText.size() );
++}
++
++
++wxString jsonText( const nlohmann::json& aObject, const char* aKey )
++{
++    if( !aObject.is_object() || !aObject.contains( aKey ) )
++        return wxString();
++
++    const nlohmann::json& value = aObject[aKey];
++
++    if( value.is_string() )
++        return fromUtf8( value.get<std::string>() );
++
++    if( value.is_number_integer() )
++        return wxString::Format( wxS( "%lld" ), value.get<long long>() );
++
++    if( value.is_number_unsigned() )
++        return wxString::Format( wxS( "%llu" ), value.get<unsigned long long>() );
++
++    if( value.is_number_float() )
++        return wxString::Format( wxS( "%.4f" ), value.get<double>() );
++
++    return wxString();
++}
++
++
++wxString reviewConcerns( const nlohmann::json& aReview )
++{
++    if( !aReview.is_object() || !aReview.contains( "concerns" )
++        || !aReview["concerns"].is_array() )
++    {
++        return wxString();
++    }
++
++    wxString result;
++
++    for( const nlohmann::json& item : aReview["concerns"] )
++    {
++        if( !item.is_string() )
++            continue;
++
++        wxString concern = fromUtf8( item.get<std::string>() );
++        concern.Trim( true ).Trim( false );
++
++        if( concern.IsEmpty() )
++            continue;
++
++        if( !result.IsEmpty() )
++            result += wxS( "\n" );
++
++        result += wxS( "\u2022 " ) + concern;
++    }
++
++    return result;
++}
++
++
++long long jsonInteger( const nlohmann::json& aObject, const char* aKey )
++{
++    if( !aObject.is_object() || !aObject.contains( aKey ) )
++        return 0;
++
++    const nlohmann::json& value = aObject[aKey];
++
++    if( value.is_number_integer() || value.is_number_unsigned() )
++        return value.get<long long>();
++
++    if( value.is_number_float() )
++        return static_cast<long long>( value.get<double>() );
++
++    return 0;
++}
++
++
++wxStaticText* makeLabel( wxWindow* aParent, const wxString& aText, bool aBold = false )
++{
++    wxStaticText* label = new wxStaticText( aParent, wxID_ANY, aText );
++
++    if( aBold )
++    {
++        wxFont font = label->GetFont();
++        font.MakeBold();
++        label->SetFont( font );
++    }
++
++    return label;
++}
++
++
++void addFact( wxFlexGridSizer* aSizer, wxWindow* aParent, const wxString& aName,
++              const wxString& aValue )
++{
++    wxStaticText* name = makeLabel( aParent, aName, true );
++    wxStaticText* value = makeLabel( aParent, aValue.IsEmpty() ? wxS( "\u2014" ) : aValue );
++    value->Wrap( aParent->FromDIP( 170 ) );
++    aSizer->Add( name, 0, wxALIGN_TOP );
++    aSizer->Add( value, 1, wxEXPAND );
++}
++} // namespace
++
++
++PANEL_AUTO_BOM_ASSISTANT::PANEL_AUTO_BOM_ASSISTANT(
++        wxWindow* aParent, PLACEMENT_CALLBACK aPlacementCallback ) :
++        wxPanel( aParent ),
++        m_placementCallback( std::move( aPlacementCallback ) ),
++        m_queryCtrl( nullptr ),
++        m_searchButton( nullptr ),
++        m_activity( nullptr ),
++        m_statusLabel( nullptr ),
++        m_resultHeading( nullptr ),
++        m_resultsWindow( nullptr ),
++        m_resultsSizer( nullptr ),
++        m_searchGeneration( 0 )
++{
++    SetName( wxS( "Component Finder" ) );
++    SetFont( KIUI::GetDockedPaneFont( this ) );
++    SetMinSize( FromDIP( wxSize( 340, 300 ) ) );
++
++    const int margin = FromDIP( 12 );
++    wxBoxSizer* mainSizer = new wxBoxSizer( wxVERTICAL );
++
++    wxStaticText* title = makeLabel( this, _( "Component Finder" ), true );
++    wxFont titleFont = title->GetFont();
++    titleFont.SetPointSize( titleFont.GetPointSize() + 2 );
++    title->SetFont( titleFont );
++    mainSizer->Add( title, 0, wxLEFT | wxRIGHT | wxTOP, margin );
++
++    wxStaticText* introduction = makeLabel(
++            this, _( "Describe the component you need. AI interprets the request, then DigiKey "
++                     "finds in-stock parts you can place directly." ) );
++    introduction->Wrap( FromDIP( 300 ) );
++    mainSizer->Add( introduction, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
++
++    m_queryCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
++                                  wxDefaultSize, wxTE_PROCESS_ENTER );
++    m_queryCtrl->SetHint( _( "Example: efficient 5 V 3 A buck regulator" ) );
++    mainSizer->Add( m_queryCtrl, 0, wxEXPAND | wxALL, margin );
++
++    m_searchButton = new wxButton( this, wxID_ANY, _( "Find Parts" ) );
++    mainSizer->Add( m_searchButton, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
++
++    wxBoxSizer* statusSizer = new wxBoxSizer( wxHORIZONTAL );
++    m_activity = new wxActivityIndicator( this );
++    m_activity->Hide();
++    statusSizer->Add( m_activity, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP( 8 ) );
++    m_statusLabel = makeLabel( this, _( "Ready." ) );
++    m_statusLabel->Wrap( FromDIP( 290 ) );
++    statusSizer->Add( m_statusLabel, 1, wxALIGN_CENTER_VERTICAL );
++    mainSizer->Add( statusSizer, 0, wxEXPAND | wxALL, margin );
++    mainSizer->Add( new wxStaticLine( this ), 0, wxEXPAND );
++
++    m_resultHeading = makeLabel( this, _( "Suggestions" ), true );
++    m_resultHeading->Hide();
++    mainSizer->Add( m_resultHeading, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
++
++    m_resultsWindow = new wxScrolledWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
++                                            wxVSCROLL | wxBORDER_NONE );
++    m_resultsWindow->SetScrollRate( 0, FromDIP( 10 ) );
++    m_resultsSizer = new wxBoxSizer( wxVERTICAL );
++    m_resultsWindow->SetSizer( m_resultsSizer );
++    mainSizer->Add( m_resultsWindow, 1, wxEXPAND );
++
++    SetSizer( mainSizer );
++
++    m_queryCtrl->Bind( wxEVT_TEXT_ENTER, &PANEL_AUTO_BOM_ASSISTANT::onSearch, this );
++    m_searchButton->Bind( wxEVT_BUTTON, &PANEL_AUTO_BOM_ASSISTANT::onSearch, this );
++    Bind( wxEVT_THREAD, &PANEL_AUTO_BOM_ASSISTANT::onSearchComplete, this,
++          ID_AUTO_BOM_SEARCH_RESULT );
++}
++
++
++PANEL_AUTO_BOM_ASSISTANT::~PANEL_AUTO_BOM_ASSISTANT()
++{
++    ++m_searchGeneration;
++
++    if( m_searchThread.joinable() )
++    {
++        m_searchThread.request_stop();
++        m_searchThread.join();
++    }
++
++    DeletePendingEvents();
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::FocusSearch()
++{
++    m_queryCtrl->SetFocus();
++    m_queryCtrl->SelectAll();
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::StartSearch( const wxString& aQuery )
++{
++    m_queryCtrl->SetValue( aQuery );
++    beginSearch( aQuery );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::onSearch( wxCommandEvent& aEvent )
++{
++    beginSearch( m_queryCtrl->GetValue() );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::beginSearch( const wxString& aQuery )
++{
++    wxString query = aQuery;
++    query.Trim( true ).Trim( false );
++
++    if( query.IsEmpty() )
++    {
++        setStatus( _( "Describe a component before searching." ), true );
++        FocusSearch();
++        return;
++    }
++
++    if( m_searchThread.joinable() )
++    {
++        m_searchThread.request_stop();
++        m_searchThread.join();
++    }
++
++    clearResults();
++    setBusy( true );
++    setStatus( _( "Understanding your request and checking DigiKey stock..." ) );
++
++    nlohmann::json request = { { "query", toUtf8( query ) } };
++    const uint64_t generation = ++m_searchGeneration;
++    m_searchThread = std::jthread(
++            [this, generation, requestBody = request.dump()]( std::stop_token aStopToken )
++            {
++                runSearch( aStopToken, generation, requestBody );
++            } );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::runSearch( std::stop_token aStopToken, uint64_t aGeneration,
++                                          std::string aRequestBody )
++{
++    nlohmann::json result = {
++        { "generation", aGeneration },
++        { "transportCode", 0 },
++        { "httpStatus", 0 },
++        { "body", "" },
++        { "error", "" }
++    };
++
++    try
++    {
++        KICAD_CURL_EASY request;
++        request.SetURL( "http://127.0.0.1:4173/api/components/search" );
++        request.SetHeader( "Accept", "application/json" );
++        request.SetHeader( "Content-Type", "application/json" );
++        request.SetConnectTimeout( 5 );
++        request.SetTimeout( 90 );
++        request.SetPostFields( aRequestBody );
++        request.SetTransferCallback(
++                [aStopToken]( size_t, size_t, size_t, size_t ) -> int
++                {
++                    return aStopToken.stop_requested() ? 1 : 0;
++                },
++                0 );
++
++        const int transportCode = request.Perform();
++
++        if( aStopToken.stop_requested() )
++            return;
++
++        result["transportCode"] = transportCode;
++        result["httpStatus"] = request.GetResponseStatusCode();
++        result["body"] = request.GetBuffer();
++
++        if( transportCode != 0 )
++            result["error"] = request.GetErrorText( transportCode );
++    }
++    catch( const std::exception& error )
++    {
++        if( aStopToken.stop_requested() )
++            return;
++
++        result["error"] = error.what();
++    }
++
++    if( aStopToken.stop_requested() )
++        return;
++
++    wxThreadEvent* event = new wxThreadEvent( wxEVT_THREAD, ID_AUTO_BOM_SEARCH_RESULT );
++    event->SetString( fromUtf8( result.dump() ) );
++    wxQueueEvent( this, event );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::onSearchComplete( wxThreadEvent& aEvent )
++{
++    const nlohmann::json result = nlohmann::json::parse( toUtf8( aEvent.GetString() ),
++                                                         nullptr, false );
++
++    if( result.is_discarded() || !result.is_object() )
++    {
++        setBusy( false );
++        setStatus( _( "The component service returned an unreadable response." ), true );
++        return;
++    }
++
++    const uint64_t generation = result.value( "generation", uint64_t( 0 ) );
++
++    if( generation != m_searchGeneration.load() )
++        return;
++
++    setBusy( false );
++
++    const int transportCode = result.value( "transportCode", 0 );
++    const int httpStatus = result.value( "httpStatus", 0 );
++    const std::string error = result.value( "error", std::string() );
++    const std::string body = result.value( "body", std::string() );
++
++    if( transportCode != 0 )
++    {
++        setStatus( wxString::Format( _( "Could not reach the component service: %s" ),
++                                     fromUtf8( error ) ), true );
++        return;
++    }
++
++    if( httpStatus < 200 || httpStatus >= 300 )
++    {
++        const nlohmann::json errorResponse = nlohmann::json::parse( body, nullptr, false );
++        wxString detail = jsonText( errorResponse, "error" );
++
++        if( detail.IsEmpty() )
++            detail = wxString::Format( _( "HTTP error %d" ), httpStatus );
++
++        setStatus( detail, true );
++        return;
++    }
++
++    renderResponse( body );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::clearResults()
++{
++    m_componentJson.clear();
++    m_candidateJson.clear();
++    m_resultsSizer->Clear( true );
++    m_resultHeading->Hide();
++    m_resultsWindow->FitInside();
++    Layout();
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody )
++{
++    const nlohmann::json response = nlohmann::json::parse( aResponseBody, nullptr, false );
++
++    if( response.is_discarded() || !response.is_object() )
++    {
++        setStatus( _( "The component service returned invalid data." ), true );
++        return;
++    }
++
++    const nlohmann::json component = response.value( "component", nlohmann::json::object() );
++    const nlohmann::json review = response.value( "review", nlohmann::json::object() );
++    nlohmann::json candidates = response.value( "candidates", nlohmann::json::array() );
++
++    if( !candidates.is_array() )
++        candidates = nlohmann::json::array();
++
++    m_componentJson = component.dump();
++    const wxString selectedDigiKey = jsonText( review, "selectedDigiKeyPartNumber" );
++    const wxString selectedManufacturer = jsonText( review, "selectedManufacturerPartNumber" );
++
++    std::stable_sort( candidates.begin(), candidates.end(),
++                      [&]( const nlohmann::json& aLeft, const nlohmann::json& aRight )
++                      {
++                          const bool leftRecommended =
++                                  ( !selectedDigiKey.IsEmpty()
++                                    && jsonText( aLeft, "digiKeyPartNumber" ) == selectedDigiKey )
++                                  || ( !selectedManufacturer.IsEmpty()
++                                       && jsonText( aLeft, "manufacturerPartNumber" )
++                                                  == selectedManufacturer );
++                          const bool rightRecommended =
++                                  ( !selectedDigiKey.IsEmpty()
++                                    && jsonText( aRight, "digiKeyPartNumber" ) == selectedDigiKey )
++                                  || ( !selectedManufacturer.IsEmpty()
++                                       && jsonText( aRight, "manufacturerPartNumber" )
++                                                  == selectedManufacturer );
++                          return leftRecommended && !rightRecommended;
++                      } );
++
++    for( const nlohmann::json& candidate : candidates )
++        m_candidateJson.emplace_back( candidate.dump() );
++
++    const wxString summary = jsonText( component, "summary" );
++    m_resultHeading->SetLabel( summary.IsEmpty() ? _( "Suggestions" ) : summary );
++    m_resultHeading->Wrap( FromDIP( 300 ) );
++    m_resultHeading->Show();
++
++    if( m_candidateJson.empty() )
++    {
++        wxStaticText* empty = makeLabel(
++                m_resultsWindow,
++                _( "No in-stock match was found. Try fewer restrictions or include a package "
++                   "name." ) );
++        empty->Wrap( FromDIP( 280 ) );
++        m_resultsSizer->Add( empty, 0, wxEXPAND | wxALL, FromDIP( 12 ) );
++        setStatus( _( "No matching in-stock parts found." ), true );
++    }
++    else
++    {
++        const wxString recommendation = jsonText( review, "reasoning" );
++        const wxString concerns = reviewConcerns( review );
++
++        for( size_t i = 0; i < m_candidateJson.size(); ++i )
++        {
++            const nlohmann::json candidate = nlohmann::json::parse( m_candidateJson[i] );
++            const bool recommended =
++                    ( !selectedDigiKey.IsEmpty()
++                      && jsonText( candidate, "digiKeyPartNumber" ) == selectedDigiKey )
++                    || ( !selectedManufacturer.IsEmpty()
++                         && jsonText( candidate, "manufacturerPartNumber" )
++                                    == selectedManufacturer );
++            addCandidateCard( i, recommended, recommended ? recommendation : wxString(),
++                              recommended ? concerns : wxString() );
++        }
++
++        wxString status = wxString::Format(
++                m_candidateJson.size() == 1
++                        ? _( "Found %zu in-stock option." )
++                        : _( "Found %zu in-stock options. Best match is first." ),
++                m_candidateJson.size() );
++
++        if( !concerns.IsEmpty() )
++            status += _( " Review the note on the best match before placing it." );
++
++        setStatus( status, !concerns.IsEmpty() );
++    }
++
++    m_resultsWindow->Layout();
++    m_resultsWindow->FitInside();
++    m_resultsWindow->Scroll( 0, 0 );
++    Layout();
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aRecommended,
++                                                  const wxString& aRecommendation,
++                                                  const wxString& aConcerns )
++{
++    const nlohmann::json candidate = nlohmann::json::parse( m_candidateJson[aCandidateIndex] );
++    const nlohmann::json assets = candidate.value( "kicadAssets", nlohmann::json::object() );
++    const bool placeable = assets.value( "placeable", false )
++                           && !jsonText( assets, "symbolId" ).IsEmpty()
++                           && !jsonText( assets, "footprintId" ).IsEmpty();
++
++    wxPanel* card = new wxPanel( m_resultsWindow, wxID_ANY, wxDefaultPosition, wxDefaultSize,
++                                 wxBORDER_SIMPLE );
++    card->SetBackgroundColour( wxSystemSettings::GetColour(
++            aRecommended ? wxSYS_COLOUR_INFOBK : wxSYS_COLOUR_LISTBOX ) );
++    card->SetForegroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_LISTBOXTEXT ) );
++
++    const int margin = FromDIP( 10 );
++    wxBoxSizer* cardSizer = new wxBoxSizer( wxVERTICAL );
++    wxBoxSizer* headingSizer = new wxBoxSizer( wxHORIZONTAL );
++
++    wxString partNumber = jsonText( candidate, "manufacturerPartNumber" );
++
++    if( partNumber.IsEmpty() )
++        partNumber = jsonText( candidate, "digiKeyPartNumber" );
++
++    wxStaticText* partNumberLabel = makeLabel( card, partNumber, true );
++    partNumberLabel->Wrap( FromDIP( 175 ) );
++    headingSizer->Add( partNumberLabel, 1, wxALIGN_CENTER_VERTICAL );
++
++    if( aRecommended )
++    {
++        wxStaticText* badge = makeLabel( card, _( "Best match" ), true );
++        badge->SetForegroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_HIGHLIGHTTEXT ) );
++        badge->SetBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_HIGHLIGHT ) );
++        headingSizer->Add( badge, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP( 8 ) );
++    }
++
++    cardSizer->Add( headingSizer, 0, wxEXPAND | wxALL, margin );
++
++    wxString manufacturer = jsonText( candidate, "manufacturer" );
++    wxString digiKeyPart = jsonText( candidate, "digiKeyPartNumber" );
++    wxStaticText* identity = makeLabel( card, manufacturer + wxS( "  \u00b7  " ) + digiKeyPart );
++    identity->Wrap( FromDIP( 260 ) );
++    cardSizer->Add( identity, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++
++    wxStaticText* description = makeLabel( card, jsonText( candidate, "description" ) );
++    description->Wrap( FromDIP( 260 ) );
++    cardSizer->Add( description, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++
++    wxFlexGridSizer* facts = new wxFlexGridSizer( 2, FromDIP( 5 ), FromDIP( 10 ) );
++    facts->AddGrowableCol( 1, 1 );
++    addFact( facts, card, _( "Stock" ),
++             wxNumberFormatter::ToString( jsonInteger( candidate, "quantityAvailable" ), 0 ) );
++
++    wxString price = _( "Unavailable" );
++
++    if( candidate.contains( "unitPrice" ) && candidate["unitPrice"].is_number() )
++    {
++        price = wxString::Format( wxS( "%s %.4f" ), jsonText( candidate, "currency" ),
++                                  candidate["unitPrice"].get<double>() );
++    }
++
++    addFact( facts, card, _( "Unit price" ), price );
++    addFact( facts, card, _( "Packaging" ), jsonText( candidate, "packageType" ) );
++    addFact( facts, card, _( "KiCad symbol" ), jsonText( assets, "symbolId" ) );
++    addFact( facts, card, _( "Footprint" ), jsonText( assets, "footprintId" ) );
++    addFact( facts, card, _( "3D model" ),
++             assets.value( "modelExpected", false )
++                     ? _( "Available in installed KiCad library" )
++                     : _( "Not found in installed KiCad library" ) );
++    cardSizer->Add( facts, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++
++    if( !aRecommendation.IsEmpty() )
++    {
++        wxStaticText* recommendation = makeLabel( card, _( "Why this part: " ) + aRecommendation );
++        recommendation->Wrap( FromDIP( 260 ) );
++        cardSizer->Add( recommendation, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    }
++
++    if( !aConcerns.IsEmpty() )
++    {
++        wxStaticText* concernsHeading = makeLabel( card, _( "Review before placing" ), true );
++        cardSizer->Add( concernsHeading, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
++                        margin );
++
++        wxStaticText* concerns = makeLabel( card, aConcerns );
++        concerns->Wrap( FromDIP( 260 ) );
++        cardSizer->Add( concerns, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    }
++
++    if( !placeable )
++    {
++        wxStaticText* unavailable = makeLabel(
++                card, _( "No safe symbol and footprint pair is available in the installed "
++                         "KiCad libraries." ) );
++        unavailable->Wrap( FromDIP( 260 ) );
++        cardSizer->Add( unavailable, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    }
++
++    wxBoxSizer* actionSizer = new wxBoxSizer( wxHORIZONTAL );
++    wxButton* placeButton = new wxButton( card, wxID_ANY, _( "Place in Schematic" ) );
++    placeButton->Enable( placeable && static_cast<bool>( m_placementCallback ) );
++    placeButton->Bind( wxEVT_BUTTON,
++                       [this, aCandidateIndex]( wxCommandEvent& )
++                       {
++                           placeCandidate( aCandidateIndex );
++                       } );
++    actionSizer->Add( placeButton, 1, wxEXPAND );
++
++    const wxString productUrl = jsonText( candidate, "productUrl" );
++
++    if( !productUrl.IsEmpty() )
++    {
++        wxButton* digiKeyButton = new wxButton( card, wxID_ANY, _( "DigiKey" ) );
++        digiKeyButton->Bind( wxEVT_BUTTON,
++                             [productUrl]( wxCommandEvent& )
++                             {
++                                 wxLaunchDefaultBrowser( productUrl );
++                             } );
++        actionSizer->Add( digiKeyButton, 0, wxLEFT, FromDIP( 8 ) );
++    }
++
++    cardSizer->Add( actionSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    card->SetSizer( cardSizer );
++    m_resultsSizer->Add( card, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP( 10 ) );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::placeCandidate( size_t aCandidateIndex )
++{
++    if( !m_placementCallback || aCandidateIndex >= m_candidateJson.size() )
++        return;
++
++    try
++    {
++        nlohmann::json candidate = nlohmann::json::parse( m_candidateJson[aCandidateIndex] );
++        const nlohmann::json component = nlohmann::json::parse( m_componentJson );
++        const nlohmann::json assets = candidate.value( "kicadAssets", nlohmann::json::object() );
++
++        candidate["command"] = "place";
++        candidate["component"] = component;
++        candidate["symbolId"] = assets.value( "symbolId", std::string() );
++        candidate["footprintId"] = assets.value( "footprintId", std::string() );
++        candidate["modelExpected"] = assets.value( "modelExpected", false );
++        candidate["value"] = assets.value( "exactSymbol", false )
++                                     ? std::string()
++                                     : component.value( "value", std::string() );
++
++        wxString placementError;
++
++        if( m_placementCallback( fromUtf8( candidate.dump() ), placementError ) )
++        {
++            setStatus( wxString::Format( _( "%s is attached to the cursor. Click the schematic "
++                                            "to place it." ),
++                                         jsonText( candidate, "manufacturerPartNumber" ) ) );
++        }
++        else
++        {
++            setStatus( placementError.IsEmpty() ? _( "KiCad could not place this result." )
++                                                : placementError,
++                       true );
++        }
++    }
++    catch( const std::exception& error )
++    {
++        setStatus( wxString::Format( _( "Could not prepare this part for placement: %s" ),
++                                     fromUtf8( error.what() ) ), true );
++    }
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::setBusy( bool aBusy )
++{
++    m_queryCtrl->Enable( !aBusy );
++    m_searchButton->Enable( !aBusy );
++
++    if( aBusy )
++    {
++        m_activity->Show();
++        m_activity->Start();
++        m_searchButton->SetLabel( _( "Searching..." ) );
++    }
++    else
++    {
++        m_activity->Stop();
++        m_activity->Hide();
++        m_searchButton->SetLabel( _( "Find Parts" ) );
++    }
++
++    Layout();
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::setStatus( const wxString& aMessage, bool aError )
++{
++    m_statusLabel->SetLabel( aMessage );
++    m_statusLabel->SetForegroundColour( wxSystemSettings::GetColour(
++            aError ? wxSYS_COLOUR_HOTLIGHT : wxSYS_COLOUR_WINDOWTEXT ) );
++    m_statusLabel->Wrap( FromDIP( 290 ) );
++    Layout();
++}
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.h b/eeschema/widgets/panel_auto_bom_assistant.h
+new file mode 100644
+index 00000000..03499915
+--- /dev/null
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -0,0 +1,96 @@
++/*
++ * This program source code file is part of KiCad, a free EDA CAD application.
++ *
++ * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
++ *
++ * This program is free software: you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation, either version 3 of the License, or (at your
++ * option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef PANEL_AUTO_BOM_ASSISTANT_H
++#define PANEL_AUTO_BOM_ASSISTANT_H
++
++#include <atomic>
++#include <cstdint>
++#include <functional>
++#include <string>
++#include <thread>
++#include <vector>
++
++#include <wx/panel.h>
++#include <wx/string.h>
++
++
++class wxActivityIndicator;
++class wxBoxSizer;
++class wxButton;
++class wxScrolledWindow;
++class wxStaticText;
++class wxTextCtrl;
++class wxThreadEvent;
++
++
++/**
++ * Native KiCad component finder backed by the local Auto BOM service.
++ *
++ * The service interprets a natural-language request and returns current
++ * DigiKey candidates with resolved KiCad library assets.  This panel owns
++ * presentation and network activity; the schematic editor supplies the
++ * callback that turns a selected candidate into an interactive placement.
++ */
++class PANEL_AUTO_BOM_ASSISTANT : public wxPanel
++{
++public:
++    using PLACEMENT_CALLBACK = std::function<bool( const wxString&, wxString& )>;
++
++    PANEL_AUTO_BOM_ASSISTANT( wxWindow* aParent, PLACEMENT_CALLBACK aPlacementCallback );
++    ~PANEL_AUTO_BOM_ASSISTANT() override;
++
++    /** Put keyboard focus in the request field. */
++    void FocusSearch();
++
++    /** Populate the request field and immediately run a search. */
++    void StartSearch( const wxString& aQuery );
++
++private:
++    void onSearch( wxCommandEvent& aEvent );
++    void onSearchComplete( wxThreadEvent& aEvent );
++    void beginSearch( const wxString& aQuery );
++    void runSearch( std::stop_token aStopToken, uint64_t aGeneration, std::string aRequestBody );
++
++    void clearResults();
++    void renderResponse( const std::string& aResponseBody );
++    void addCandidateCard( size_t aCandidateIndex, bool aRecommended,
++                           const wxString& aRecommendation, const wxString& aConcerns );
++    void placeCandidate( size_t aCandidateIndex );
++    void setBusy( bool aBusy );
++    void setStatus( const wxString& aMessage, bool aError = false );
++
++private:
++    PLACEMENT_CALLBACK        m_placementCallback;
++    wxTextCtrl*               m_queryCtrl;
++    wxButton*                 m_searchButton;
++    wxActivityIndicator*      m_activity;
++    wxStaticText*             m_statusLabel;
++    wxStaticText*             m_resultHeading;
++    wxScrolledWindow*         m_resultsWindow;
++    wxBoxSizer*               m_resultsSizer;
++    std::jthread              m_searchThread;
++    std::atomic<uint64_t>     m_searchGeneration;
++    std::string               m_componentJson;
++    std::vector<std::string>  m_candidateJson;
++
++    wxDECLARE_NO_COPY_CLASS( PANEL_AUTO_BOM_ASSISTANT );
++};
++
++#endif // PANEL_AUTO_BOM_ASSISTANT_H
+-- 
+2.53.0.windows.3
+
