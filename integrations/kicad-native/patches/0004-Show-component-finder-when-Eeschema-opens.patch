@@ -1,0 +1,25 @@
+From 4b0810bd155b3a5003c69cce7a99de1324c370fe Mon Sep 17 00:00:00 2001
+From: harrisontidy <harrisontidy@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 20:55:02 -0700
+Subject: [PATCH] Show component finder when Eeschema opens
+
+---
+ eeschema/sch_edit_frame.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index a31fe64f..34094fa4 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -547,7 +547,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+                       .MinSize( FromDIP( wxSize( 320, 180 ) ) )
+                       .BestSize( FromDIP( wxSize( 420, 600 ) ) )
+                       .FloatingSize( FromDIP( wxSize( 520, 720 ) ) )
+-                      .Show( false ) );
++                      .Show( true ) );
+ 
+     m_auimgr.AddPane( createHighlightedNetNavigator(), defaultNetNavigatorPaneInfo() );
+ 
+-- 
+2.53.0.windows.3
+

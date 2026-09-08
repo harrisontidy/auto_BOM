@@ -51,4 +51,26 @@ if ($Schematic) {
   $arguments += "`"$resolvedSchematic`""
 }
 
-Start-Process -FilePath $eeschema -ArgumentList $arguments -WorkingDirectory $buildDirectory
+$launchOptions = @{
+  FilePath = $eeschema
+  WorkingDirectory = $buildDirectory
+  PassThru = $true
+}
+
+# PowerShell rejects an empty -ArgumentList.  Keep it out of the call when the
+# launcher is opening a new blank schematic.
+if ($arguments.Count -gt 0) {
+  $launchOptions.ArgumentList = $arguments
+}
+
+$process = Start-Process @launchOptions
+Start-Sleep -Seconds 2
+
+if ($process.HasExited -and $process.ExitCode -ne 0) {
+  Add-Type -AssemblyName PresentationFramework
+  [System.Windows.MessageBox]::Show(
+    "KiCad's Auto BOM editor could not start (exit code $($process.ExitCode)).",
+    "Auto BOM for KiCad"
+  ) | Out-Null
+  exit $process.ExitCode
+}
