@@ -6,7 +6,7 @@ export async function reviewCandidates(component, candidates, environment = proc
     body: JSON.stringify({
       model: environment.OPENAI_MODEL || "gpt-5-mini",
       store: false,
-      instructions: `Choose one practical DigiKey candidate for this BOM line. The goal is a complete, inexpensive, in-stock BOM, not a design audit. For ordinary SMD resistors, the stated resistance and footprint are sufficient; prefer a common thick-film part. For ordinary SMD capacitors, use ceramic MLCC unless the BOM or footprint indicates otherwise. Do not complain about unspecified tolerance, dielectric, voltage, power, or manufacturer for ordinary passives. Prefer candidates that match the explicit value and package, are active, can fulfill the requested quantity, have a low minimum order, and have the lowest unit price. Only report a concern when no candidate matches an explicit value/package or the BOM is truly unsearchable. Select only a part number present in the candidate list.`,
+      instructions: `Choose one practical DigiKey candidate for this BOM line. The goal is a complete, inexpensive, in-stock BOM, not a design audit. For ordinary SMD resistors, the stated resistance and footprint are sufficient; prefer a common thick-film part. For ordinary SMD capacitors, use ceramic MLCC unless the BOM or footprint indicates otherwise. Do not complain about unspecified tolerance, dielectric, voltage, power, or manufacturer for ordinary passives. Prefer candidates that match the explicit value and package, are active, can fulfill the requested quantity, have a low minimum order, and have the lowest unit price. When otherwise comparable, prefer a candidate whose kicadAssets.placeable is true so it can be placed immediately. Only report a concern when no candidate matches an explicit value/package or the BOM is truly unsearchable. Select only a part number present in the candidate list.`,
       input: JSON.stringify({ component, candidates }),
       text: { format: { type: "json_schema", name: "bom_candidate_review", strict: true, schema: {
         type: "object",
@@ -23,6 +23,32 @@ export async function reviewCandidates(component, candidates, environment = proc
   const outputText = data.output_text || data.output?.flatMap((item) => item.content || []).find((item) => item.type === "output_text")?.text;
   if (!outputText) throw new Error("AI review returned no result.");
   return JSON.parse(outputText);
+}
+
+export async function interpretComponentRequest(query, quantity = 1, environment = process.env) {
+  if (!environment.OPENAI_API_KEY) throw new Error("AI component search is not configured. Add OPENAI_API_KEY to your environment.");
+  if (!query?.trim()) throw new Error("Describe the component you need.");
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${environment.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: environment.OPENAI_MODEL || "gpt-5-mini",
+      store: false,
+      instructions: `Convert a natural-language electronics component request into a concise DigiKey keyword search. Preserve every explicit electrical, mechanical, interface, package, and temperature requirement. Apply ordinary defaults only when safe: commodity SMD resistors may default to thick film and 1%; non-polarized SMD capacitors may default to ceramic X7R/X5R. Never invent an IC part number, pinout, voltage, current, or package. Make searchTerms short and optimized for DigiKey keyword search. componentType should be a common noun such as Resistor, Capacitor, Diode, Connector, Microcontroller, Voltage regulator, or Integrated circuit.`,
+      input: JSON.stringify({ request: query.trim(), requestedQuantity: Math.max(1, Number(quantity) || 1) }),
+      text: { format: { type: "json_schema", name: "component_request", strict: true, schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" }, componentType: { type: "string" }, value: { type: "string" }, package: { type: "string" },
+          searchTerms: { type: "string" }, quantity: { type: "integer", minimum: 1 }, pinCount: { type: "integer", minimum: 0 },
+          requirements: { type: "array", items: { type: "string" } }, assumptions: { type: "array", items: { type: "string" } },
+        },
+        required: ["summary", "componentType", "value", "package", "searchTerms", "quantity", "pinCount", "requirements", "assumptions"], additionalProperties: false,
+      } } },
+    }),
+  });
+  const data = await readOpenAiResponse(response, "AI component interpretation");
+  return JSON.parse(extractOutputText(data));
 }
 
 export async function interpretBomCsv(csv, deterministicParts, environment = process.env) {

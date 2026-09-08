@@ -25,7 +25,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "KiCad configuration failed." }
   }
 
-  & $bash -lc "cmake --build build/auto-bom-release --target eeschema bitmap_archive_build api_schema_build_copy remote_provider_schema_build_copy --parallel $ParallelJobs"
+  & $bash -lc "cmake --build build/auto-bom-release --target eeschema pcbnew bitmap_archive_build api_schema_build_copy remote_provider_schema_build_copy --parallel $ParallelJobs"
 
   if ($LASTEXITCODE -ne 0) { throw "KiCad build failed." }
 } finally {

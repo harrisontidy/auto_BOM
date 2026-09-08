@@ -1,0 +1,200 @@
+From 965e617b20f9b820f80f955c10881f57cde94c04 Mon Sep 17 00:00:00 2001
+From: harrisontidy <harrisontidy@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 19:19:38 -0700
+Subject: [PATCH] Add component placement bridge and complete PCBNew build
+
+---
+ eeschema/sch_edit_frame.cpp                   | 110 ++++++++++++++++++
+ .../cadstar/cadstar_pcb_archive_loader.cpp    |   4 +
+ .../cadstar/cadstar_pcb_archive_loader.h      |   4 +
+ pcbnew/pcb_io/geda/pcb_io_geda.cpp            |   4 +
+ 4 files changed, 122 insertions(+)
+
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 0e0ddcf5..1a47d065 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -63,6 +63,7 @@
+ #include <symbol_chooser_frame.h>
+ #include <sch_painter.h>
+ #include <sch_marker.h>
++#include <sch_symbol.h>
+ #include <sch_sheet_pin.h>
+ #include <sch_commit.h>
+ #include <sch_rule_area.h>
+@@ -123,6 +124,7 @@
+ #include <wx/choicdlg.h>
+ #include <wx/textdlg.h>
+ #include <wx/generic/treectlg.h>
++#include <nlohmann/json.hpp>
+ 
+ 
+ #ifdef KICAD_IPC_API
+@@ -160,6 +162,82 @@ wxDEFINE_EVENT( EDA_EVT_SCHEMATIC_CHANGING, wxCommandEvent );
+ wxDEFINE_EVENT( EDA_EVT_SCHEMATIC_CHANGED, wxCommandEvent );
+ 
+ 
++static wxString jsonString( const nlohmann::json& aObject, const char* aKey )
++{
++    if( !aObject.contains( aKey ) || !aObject[aKey].is_string() )
++        return wxString();
++
++    return wxString::FromUTF8( aObject[aKey].get<std::string>() );
++}
++
++
++static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload )
++{
++    try
++    {
++        const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
++
++        if( jsonString( message, "command" ) != wxS( "place" ) )
++            return;
++
++        const wxString symbolIdText = jsonString( message, "symbolId" );
++        const int separator = symbolIdText.Find( ':' );
++
++        if( separator <= 0 || separator >= static_cast<int>( symbolIdText.length() ) - 1 )
++            return;
++
++        LIB_ID symbolId( symbolIdText.Left( separator ), symbolIdText.Mid( separator + 1 ) );
++        LIB_SYMBOL* libSymbol = aFrame->GetLibSymbol( symbolId );
++
++        if( !libSymbol )
++            return;
++
++        SCH_SYMBOL* symbol = new SCH_SYMBOL( *libSymbol, symbolId, &aFrame->GetCurrentSheet(), 1 );
++        symbol->SetParent( aFrame->GetScreen() );
++
++        const wxString value = jsonString( message, "value" );
++        const wxString footprint = jsonString( message, "footprintId" );
++
++        if( !value.IsEmpty() )
++            symbol->SetValueFieldText( value );
++
++        if( !footprint.IsEmpty() )
++            symbol->SetFootprintFieldText( footprint );
++
++        const std::pair<const char*, wxString> fields[] = {
++            { "Manufacturer Part Number", jsonString( message, "manufacturerPartNumber" ) },
++            { "DigiKey Part Number", jsonString( message, "digiKeyPartNumber" ) },
++            { "Datasheet", jsonString( message, "datasheetUrl" ) }
++        };
++
++        for( const auto& [name, text] : fields )
++        {
++            if( text.IsEmpty() )
++                continue;
++
++            const wxString fieldName = wxString::FromUTF8( name );
++            SCH_FIELD* field = symbol->GetField( fieldName );
++
++            if( !field )
++                field = symbol->AddField( SCH_FIELD( symbol, FIELD_T::USER, fieldName ) );
++
++            field->SetText( text );
++        }
++
++        if( EESCHEMA_SETTINGS* cfg = aFrame->eeconfig(); cfg && cfg->m_AutoplaceFields.enable )
++            symbol->AutoplaceFields( nullptr, AUTOPLACE_AUTO );
++
++        aFrame->Raise();
++        aFrame->GetToolManager()->PostAction( SCH_ACTIONS::placeSymbol,
++                                              SCH_ACTIONS::PLACE_SYMBOL_PARAMS{ symbol, true } );
++    }
++    catch( const std::exception& error )
++    {
++        wxLogError( "Auto BOM placement failed: %s", error.what() );
++    }
++}
++
++
+ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+         SCH_BASE_FRAME( aKiway, aParent, FRAME_SCH, wxT( "Eeschema" ), wxDefaultPosition,
+                         wxDefaultSize, KICAD_DEFAULT_DRAWFRAME_STYLE, SCH_EDIT_FRAME_NAME ),
+@@ -237,7 +315,39 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_propertiesPanel = new SCH_PROPERTIES_PANEL( this, this );
+     m_remoteSymbolPane = new PANEL_REMOTE_SYMBOL( this );
+     m_autoBomPanel = new WEBVIEW_PANEL( this );
++    m_autoBomPanel->AddMessageHandler( wxS( "autobom" ),
++                                       [this]( const wxString& aPayload )
++                                       {
++                                           try
++                                           {
++                                               const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
++
++                                               if( jsonString( message, "command" ) == wxS( "ping" ) )
++                                               {
++                                                   m_autoBomPanel->RunScriptAsync(
++                                                           wxS( "window.dispatchEvent(new CustomEvent('autobom-native', {detail:{connected:true}}));" ) );
++                                                   return;
++                                               }
++
++                                               if( jsonString( message, "command" ) == wxS( "openUrl" ) )
++                                               {
++                                                   const wxString url = jsonString( message, "url" );
++
++                                                   if( url.StartsWith( wxS( "https://" ) ) || url.StartsWith( wxS( "http://" ) ) )
++                                                       wxLaunchDefaultBrowser( url );
++
++                                                   return;
++                                               }
++                                           }
++                                           catch( const std::exception& )
++                                           {
++                                               return;
++                                           }
++
++                                           placeAutoBomSymbol( this, aPayload );
++                                       } );
+     m_autoBomPanel->SetHandleExternalLinks( true );
++    m_autoBomPanel->BindLoadedEvent();
+     m_autoBomPanel->LoadURL( wxS( "http://127.0.0.1:4173/?embedded=kicad" ) );
+ 
+     m_propertiesPanel->SetSplitterProportion( eeconfig()->m_AuiPanels.properties_splitter );
+diff --git a/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.cpp b/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.cpp
+index fb41c6ab..2f593eb4 100644
+--- a/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.cpp
++++ b/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.cpp
+@@ -48,6 +48,10 @@
+ 
+ #include <limits> // std::numeric_limits
+ 
++#ifdef LoadLibrary
++#undef LoadLibrary
++#endif
++
+ 
+ void CADSTAR_PCB_ARCHIVE_LOADER::Load( BOARD* aBoard, PROJECT* aProject )
+ {
+diff --git a/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.h b/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.h
+index c9f3267e..88391e60 100644
+--- a/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.h
++++ b/pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.h
+@@ -31,6 +31,10 @@
+ #include <board.h>
+ #include <footprint.h>
+ 
++#ifdef LoadLibrary
++#undef LoadLibrary
++#endif
++
+ #include <memory>
+ #include <set>
+ 
+diff --git a/pcbnew/pcb_io/geda/pcb_io_geda.cpp b/pcbnew/pcb_io/geda/pcb_io_geda.cpp
+index 4461d0e6..d962bb1d 100644
+--- a/pcbnew/pcb_io/geda/pcb_io_geda.cpp
++++ b/pcbnew/pcb_io/geda/pcb_io_geda.cpp
+@@ -38,6 +38,10 @@
+  */
+ #include "pcb_io/geda/pcb_io_geda.h"
+ 
++#ifdef GetClassInfo
++#undef GetClassInfo
++#endif
++
+ #include <kiplatform/io.h>
+ #include <wildcards_and_files_ext.h>
+ #include <string_utils.h>

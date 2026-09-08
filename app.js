@@ -6,6 +6,9 @@ if (new URLSearchParams(window.location.search).get("embedded") === "kicad") {
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
+  componentForm: $("#component-form"), componentQuery: $("#component-query"), componentQuantity: $("#component-quantity"),
+  componentSearch: $("#component-search"), interpretedRequest: $("#interpreted-request"), componentResults: $("#component-results"),
+  componentCards: $("#component-cards"), resultCount: $("#result-count"), finderView: $("#finder-view"), bomView: $("#bom-view"),
   file: $("#file-input"), sample: $("#sample-button"), stressTest: $("#stress-test-button"), export: $("#export-button"),
   empty: $("#empty-state"), results: $("#results"), bom: $("#bom-body"), candidates: $("#candidate-panel"),
   candidateBody: $("#candidate-body"), candidateContext: $("#candidate-context"), aiResult: $("#ai-result"),
@@ -14,8 +17,131 @@ const ui = {
 let bom = [];
 let configuration = { digikey: false, openai: false };
 let importGeneration = 0;
+let nativeConnected = false;
 
 const configurationReady = checkConfiguration();
+
+window.addEventListener("autobom-native", (event) => {
+  nativeConnected = Boolean(event.detail?.connected);
+  updateApiStatus();
+});
+if (document.body.classList.contains("kicad-embedded")) setTimeout(() => postToKiCad({ command: "ping" }), 250);
+
+document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));
+  const finder = tab.dataset.view === "finder";
+  ui.finderView.classList.toggle("hidden", !finder);
+  ui.bomView.classList.toggle("hidden", finder);
+  ui.message.classList.add("hidden");
+}));
+
+ui.componentForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = ui.componentQuery.value.trim();
+  if (!query) return showMessage("Describe the component you need.", true);
+  ui.componentSearch.disabled = true;
+  ui.componentSearch.textContent = "Searching…";
+  ui.componentResults.classList.add("hidden");
+  ui.interpretedRequest.classList.add("hidden");
+  showMessage("AI is turning your request into component requirements, then DigiKey will search live stock.");
+  try {
+    const result = await postJson("/api/components/search", { query, quantity: Number(ui.componentQuantity.value) || 1 });
+    renderComponentSearch(result);
+    showMessage(`Found ${result.candidates.length} in-stock DigiKey options.`);
+  } catch (error) {
+    showMessage(error.message, true);
+  } finally {
+    ui.componentSearch.disabled = false;
+    ui.componentSearch.textContent = "Find parts";
+  }
+});
+
+function renderComponentSearch(result) {
+  const { component, candidates, review } = result;
+  ui.interpretedRequest.replaceChildren(
+    element("strong", component.summary),
+    element("p", [...component.requirements, ...component.assumptions.map((item) => `Assumed: ${item}`)].join(" · ")),
+  );
+  ui.interpretedRequest.classList.remove("hidden");
+  const ordered = [...candidates].sort((a, b) => {
+    const aRecommended = a.digiKeyPartNumber === review?.selectedDigiKeyPartNumber || a.manufacturerPartNumber === review?.selectedManufacturerPartNumber;
+    const bRecommended = b.digiKeyPartNumber === review?.selectedDigiKeyPartNumber || b.manufacturerPartNumber === review?.selectedManufacturerPartNumber;
+    return Number(bRecommended) - Number(aRecommended) || Number(Boolean(b.kicadAssets?.placeable)) - Number(Boolean(a.kicadAssets?.placeable));
+  });
+  ui.resultCount.textContent = `${candidates.length} options`;
+  ui.componentCards.replaceChildren(...ordered.map((candidate, index) => componentCard(component, candidate, review, index)));
+  ui.componentResults.classList.remove("hidden");
+}
+
+function componentCard(component, candidate, review, index) {
+  const recommended = candidate.digiKeyPartNumber === review?.selectedDigiKeyPartNumber
+    || candidate.manufacturerPartNumber === review?.selectedManufacturerPartNumber;
+  const card = element("article", "", `component-card${recommended ? " recommended" : ""}`);
+  const title = element("div", "", "card-title");
+  const heading = element("div", "");
+  heading.append(element("strong", candidate.manufacturerPartNumber || candidate.digiKeyPartNumber));
+  heading.append(element("span", `${candidate.manufacturer} · ${candidate.packageType || "standard packaging"}`));
+  title.append(heading);
+  if (recommended) title.append(element("span", "Best match", "badge"));
+  card.append(title, element("p", candidate.description, "description"));
+  const facts = element("div", "", "facts");
+  facts.append(
+    fact("Stock", candidate.quantityAvailable.toLocaleString()),
+    fact("Unit price", candidate.unitPrice == null ? "—" : `${candidate.currency} ${candidate.unitPrice.toFixed(4)}`),
+    fact("Minimum", String(candidate.minimumOrderQuantity)),
+  );
+  card.append(facts);
+  const assets = candidate.kicadAssets;
+  if (assets) card.append(element("p", assets.placeable
+    ? `KiCad: ${assets.symbolId} · ${assets.footprintId}${assets.modelExpected ? " · 3D model from footprint" : ""}`
+    : "KiCad: exact CAD data was not found; DigiKey details are still available.", `asset-note${assets.placeable ? " ready" : ""}`));
+  const actions = element("div", "", "card-actions");
+  if (candidate.productUrl) {
+    const link = element("a", "DigiKey page", "text-link");
+    link.href = candidate.productUrl; link.target = "_blank"; link.rel = "noreferrer"; actions.append(link);
+    link.addEventListener("click", (event) => {
+      if (document.body.classList.contains("kicad-embedded") && postToKiCad({ command: "openUrl", url: candidate.productUrl })) event.preventDefault();
+    });
+  }
+  const place = element("button", "Place in schematic", "button primary");
+  place.type = "button";
+  if (assets && !assets.placeable) { place.disabled = true; place.textContent = "CAD unavailable"; }
+  place.addEventListener("click", () => placeCandidate(place, component, candidate));
+  actions.append(place);
+  card.append(actions);
+  if (recommended && review?.reasoning) card.append(element("p", review.reasoning, "recommendation-note"));
+  card.dataset.index = String(index);
+  return card;
+}
+
+async function placeCandidate(button, component, candidate) {
+  button.disabled = true;
+  button.textContent = "Preparing…";
+  try {
+    const assets = candidate.kicadAssets || await postJson("/api/components/assets", { component, candidate });
+    if (!assets.placeable) throw new Error(`No safe KiCad symbol and footprint pair was found for ${candidate.manufacturerPartNumber}. Open the DigiKey page to obtain the manufacturer's CAD model.`);
+    const payload = { command: "place", symbolId: assets.symbolId, footprintId: assets.footprintId,
+      value: component.value || candidate.manufacturerPartNumber, manufacturerPartNumber: candidate.manufacturerPartNumber,
+      digiKeyPartNumber: candidate.digiKeyPartNumber, datasheetUrl: candidate.datasheetUrl };
+    if (!postToKiCad(payload)) throw new Error("Open this tool using the Auto BOM for KiCad desktop shortcut to place parts.");
+    showMessage(`Move the ${candidate.manufacturerPartNumber} symbol onto the schematic and click to place it.`);
+    button.textContent = "Ready to place";
+  } catch (error) {
+    showMessage(error.message, true);
+    button.disabled = false;
+    button.textContent = "Place in schematic";
+  }
+}
+
+function postToKiCad(payload) {
+  const message = JSON.stringify(payload);
+  if (window.webkit?.messageHandlers?.autobom) { window.webkit.messageHandlers.autobom.postMessage(message); return true; }
+  if (window.chrome?.webview?.postMessage) { window.chrome.webview.postMessage(message); return true; }
+  if (typeof window.external?.invoke === "function") { window.external.invoke(message); return true; }
+  return false;
+}
+
+function fact(label, value) { const item = element("div", ""); item.append(element("span", label), element("strong", value)); return item; }
 
 ui.sample.addEventListener("click", async () => {
   try {
@@ -170,10 +296,14 @@ function showPartResults(part) {
 async function checkConfiguration() {
   try {
     configuration = await (await fetch("/api/status")).json();
-    const enabled = [configuration.digikey && "DigiKey", configuration.openai && "AI"].filter(Boolean);
-    ui.apiStatus.textContent = enabled.length === 2 ? `DigiKey ${configuration.digikeyEnvironment} + AI configured` : `${enabled.join(" + ") || "No APIs"} configured`;
-    ui.apiStatus.className = `api-status ${enabled.length === 2 ? "ready" : "partial"}`;
+    updateApiStatus();
   } catch { ui.apiStatus.textContent = "Backend unavailable"; ui.apiStatus.className = "api-status partial"; }
+}
+
+function updateApiStatus() {
+  const enabled = [configuration.digikey && "DigiKey", configuration.openai && "AI", nativeConnected && "KiCad linked"].filter(Boolean);
+  ui.apiStatus.textContent = enabled.length ? enabled.join(" + ") : "No APIs configured";
+  ui.apiStatus.className = `api-status ${configuration.digikey && configuration.openai ? "ready" : "partial"}`;
 }
 
 async function runWithConcurrency(tasks, limit) {

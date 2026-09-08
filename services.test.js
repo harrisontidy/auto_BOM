@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildFallbackQuery, buildSearchQuery } from "./services/digikey.js";
+import { footprintFor, genericSymbol } from "./services/kicad-assets.js";
 
 test("builds a DigiKey query from normalized value and KiCad footprint", () => {
   assert.equal(buildSearchQuery({ value: "4k7", normalizedValue: "4.7 kΩ", footprint: "Resistor_SMD:R_0603_1608Metric" }), "4.7 kohm 0603");
@@ -18,4 +19,15 @@ test("prefers an explicit supplier number and then AI reviewed search terms", ()
 test("builds a DigiKey-friendly fallback for common capacitors", () => {
   assert.equal(buildFallbackQuery({ componentType: "Capacitor", normalizedValue: "100 nF", footprint: "C_0805_2012Metric" }), "0.1uF 0805 ceramic capacitor");
   assert.equal(buildFallbackQuery({ componentType: "Capacitor", normalizedValue: "470 µF", footprint: "CP_Radial_D10.0mm_P5.00mm" }), "470uF CP Radial D10.0mm P5.00mm electrolytic capacitor");
+});
+
+test("maps ordinary passives to safe KiCad symbols and footprints", () => {
+  assert.equal(genericSymbol("Resistor", "0805"), "Device:R");
+  assert.equal(footprintFor("resistor", "0805 (2012 metric)"), "Resistor_SMD:R_0805_2012Metric");
+  assert.equal(genericSymbol("Capacitor", "0805 ceramic"), "Device:C");
+  assert.equal(footprintFor("capacitor", "0805 ceramic"), "Capacitor_SMD:C_0805_2012Metric");
+});
+
+test("does not invent a generic IC symbol with an unknown pinout", () => {
+  assert.equal(genericSymbol("Integrated circuit", "QFN-24"), "");
 });

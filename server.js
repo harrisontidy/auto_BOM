@@ -2,8 +2,9 @@ import "./config.js";
 import { createReadStream } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
-import { interpretBomCsv, reviewCandidates } from "./services/ai.js";
+import { interpretBomCsv, interpretComponentRequest, reviewCandidates } from "./services/ai.js";
 import { searchDigiKey } from "./services/digikey.js";
+import { resolveKiCadAssets } from "./services/kicad-assets.js";
 import { applyAiInterpretation } from "./parser.js";
 
 const port = Number(process.env.PORT || 4173);
@@ -23,6 +24,30 @@ createServer(async (request, response) => {
       const { component } = await readBody(request);
       if (!component || !(component.value || component.footprint || component.supplierPartNumber || component.aiSearchTerms)) return sendJson(response, 400, { error: "No searchable component information was found." });
       return sendJson(response, 200, await searchDigiKey(component));
+    }
+    if (request.method === "POST" && request.url === "/api/components/search") {
+      const { query, quantity } = await readBody(request);
+      const interpreted = await interpretComponentRequest(query, quantity);
+      const component = {
+        ...interpreted,
+        normalizedValue: interpreted.value,
+        footprint: interpreted.package,
+        aiSearchTerms: interpreted.searchTerms,
+        quantity: Math.max(1, Number(quantity) || interpreted.quantity || 1),
+      };
+      const result = await searchDigiKey(component);
+      const candidates = await Promise.all(result.candidates.map(async (candidate) => ({
+        ...candidate,
+        kicadAssets: await resolveKiCadAssets(component, candidate),
+      })));
+      let review = null;
+      if (candidates.length) review = await reviewCandidates(component, candidates);
+      return sendJson(response, 200, { component, query: result.query, candidates, review });
+    }
+    if (request.method === "POST" && request.url === "/api/components/assets") {
+      const { component, candidate } = await readBody(request);
+      if (!component || !candidate) return sendJson(response, 400, { error: "A component and selected DigiKey candidate are required." });
+      return sendJson(response, 200, await resolveKiCadAssets(component, candidate));
     }
     if (request.method === "POST" && request.url === "/api/ai/parse") {
       const { csv, deterministicParts } = await readBody(request);

@@ -35,7 +35,7 @@ async function runKeywordSearch(host, token, query, component, environment) {
   if (response.status === 403) throw new Error(`DigiKey denied Product Information V4 for this ${environment.DIGIKEY_ENV === "production" ? "production" : "sandbox"} Client ID. Use credentials from the same DigiKey app that has Product Information V4 enabled.`);
   const data = await readJson(response, "DigiKey search");
   const seen = new Set();
-  const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map(normalizeProduct).filter((candidate) => {
+  const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map((product) => normalizeProduct(product, component.quantity || 1)).filter((candidate) => {
     const key = candidate.digiKeyPartNumber || candidate.manufacturerPartNumber;
     if (!key || seen.has(key)) return false;
     seen.add(key); return true;
@@ -61,10 +61,12 @@ function searchValue(component) {
   return value.replace(/\s+/g, "");
 }
 
-function normalizeProduct(product) {
+function normalizeProduct(product, requestedQuantity = 1) {
   const variation = [...(product.ProductVariations || [])].sort((a, b) => variationScore(b) - variationScore(a))[0] || {};
   const pricing = variation.StandardPricing || product.StandardPricing || [];
-  const unitPrice = pricing[0]?.UnitPrice ?? product.UnitPrice;
+  const priceTier = [...pricing].filter((tier) => Number(tier.BreakQuantity || 1) <= requestedQuantity)
+    .sort((a, b) => Number(b.BreakQuantity || 1) - Number(a.BreakQuantity || 1))[0] || pricing[0];
+  const unitPrice = priceTier?.UnitPrice ?? product.UnitPrice;
   const checks = [];
   if (product.Discontinued || product.EndOfLife) checks.push("Lifecycle warning");
   if ((product.QuantityAvailable || 0) < 1) checks.push("Out of stock");

@@ -12,7 +12,7 @@ The current development checkout is:
 C:\Users\harri\source\auto-bom-kicad
 ```
 
-It is based on KiCad 10.0.6 and uses the branch `codex/auto-bom-panel`. KiCad's source and build products are intentionally kept out of this repository. The reproducible patch is in `patches/0001-add-auto-bom-panel-kicad-10.0.6.patch`.
+It is based on KiCad 10.0.6 and uses the branch `codex/component-finder-assistant`. KiCad's source and build products are intentionally kept out of this repository. The reproducible source changes are the numbered patches in `patches`; apply them in order.
 
 ## Recreate the checkout
 
@@ -20,11 +20,13 @@ Install KiCad's documented MSYS2/UCRT64 build dependencies, then run:
 
 ```powershell
 git clone --depth 1 --branch 10.0.6 https://github.com/KiCad/kicad-source-mirror.git "$env:USERPROFILE\source\auto-bom-kicad"
-git -C "$env:USERPROFILE\source\auto-bom-kicad" switch -c codex/auto-bom-panel
-git -C C:\Users\harri\source\auto-bom-kicad am "C:\path\to\auto_BOM\integrations\kicad-native\patches\0001-add-auto-bom-panel-kicad-10.0.6.patch"
+git -C "$env:USERPROFILE\source\auto-bom-kicad" switch -c codex/component-finder-assistant
+Get-ChildItem "C:\path\to\auto_BOM\integrations\kicad-native\patches\*.patch" | Sort-Object Name | ForEach-Object {
+  git -C "$env:USERPROFILE\source\auto-bom-kicad" am $_.FullName
+}
 ```
 
-Build Eeschema and its required runtime assets:
+Build Eeschema, PCB Editor, and their required runtime assets:
 
 ```powershell
 & ".\integrations\kicad-native\Build custom KiCad.ps1"
