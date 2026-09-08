@@ -1,0 +1,95 @@
+From 9762e41be43a6cc55a0fbd006de508d085b62c09 Mon Sep 17 00:00:00 2001
+From: harrisontidy <harrisontidy@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 18:38:35 -0700
+Subject: [PATCH] Add Auto BOM panel to Schematic Editor
+
+---
+ eeschema/navlib/CMakeLists.txt |  1 +
+ eeschema/sch_edit_frame.cpp    | 17 +++++++++++++++++
+ eeschema/sch_edit_frame.h      |  2 ++
+ 3 files changed, 20 insertions(+)
+
+diff --git a/eeschema/navlib/CMakeLists.txt b/eeschema/navlib/CMakeLists.txt
+index f788c473..f3fe9361 100644
+--- a/eeschema/navlib/CMakeLists.txt
++++ b/eeschema/navlib/CMakeLists.txt
+@@ -20,6 +20,7 @@ target_include_directories(eeschema_navlib PRIVATE
+     $<TARGET_PROPERTY:eeschema_kiface_objects,INCLUDE_DIRECTORIES>
+ )
+ target_link_libraries(eeschema_navlib
++    kicommon # SafeNavlibInit and NavlibDriverCrashed
+     kiplatform # Needs kiplatform to check versioning
+     $<TARGET_PROPERTY:3DxWare::Navlib,INTERFACE_LINK_LIBRARIES>
+     3DxWare::Navlib
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 2309506a..0e0ddcf5 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -107,6 +107,7 @@
+ #include <widgets/bitmap_button.h>
+ #include <widgets/sch_properties_panel.h>
+ #include <widgets/sch_search_pane.h>
++#include <widgets/webview_panel.h>
+ #include <wildcards_and_files_ext.h>
+ #include <wx/cmdline.h>
+ #include <wx/app.h>
+@@ -172,6 +173,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+         m_highlightedConnChanged( false ),
+         m_designBlocksPane( nullptr ),
+         m_remoteSymbolPane( nullptr ),
++        m_autoBomPanel( nullptr ),
+         m_currentVariantCtrl( nullptr )
+ {
+     m_maximizeByDefault = true;
+@@ -234,6 +236,9 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_searchPane = new SCH_SEARCH_PANE( this );
+     m_propertiesPanel = new SCH_PROPERTIES_PANEL( this, this );
+     m_remoteSymbolPane = new PANEL_REMOTE_SYMBOL( this );
++    m_autoBomPanel = new WEBVIEW_PANEL( this );
++    m_autoBomPanel->SetHandleExternalLinks( true );
++    m_autoBomPanel->LoadURL( wxS( "http://127.0.0.1:4173/?embedded=kicad" ) );
+ 
+     m_propertiesPanel->SetSplitterProportion( eeconfig()->m_AuiPanels.properties_splitter );
+ 
+@@ -275,6 +280,18 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_auimgr.AddPane( m_designBlocksPane, defaultDesignBlocksPaneInfo( this ) );
+     m_auimgr.AddPane( m_remoteSymbolPane, defaultRemoteSymbolPaneInfo( this ) );
+ 
++    m_auimgr.AddPane( m_autoBomPanel, EDA_PANE()
++                      .Name( wxS( "AutoBomAssistant" ) )
++                      .Caption( _( "Auto BOM Assistant" ) )
++                      .Right().Layer( 3 ).Position( 1 )
++                      .TopDockable( false )
++                      .BottomDockable( false )
++                      .CloseButton( false )
++                      .MinSize( FromDIP( wxSize( 320, 180 ) ) )
++                      .BestSize( FromDIP( wxSize( 420, 600 ) ) )
++                      .FloatingSize( FromDIP( wxSize( 520, 720 ) ) )
++                      .Show( true ) );
++
+     m_auimgr.AddPane( createHighlightedNetNavigator(), defaultNetNavigatorPaneInfo() );
+ 
+     m_auimgr.AddPane( m_tbLeft, EDA_PANE().VToolbar().Name( wxS( "LeftToolbar" ) )
+diff --git a/eeschema/sch_edit_frame.h b/eeschema/sch_edit_frame.h
+index c02a4ed8..07add5d4 100644
+--- a/eeschema/sch_edit_frame.h
++++ b/eeschema/sch_edit_frame.h
+@@ -71,6 +71,7 @@ class PROGRESS_REPORTER;
+ class wxSearchCtrl;
+ class wxGenericTreeCtrl;
+ class BITMAP_BUTTON;
++class WEBVIEW_PANEL;
+ 
+ 
+ /// Schematic search type used by the socket link with Pcbnew
+@@ -1097,6 +1098,7 @@ private:
+     std::vector<LIB_ID>         m_designBlockHistoryList;
+     SCH_DESIGN_BLOCK_PANE*      m_designBlocksPane;
+     PANEL_REMOTE_SYMBOL*        m_remoteSymbolPane;
++    WEBVIEW_PANEL*              m_autoBomPanel;
+ 
+     wxChoice*                   m_currentVariantCtrl;
+ 
+-- 
+2.53.0.windows.3
+

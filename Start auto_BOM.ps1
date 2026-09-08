@@ -5,7 +5,19 @@ $appUrl = "http://localhost:4173"
 $listener = Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 
 if (-not $listener) {
-  Start-Process -FilePath "node" -ArgumentList "server.js" -WorkingDirectory $projectDirectory -WindowStyle Hidden
+  $node = Get-Command node -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+
+  if (-not $node) {
+    $node = Join-Path $env:ProgramFiles "nodejs\node.exe"
+  }
+
+  if (-not (Test-Path -LiteralPath $node)) {
+    Add-Type -AssemblyName PresentationFramework
+    [System.Windows.MessageBox]::Show("auto_BOM needs Node.js LTS. Install it from nodejs.org, then try again.", "auto_BOM") | Out-Null
+    exit 1
+  }
+
+  Start-Process -FilePath $node -ArgumentList "server.js" -WorkingDirectory $projectDirectory -WindowStyle Hidden
 
   for ($attempt = 0; $attempt -lt 20; $attempt += 1) {
     Start-Sleep -Milliseconds 250

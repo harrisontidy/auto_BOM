@@ -1,5 +1,9 @@
 import { parseCsv } from "./parser.js";
 
+if (new URLSearchParams(window.location.search).get("embedded") === "kicad") {
+  document.body.classList.add("kicad-embedded");
+}
+
 const $ = (selector) => document.querySelector(selector);
 const ui = {
   file: $("#file-input"), sample: $("#sample-button"), stressTest: $("#stress-test-button"), export: $("#export-button"),
