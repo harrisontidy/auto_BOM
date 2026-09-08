@@ -23,6 +23,8 @@ The browser performs a deterministic first pass so a malformed file fails clearl
 
 Start the local server, open `http://localhost:4173`, and click **Load sample** or choose a KiCad CSV export.
 
+Click **Load stress test** to run the fictional EV high-voltage power-management BOM in `examples/ev_hv_power_management_stress_test.csv`. It intentionally includes common passives, high-voltage parts, generic IC requirements, connectors, test points, mounting holes, and DNP rows so parser and sourcing failures are easy to find.
+
 On Windows, double-click the **auto_BOM** desktop shortcut. It runs `Start auto_BOM.ps1`, starts the server in the background when needed, and opens the app in your default browser.
 
 If Node.js is installed, you can run the parser checks:

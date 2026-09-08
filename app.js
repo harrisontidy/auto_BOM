@@ -2,7 +2,7 @@ import { parseCsv } from "./parser.js";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
-  file: $("#file-input"), sample: $("#sample-button"), export: $("#export-button"),
+  file: $("#file-input"), sample: $("#sample-button"), stressTest: $("#stress-test-button"), export: $("#export-button"),
   empty: $("#empty-state"), results: $("#results"), bom: $("#bom-body"), candidates: $("#candidate-panel"),
   candidateBody: $("#candidate-body"), candidateContext: $("#candidate-context"), aiResult: $("#ai-result"),
   message: $("#message"), apiStatus: $("#api-status"),
@@ -17,6 +17,14 @@ ui.sample.addEventListener("click", async () => {
   try {
     const response = await fetch("sample_bom.csv");
     if (!response.ok) throw new Error("Could not load the sample BOM.");
+    await loadBom(await response.text());
+  } catch (error) { showMessage(error.message, true); }
+});
+
+ui.stressTest.addEventListener("click", async () => {
+  try {
+    const response = await fetch("examples/ev_hv_power_management_stress_test.csv");
+    if (!response.ok) throw new Error("Could not load the stress-test BOM.");
     await loadBom(await response.text());
   } catch (error) { showMessage(error.message, true); }
 });
