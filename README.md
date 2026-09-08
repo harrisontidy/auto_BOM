@@ -1,19 +1,22 @@
 # auto_BOM
 
-`auto_BOM` is a component finder built into KiCad. Describe the part you need in plain language, compare live DigiKey options, and place the selected symbol into the schematic with its footprint and supplier metadata attached. The BOM importer remains available as a final sourcing check.
+`auto_BOM` is a component finder and BOM completion tool built into KiCad. Describe the part you need in plain language, compare live DigiKey options, and place it into the schematic. A separate native BOM window reads the open schematic, finds missing supplier numbers, and writes its selections back to KiCad.
 
 ## Current prototype
 
 The current prototype can:
 
 - turn a natural-language component request into concise DigiKey search requirements;
-- return inexpensive, in-stock DigiKey candidates with quantity-aware pricing;
+- return inexpensive, in-stock DigiKey candidates with current unit pricing;
 - use AI to select and explain the closest result;
 - resolve an exact KiCad library symbol when one exists, with safe generic symbols for ordinary passives;
 - assign a matching KiCad footprint and its standard 3D model;
 - place the selected part from the docked Schematic Editor panel;
 - attach manufacturer part number, DigiKey part number, and datasheet fields to the symbol;
-- import a KiCad-style CSV file;
+- read and update the open KiCad schematic through its existing symbol fields;
+- complete missing manufacturer and DigiKey part numbers automatically, especially for common passives;
+- open a separate BOM completion window from KiCad's Tools menu;
+- retain CSV import as a separate final check;
 - recognize common column names such as `Reference`, `Designator`, `Value`, `Designation`, `Footprint`, and `Quantity`;
 - split comma-separated designators and derive safe component/package facts from references and footprints;
 - normalize resistor and capacitor values such as `4k7`, `10K`, `0.1uF`, and `100nF`;
@@ -22,14 +25,16 @@ The current prototype can:
 - export the cleaned BOM as JSON;
 - have AI review the raw CSV and correct the deterministic first-pass interpretation;
 - search every unique BOM line through DigiKey Product Information V4 using two-legged OAuth;
-- ask AI to review each candidate list and report missing requirements.
+- use AI for candidate review when the choice is electrically meaningful, while selecting ordinary passives deterministically to reduce cost;
 - run inside a real docked panel in a custom KiCad 10.0.6 Schematic Editor build.
 
-The browser performs a deterministic first pass so a malformed file fails clearly. When AI is configured, the CSV and that first pass are sent to OpenAI for semantic review. The corrected lines are then searched automatically through DigiKey, with at most three lines processed concurrently. Each returned candidate list is sent to OpenAI for review. Importing a file starts this process automatically.
+The browser performs a deterministic first pass so malformed data fails clearly. When AI is configured, imported CSV data is sent for semantic review. Live schematic completion searches unassigned symbols through DigiKey and writes the selected manufacturer part number, DigiKey part number, datasheet, and missing footprint back into KiCad as one undoable edit.
 
 ## Run it
 
-For the full workflow, double-click the **Auto BOM for KiCad** desktop shortcut. Enter a request such as `10 kOhm 0805 resistor, inexpensive, need 6`, choose a result, and click **Place in schematic**. Move the attached symbol to its position and click once in KiCad.
+For the full workflow, double-click the **Auto BOM for KiCad** desktop shortcut. Press **Ctrl+Alt+A** or use the Component Finder toolbar button to show or hide the panel. Enter a request such as `10 kOhm 0805 resistor, inexpensive`, choose a result, and click **Place in schematic**. Move the attached symbol to its position and click once in KiCad.
+
+Use **Tools → Complete BOM with DigiKey...** to open the separate BOM window. It scans the current schematic and leaves symbols with existing DigiKey numbers alone while completing the missing ones.
 
 The web version is also available at `http://localhost:4173`, but placing parts requires the docked KiCad panel.
 

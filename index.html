@@ -8,23 +8,16 @@
   </head>
   <body>
     <header class="app-header">
-      <div><strong>Component Finder</strong><span>for KiCad</span></div>
+      <div><strong id="app-title">Component Finder</strong><span>for KiCad</span></div>
       <span id="api-status" class="api-status">Connecting…</span>
     </header>
-    <nav class="tabs" aria-label="Tools">
-      <button class="tab active" data-view="finder" type="button">Find a component</button>
-      <button class="tab" data-view="bom" type="button">Check a BOM</button>
-    </nav>
     <main>
       <div id="message" class="message hidden" role="status"></div>
       <section id="finder-view">
         <form id="component-form" class="search-panel">
           <label for="component-query">What component do you need?</label>
           <textarea id="component-query" rows="4" placeholder="Example: 3.3 V buck regulator, 2 A or more, 12 V input, small SMD package"></textarea>
-          <div class="search-actions">
-            <label class="quantity-label">Quantity <input id="component-quantity" type="number" min="1" value="1" /></label>
-            <button id="component-search" class="button primary" type="submit">Find parts</button>
-          </div>
+          <div class="search-actions"><button id="component-search" class="button primary" type="submit">Find parts</button></div>
         </form>
         <section id="interpreted-request" class="request-summary hidden"></section>
         <section id="component-results" class="hidden">
@@ -33,7 +26,11 @@
         </section>
       </section>
       <section id="bom-view" class="hidden">
-        <section class="panel import-panel">
+        <section id="schematic-bom-panel" class="panel import-panel hidden">
+          <div><h2>Complete schematic BOM</h2><p>Parts come directly from the open schematic. Missing DigiKey fields are filled back into KiCad.</p></div>
+          <button id="schematic-refresh" class="button secondary" type="button">Refresh schematic</button>
+        </section>
+        <section id="csv-import-panel" class="panel import-panel">
           <div><h2>Final BOM check</h2><p>Import a KiCad CSV after the schematic is designed to catch missing or unavailable parts.</p></div>
           <div class="actions">
             <button id="sample-button" class="button secondary" type="button">Sample</button>

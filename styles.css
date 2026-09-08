@@ -6,17 +6,12 @@ button, input, textarea { font: inherit; }
 .app-header div { display: flex; align-items: baseline; gap: 7px; }
 .app-header strong { font-size: 17px; }
 .app-header div span { color: #687078; font-size: 13px; }
-.tabs { display: flex; gap: 22px; padding: 0 max(18px, calc((100% - 1040px) / 2)); background: #fff; border-bottom: 1px solid #d7dadd; }
-.tab { padding: 12px 0 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #5b626a; cursor: pointer; }
-.tab.active { border-bottom-color: #1769aa; color: #111; font-weight: 600; }
 main { width: min(1040px, calc(100% - 36px)); margin: 22px auto 50px; }
 .search-panel, .panel, .request-summary { padding: 20px; background: #fff; border: 1px solid #d7dadd; border-radius: 7px; }
 .search-panel label:first-child { display: block; margin-bottom: 9px; font-weight: 650; }
 textarea { width: 100%; resize: vertical; min-height: 88px; padding: 11px 12px; border: 1px solid #aeb4ba; border-radius: 5px; outline: none; line-height: 1.45; }
 textarea:focus, input:focus { border-color: #1769aa; box-shadow: 0 0 0 2px #d9e9f6; }
-.search-actions { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-top: 12px; }
-.quantity-label { color: #5d646c; font-size: 13px; }
-.quantity-label input { display: block; width: 78px; margin-top: 4px; padding: 8px; border: 1px solid #aeb4ba; border-radius: 4px; }
+.search-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .button { display: inline-block; padding: 9px 13px; border: 1px solid #aeb6c2; border-radius: 4px; font-weight: 600; cursor: pointer; text-decoration: none; }
 .button.primary { border-color: #1769aa; background: #1769aa; color: #fff; }
 .button.secondary { background: #fff; color: #283442; }
@@ -66,9 +61,8 @@ td { font-size: 12px; white-space: pre-line; }
 .tag.warning { background: #fff0ce; color: #71510a; }
 .part-link { color: #0d5e9c; }
 .hidden { display: none !important; }
-.kicad-embedded { font-size: 14px; }
-.kicad-embedded .app-header { height: 46px; padding: 0 12px; }
-.kicad-embedded .tabs { padding: 0 12px; gap: 18px; }
+.kicad-embedded { font-size: 16px; background: #f1f3f5; }
+.kicad-embedded .app-header { height: 52px; padding: 0 14px; }
 .kicad-embedded main { width: calc(100% - 16px); margin: 10px auto 24px; }
 .kicad-embedded .search-panel, .kicad-embedded .panel { padding: 13px; }
 .kicad-embedded .facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -77,4 +71,8 @@ td { font-size: 12px; white-space: pre-line; }
 .kicad-embedded .import-panel, .kicad-embedded .results-header { align-items: flex-start; flex-direction: column; }
 .kicad-embedded .actions { width: 100%; flex-wrap: wrap; }
 .kicad-embedded .table-wrap { margin: 12px -13px -13px; }
+.bom-manager main { width: calc(100% - 28px); max-width: 1400px; }
+.bom-manager .app-header { padding-left: 18px; padding-right: 18px; }
+.bom-manager .import-panel, .bom-manager .results-header { align-items: center; flex-direction: row; }
+.bom-manager #schematic-bom-panel { border-left: 4px solid #1769aa; }
 @media (max-width: 620px) { .app-header { padding: 0 12px; } main { width: calc(100% - 20px); } .facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } .import-panel, .results-header { align-items: flex-start; flex-direction: column; } }

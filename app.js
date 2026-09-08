@@ -1,39 +1,48 @@
 import { parseCsv } from "./parser.js";
 
-if (new URLSearchParams(window.location.search).get("embedded") === "kicad") {
+const pageParameters = new URLSearchParams(window.location.search);
+const embeddedInKiCad = pageParameters.get("embedded") === "kicad";
+const bomManagerMode = pageParameters.get("view") === "bom";
+if (embeddedInKiCad) {
   document.body.classList.add("kicad-embedded");
+}
+if (bomManagerMode) {
+  document.body.classList.add("bom-manager");
+  document.title = "Auto BOM — Complete Schematic";
 }
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
-  componentForm: $("#component-form"), componentQuery: $("#component-query"), componentQuantity: $("#component-quantity"),
+  componentForm: $("#component-form"), componentQuery: $("#component-query"),
   componentSearch: $("#component-search"), interpretedRequest: $("#interpreted-request"), componentResults: $("#component-results"),
   componentCards: $("#component-cards"), resultCount: $("#result-count"), finderView: $("#finder-view"), bomView: $("#bom-view"),
   file: $("#file-input"), sample: $("#sample-button"), stressTest: $("#stress-test-button"), export: $("#export-button"),
   empty: $("#empty-state"), results: $("#results"), bom: $("#bom-body"), candidates: $("#candidate-panel"),
   candidateBody: $("#candidate-body"), candidateContext: $("#candidate-context"), aiResult: $("#ai-result"),
-  message: $("#message"), apiStatus: $("#api-status"),
+  message: $("#message"), apiStatus: $("#api-status"), schematicBomPanel: $("#schematic-bom-panel"),
+  csvImportPanel: $("#csv-import-panel"), schematicRefresh: $("#schematic-refresh"),
 };
 let bom = [];
 let configuration = { digikey: false, openai: false };
 let importGeneration = 0;
 let nativeConnected = false;
+let nativeBom = false;
 
 const configurationReady = checkConfiguration();
 
 window.addEventListener("autobom-native", (event) => {
   nativeConnected = Boolean(event.detail?.connected);
   updateApiStatus();
+  if (nativeConnected && bomManagerMode) postToKiCad({ command: "getSchematic" });
 });
-if (document.body.classList.contains("kicad-embedded")) setTimeout(() => postToKiCad({ command: "ping" }), 250);
-
-document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));
-  const finder = tab.dataset.view === "finder";
-  ui.finderView.classList.toggle("hidden", !finder);
-  ui.bomView.classList.toggle("hidden", finder);
-  ui.message.classList.add("hidden");
-}));
+window.addEventListener("autobom-schematic", (event) => loadSchematicBom(event.detail?.symbols || []));
+if (embeddedInKiCad) setTimeout(() => postToKiCad({ command: "ping" }), 250);
+ui.finderView.classList.toggle("hidden", bomManagerMode);
+ui.bomView.classList.toggle("hidden", !bomManagerMode);
+ui.schematicBomPanel.classList.toggle("hidden", !(bomManagerMode && embeddedInKiCad));
+ui.csvImportPanel.classList.toggle("hidden", bomManagerMode && embeddedInKiCad);
+if (bomManagerMode) $("#app-title").textContent = "BOM Completion";
+ui.schematicRefresh.addEventListener("click", () => postToKiCad({ command: "getSchematic" }));
 
 ui.componentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -45,7 +54,7 @@ ui.componentForm.addEventListener("submit", async (event) => {
   ui.interpretedRequest.classList.add("hidden");
   showMessage("AI is turning your request into component requirements, then DigiKey will search live stock.");
   try {
-    const result = await postJson("/api/components/search", { query, quantity: Number(ui.componentQuantity.value) || 1 });
+    const result = await postJson("/api/components/search", { query, quantity: 1 });
     renderComponentSearch(result);
     showMessage(`Found ${result.candidates.length} in-stock DigiKey options.`);
   } catch (error) {
@@ -173,11 +182,22 @@ ui.export.addEventListener("click", () => {
   URL.revokeObjectURL(link.href);
 });
 
-async function loadBom(text) {
+async function loadBom(text, schematicSymbols = null) {
   const generation = ++importGeneration;
   try {
     await configurationReady;
     bom = parseCsv(text).map((part) => ({ ...part, analysisStatus: "Parsed", candidates: [], review: null }));
+    if (schematicSymbols) {
+      const byReference = new Map(schematicSymbols.map((symbol) => [symbol.reference, symbol]));
+      bom = bom.map((part) => {
+        const sourceSymbols = part.references.map((reference) => byReference.get(reference)).filter(Boolean);
+        const manufacturerPartNumber = sourceSymbols.find((symbol) => symbol.manufacturerPartNumber)?.manufacturerPartNumber || "";
+        const digiKeyPartNumber = sourceSymbols.find((symbol) => symbol.digiKeyPartNumber)?.digiKeyPartNumber || "";
+        return { ...part, supplierPartNumber: manufacturerPartNumber || part.supplierPartNumber,
+          existingManufacturerPartNumber: manufacturerPartNumber, existingDigiKeyPartNumber: digiKeyPartNumber,
+          nativeHasDigiKeyPartNumber: sourceSymbols.length > 0 && sourceSymbols.every((symbol) => symbol.digiKeyPartNumber) };
+      });
+    }
     renderBom();
     if (configuration.openai) {
       showMessage("AI is reviewing the CSV structure and correcting the first-pass import…");
@@ -195,6 +215,24 @@ async function loadBom(text) {
   } catch (error) { showMessage(error.message, true); }
 }
 
+async function loadSchematicBom(symbols) {
+  nativeBom = true;
+  if (!symbols.length) {
+    bom = [];
+    ui.bom.replaceChildren();
+    ui.results.classList.add("hidden");
+    ui.candidates.classList.add("hidden");
+    ui.empty.classList.remove("hidden");
+    ui.empty.querySelector("p").textContent = "The open schematic has no BOM components yet.";
+    return showMessage("The open schematic has no BOM components yet.");
+  }
+  const text = toCsv(symbols.map((symbol) => ({
+    Reference: symbol.reference, Value: symbol.value, Footprint: symbol.footprint,
+    "Supplier Part Number": symbol.digiKeyPartNumber || symbol.manufacturerPartNumber,
+  })));
+  await loadBom(text, symbols);
+}
+
 async function analyzeAllParts(generation) {
   if (!configuration.digikey) {
     showMessage("BOM imported. Add DigiKey credentials to search every line automatically.", true);
@@ -204,6 +242,10 @@ async function analyzeAllParts(generation) {
   let supplierBlocked = "";
   const work = bom.map((part) => async () => {
     if (generation !== importGeneration) return;
+    if (nativeBom && part.nativeHasDigiKeyPartNumber) {
+      part.analysisStatus = "Already assigned";
+      completed += 1; renderBom(); return;
+    }
     if (supplierBlocked) {
       part.analysisStatus = "Search blocked";
       part.analysisError = supplierBlocked;
@@ -217,7 +259,7 @@ async function analyzeAllParts(generation) {
       part.selectedCandidate = result.candidates[0] || null;
       part.analysisStatus = result.candidates.length ? "Reviewing candidates…" : "No candidates";
       renderBom();
-      if (configuration.openai && result.candidates.length) {
+      if (configuration.openai && result.candidates.length && needsAiCandidateReview(part)) {
         part.review = await postJson("/api/ai/review", { component: part, candidates: result.candidates });
         part.selectedCandidate = result.candidates.find((candidate) =>
           candidate.digiKeyPartNumber === part.review.selectedDigiKeyPartNumber
@@ -225,6 +267,20 @@ async function analyzeAllParts(generation) {
         ) || part.selectedCandidate;
         part.analysisStatus = "Selected";
       } else if (result.candidates.length) part.analysisStatus = "Selected";
+      if (nativeBom && part.selectedCandidate) {
+        const assets = await postJson("/api/components/assets", { component: part, candidate: part.selectedCandidate });
+        postToKiCad({ command: "updateBomFields", references: part.references,
+          manufacturerPartNumber: part.selectedCandidate.manufacturerPartNumber,
+          digiKeyPartNumber: part.selectedCandidate.digiKeyPartNumber,
+          datasheetUrl: part.selectedCandidate.datasheetUrl,
+          footprintId: part.footprint ? "" : assets.footprintId });
+        if (!part.footprint && assets.footprintId) {
+          part.footprint = assets.footprintId;
+          part.packageDescription ||= assets.footprintId;
+          part.warnings = part.warnings.filter((warning) => warning !== "Footprint not present in export");
+        }
+        part.analysisStatus = "Saved to schematic";
+      }
     } catch (error) {
       part.analysisStatus = "Analysis failed";
       part.analysisError = error.message;
@@ -247,8 +303,8 @@ function renderBom() {
     const selected = part.selectedCandidate;
     [part.references.join(", ") || "—", `${part.componentType}\n${part.normalizedValue || part.value}\n${part.packageDescription || part.footprint}`, String(part.quantity)]
       .forEach((value) => addCell(row, value));
-    addCell(row, selected?.manufacturerPartNumber || "—");
-    addCell(row, selected?.digiKeyPartNumber || "—");
+    addCell(row, selected?.manufacturerPartNumber || part.existingManufacturerPartNumber || "—");
+    addCell(row, selected?.digiKeyPartNumber || part.existingDigiKeyPartNumber || "—");
     addCell(row, selected ? String(selected.quantityAvailable) : "—");
     addCell(row, selected?.unitPrice == null ? "—" : `${selected.currency} ${selected.unitPrice.toFixed(4)}`);
     const check = part.warnings.length ? part.warnings.join("; ") : part.analysisStatus;
@@ -323,3 +379,12 @@ function addCell(row, text, className = "") { const cell = element("td", text, c
 function tag(text, warning = false) { return element("span", text, `tag${warning ? " warning" : ""}`); }
 function element(name, text, className = "") { const item = document.createElement(name); item.textContent = text; item.className = className; return item; }
 function showMessage(text, error = false) { ui.message.textContent = text; ui.message.className = `message${error ? " error" : ""}`; }
+function needsAiCandidateReview(part) {
+  if (part.supplierPartNumber) return false;
+  return !/^(Resistor|Capacitor|Inductor|Diode|LED|Fuse|Ferrite bead)$/i.test(part.componentType);
+}
+function toCsv(rows) {
+  const headers = Object.keys(rows[0]);
+  const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  return [headers.map(quote).join(","), ...rows.map((row) => headers.map((header) => quote(row[header])).join(","))].join("\n");
+}

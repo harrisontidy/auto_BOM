@@ -1,8 +1,8 @@
 # Native KiCad integration
 
-This integration adds a real docked **Auto BOM Assistant** WebView to the right side of KiCad's Schematic Editor. It is a source patch for KiCad 10.0.6 because KiCad 10 does not expose Schematic Editor panes through its external plugin API.
+This integration adds a native **Component Finder** pane and a separate **Complete BOM with DigiKey** window to KiCad's Schematic Editor. It is a source patch for KiCad 10.0.6 because KiCad 10 does not expose Schematic Editor panes through its external plugin API.
 
-The pane loads `http://127.0.0.1:4173/?embedded=kicad`. AI and DigiKey credentials remain in the local Auto BOM server and are never compiled into KiCad.
+The finder loads `http://127.0.0.1:4173/?embedded=kicad`; the BOM window uses `?embedded=kicad&view=bom`. AI and DigiKey credentials remain in the local Auto BOM server and are never compiled into KiCad.
 
 ## Local development checkout
 
@@ -46,6 +46,12 @@ To open a particular schematic:
 & ".\Start Auto BOM in KiCad.ps1" -Schematic "C:\path\to\board.kicad_sch"
 ```
 
-The launcher starts the local Auto BOM server without opening a browser, prepares the custom-build DLL path, and starts the patched Schematic Editor.
+The launcher starts the local Auto BOM server without opening a browser, prepares the custom-build DLL path, and starts the patched Schematic Editor. The custom build is configured as per-monitor DPI aware so KiCad and its embedded browser stay sharp at Windows display scaling above 100%.
+
+Inside the Schematic Editor:
+
+- Press **Ctrl+Alt+A**, click the Component Finder toolbar button, or use **View → Panels → Component Finder** to show or hide the finder.
+- Use **Tools → Complete BOM with DigiKey...** to scan the current schematic and write missing manufacturer part number, DigiKey part number, datasheet, and footprint fields back to its symbols.
+- Placing a search result uses an exact installed KiCad library symbol and its assigned footprint when available. Common passives use safe standard symbols and footprints. Unknown IC pinouts are never replaced with an invented generic symbol.
 
 The KiCad source patch is distributed under KiCad's GPL terms.

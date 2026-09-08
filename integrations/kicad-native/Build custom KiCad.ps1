@@ -20,10 +20,14 @@ $env:CHERE_INVOKING = "1"
 Push-Location $KiCadSource
 try {
   if (-not (Test-Path -LiteralPath "build\auto-bom-release\build.ninja")) {
-    & $bash -lc "cmake -S . -B build/auto-bom-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DCMAKE_INSTALL_PREFIX=/ucrt64 -DDEFAULT_INSTALL_PATH=/ucrt64 -DOCC_INCLUDE_DIR=/ucrt64/include/opencascade -DKICAD_BUILD_I18N=OFF -DKICAD_SCRIPTING_WXPYTHON=OFF"
+    & $bash -lc "cmake -S . -B build/auto-bom-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DCMAKE_INSTALL_PREFIX=/ucrt64 -DDEFAULT_INSTALL_PATH=/ucrt64 -DOCC_INCLUDE_DIR=/ucrt64/include/opencascade -DKICAD_BUILD_I18N=OFF -DKICAD_SCRIPTING_WXPYTHON=OFF -DKICAD_WIN32_DPI_AWARE=ON"
 
     if ($LASTEXITCODE -ne 0) { throw "KiCad configuration failed." }
   }
+
+  & $bash -lc "cmake -S . -B build/auto-bom-release -DKICAD_WIN32_DPI_AWARE=ON"
+
+  if ($LASTEXITCODE -ne 0) { throw "KiCad DPI configuration failed." }
 
   & $bash -lc "cmake --build build/auto-bom-release --target eeschema pcbnew bitmap_archive_build api_schema_build_copy remote_provider_schema_build_copy --parallel $ParallelJobs"
 

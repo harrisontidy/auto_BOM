@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-let symbolIndexPromise;
+const symbolIndexPromises = new Map();
 
 export async function resolveKiCadAssets(component, candidate, environment = process.env) {
   const componentType = String(component.componentType || "").toLowerCase();
@@ -9,17 +9,31 @@ export async function resolveKiCadAssets(component, candidate, environment = pro
   const manufacturerPartNumber = candidate?.manufacturerPartNumber || "";
   const symbolDirectory = environment.KICAD10_SYMBOL_DIR
     || (environment.LOCALAPPDATA ? join(environment.LOCALAPPDATA, "Programs", "KiCad", "10.0", "share", "kicad", "symbols") : "");
+  const footprintDirectory = environment.KICAD10_FOOTPRINT_DIR
+    || (environment.LOCALAPPDATA ? join(environment.LOCALAPPDATA, "Programs", "KiCad", "10.0", "share", "kicad", "footprints") : "");
   const exactSymbol = await findExactSymbol(manufacturerPartNumber, symbolDirectory);
-  const symbolId = exactSymbol || genericSymbol(componentType, packageText, component.pinCount);
-  const footprintId = footprintFor(componentType, packageText, component.pinCount);
+  const symbolId = exactSymbol?.symbolId || genericSymbol(componentType, packageText, component.pinCount);
+  const footprintId = exactSymbol?.footprintId || footprintFor(componentType, packageText, component.pinCount);
+  const modelExpected = await footprintHasModel(footprintId, footprintDirectory);
   return {
     symbolId,
     footprintId,
     symbolSource: exactSymbol ? "Exact KiCad library match" : symbolId ? "KiCad generic symbol" : "No safe symbol match",
-    footprintSource: footprintId ? "Matched KiCad footprint" : "No safe footprint match",
-    modelExpected: Boolean(footprintId),
+    footprintSource: exactSymbol?.footprintId ? "Footprint from KiCad symbol library" : footprintId ? "Matched KiCad footprint" : "No safe footprint match",
+    modelExpected,
     placeable: Boolean(symbolId && footprintId),
   };
+}
+
+async function footprintHasModel(footprintId, directory) {
+  const [library, footprint] = String(footprintId || "").split(":");
+  if (!library || !footprint || !directory) return false;
+  try {
+    const content = await readFile(join(directory, `${library}.pretty`, `${footprint}.kicad_mod`), "utf8");
+    return /^\s*\(model\s+/m.test(content);
+  } catch {
+    return false;
+  }
 }
 
 export function genericSymbol(type, packageText = "", pinCount = 0) {
@@ -68,8 +82,8 @@ function partNumberKeys(value) {
 }
 
 async function getSymbolIndex(directory) {
-  if (!symbolIndexPromise) symbolIndexPromise = buildSymbolIndex(directory).catch(() => new Map());
-  return symbolIndexPromise;
+  if (!symbolIndexPromises.has(directory)) symbolIndexPromises.set(directory, buildSymbolIndex(directory).catch(() => new Map()));
+  return symbolIndexPromises.get(directory);
 }
 
 async function buildSymbolIndex(directory) {
@@ -78,9 +92,13 @@ async function buildSymbolIndex(directory) {
   await Promise.all(files.map(async (file) => {
     const content = await readFile(join(directory, file), "utf8");
     const library = basename(file, ".kicad_sym");
-    for (const match of content.matchAll(/^\s*\(symbol\s+"([^"/]+)"/gm)) {
+    const matches = [...content.matchAll(/^\t\(symbol\s+"([^"/]+)"/gm)];
+    for (let indexPosition = 0; indexPosition < matches.length; indexPosition += 1) {
+      const match = matches[indexPosition];
       const name = match[1];
-      index.set(name.toUpperCase().replace(/[^A-Z0-9]/g, ""), `${library}:${name}`);
+      const block = content.slice(match.index, matches[indexPosition + 1]?.index ?? content.length);
+      const footprintId = block.match(/^\t\t\(property\s+"Footprint"\s+"([^"]*)"/m)?.[1] || "";
+      index.set(name.toUpperCase().replace(/[^A-Z0-9]/g, ""), { symbolId: `${library}:${name}`, footprintId });
     }
   }));
   return index;

@@ -1,0 +1,558 @@
+From cb2860142f7dea2a0d367f5b0f9582f175e3e0b4 Mon Sep 17 00:00:00 2001
+From: harrisontidy <harrisontidy@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 20:07:44 -0700
+Subject: [PATCH] Integrate component finder and BOM completion into Eeschema
+
+---
+ eeschema/menubar.cpp                  |   2 +
+ eeschema/sch_edit_frame.cpp           | 297 ++++++++++++++++++++++----
+ eeschema/sch_edit_frame.h             |  12 ++
+ eeschema/toolbars_sch_editor.cpp      |   3 +-
+ eeschema/tools/sch_actions.cpp        |  16 ++
+ eeschema/tools/sch_actions.h          |   2 +
+ eeschema/tools/sch_editor_control.cpp |  16 ++
+ eeschema/tools/sch_editor_control.h   |   2 +
+ 8 files changed, 312 insertions(+), 38 deletions(-)
+
+diff --git a/eeschema/menubar.cpp b/eeschema/menubar.cpp
+index a6f206e9..42be703b 100644
+--- a/eeschema/menubar.cpp
++++ b/eeschema/menubar.cpp
+@@ -186,6 +186,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
+ 
+     showHidePanels->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+     wxMenuItem* remoteSymbolItem = showHidePanels->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
++    showHidePanels->Add( SCH_ACTIONS::showAutoBomPanel, ACTION_MENU::CHECK, _( "Component Finder" ) );
+ 
+     if( m_remoteSymbolPane && !m_remoteSymbolPane->HasDataSources() )
+     {
+@@ -318,6 +319,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
+     toolsMenu->Add( SCH_ACTIONS::assignFootprints );
+     toolsMenu->Add( SCH_ACTIONS::generateBOM );
+     toolsMenu->Add( SCH_ACTIONS::generateBOMLegacy );
++    toolsMenu->Add( SCH_ACTIONS::completeAutoBom );
+ 
+     toolsMenu->AppendSeparator();
+     toolsMenu->Add( ACTIONS::updateSchematicFromPcb )->Enable( !Kiface().IsSingle() );
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 1a47d065..a31fe64f 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -64,6 +64,7 @@
+ #include <sch_painter.h>
+ #include <sch_marker.h>
+ #include <sch_symbol.h>
++#include <sch_reference_list.h>
+ #include <sch_sheet_pin.h>
+ #include <sch_commit.h>
+ #include <sch_rule_area.h>
+@@ -123,6 +124,7 @@
+ #include <wx/log.h>
+ #include <wx/choicdlg.h>
+ #include <wx/textdlg.h>
++#include <wx/frame.h>
+ #include <wx/generic/treectlg.h>
+ #include <nlohmann/json.hpp>
+ 
+@@ -171,6 +173,50 @@ static wxString jsonString( const nlohmann::json& aObject, const char* aKey )
+ }
+ 
+ 
++static std::string jsonUtf8( const wxString& aText )
++{
++    return std::string( aText.utf8_str() );
++}
++
++
++static wxString autoBomFieldText( const SCH_SYMBOL* aSymbol, const wxString& aName )
++{
++    if( const SCH_FIELD* field = aSymbol->GetField( aName ) )
++        return field->GetText();
++
++    return wxString();
++}
++
++
++static wxString autoBomFirstFieldText( const SCH_SYMBOL* aSymbol,
++                                       std::initializer_list<wxString> aNames )
++{
++    for( const wxString& name : aNames )
++    {
++        const wxString text = autoBomFieldText( aSymbol, name );
++
++        if( !text.IsEmpty() )
++            return text;
++    }
++
++    return wxString();
++}
++
++
++static void setAutoBomField( SCH_SYMBOL* aSymbol, const wxString& aName, const wxString& aValue )
++{
++    if( aValue.IsEmpty() )
++        return;
++
++    SCH_FIELD* field = aSymbol->GetField( aName );
++
++    if( !field )
++        field = aSymbol->AddField( SCH_FIELD( aSymbol, FIELD_T::USER, aName ) );
++
++    field->SetText( aValue );
++}
++
++
+ static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload )
+ {
+     try
+@@ -216,12 +262,7 @@ static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+                 continue;
+ 
+             const wxString fieldName = wxString::FromUTF8( name );
+-            SCH_FIELD* field = symbol->GetField( fieldName );
+-
+-            if( !field )
+-                field = symbol->AddField( SCH_FIELD( symbol, FIELD_T::USER, fieldName ) );
+-
+-            field->SetText( text );
++            setAutoBomField( symbol, fieldName, text );
+         }
+ 
+         if( EESCHEMA_SETTINGS* cfg = aFrame->eeconfig(); cfg && cfg->m_AutoplaceFields.enable )
+@@ -238,6 +279,136 @@ static void placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+ }
+ 
+ 
++void SCH_EDIT_FRAME::SendAutoBomSchematic( WEBVIEW_PANEL* aPanel )
++{
++    if( !aPanel )
++        return;
++
++    SCH_REFERENCE_LIST references;
++    Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
++    nlohmann::json symbols = nlohmann::json::array();
++
++    for( size_t i = 0; i < references.GetCount(); ++i )
++    {
++        SCH_REFERENCE& reference = references[i];
++        SCH_SYMBOL* symbol = reference.GetSymbol();
++
++        if( !symbol || reference.GetSymbolExcludedFromBOM() || reference.GetSheetPath().GetExcludedFromBOM() )
++            continue;
++
++        symbols.push_back( {
++            { "reference", jsonUtf8( reference.GetFullRef( false ) ) },
++            { "value", jsonUtf8( symbol->GetValue( true, &reference.GetSheetPath(), false ) ) },
++            { "footprint", jsonUtf8( symbol->GetFootprintFieldText( true, &reference.GetSheetPath(), false ) ) },
++            { "symbolId", jsonUtf8( UnescapeString( symbol->GetLibId().Format() ) ) },
++            { "manufacturerPartNumber", jsonUtf8( autoBomFirstFieldText(
++                    symbol, { wxS( "Manufacturer Part Number" ), wxS( "MPN" ),
++                              wxS( "MFR Part Number" ) } ) ) },
++            { "digiKeyPartNumber", jsonUtf8( autoBomFirstFieldText(
++                    symbol, { wxS( "DigiKey Part Number" ), wxS( "Digi-Key Part Number" ),
++                              wxS( "Digi-Key_PN" ), wxS( "DigiKey" ) } ) ) },
++            { "datasheetUrl", jsonUtf8( autoBomFieldText( symbol, wxS( "Datasheet" ) ) ) }
++        } );
++    }
++
++    nlohmann::json detail = { { "symbols", std::move( symbols ) } };
++    const wxString script = wxS( "window.dispatchEvent(new CustomEvent('autobom-schematic',{detail:" )
++                            + wxString::FromUTF8( detail.dump() ) + wxS( "}));" );
++    aPanel->RunScriptAsync( script );
++}
++
++
++void SCH_EDIT_FRAME::HandleAutoBomMessage( WEBVIEW_PANEL* aPanel, const wxString& aPayload )
++{
++    try
++    {
++        const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
++        const wxString command = jsonString( message, "command" );
++
++        if( command == wxS( "ping" ) )
++        {
++            aPanel->RunScriptAsync(
++                    wxS( "window.dispatchEvent(new CustomEvent('autobom-native',{detail:{connected:true}}));" ) );
++            return;
++        }
++
++        if( command == wxS( "openUrl" ) )
++        {
++            const wxString url = jsonString( message, "url" );
++
++            if( url.StartsWith( wxS( "https://" ) ) || url.StartsWith( wxS( "http://" ) ) )
++                wxLaunchDefaultBrowser( url );
++
++            return;
++        }
++
++        if( command == wxS( "getSchematic" ) )
++        {
++            SendAutoBomSchematic( aPanel );
++            return;
++        }
++
++        if( command == wxS( "updateBomFields" ) )
++        {
++            if( !message.contains( "references" ) || !message["references"].is_array() )
++                return;
++
++            std::unordered_set<std::string> requestedReferences;
++
++            for( const nlohmann::json& reference : message["references"] )
++            {
++                if( reference.is_string() )
++                    requestedReferences.insert( reference.get<std::string>() );
++            }
++
++            SCH_REFERENCE_LIST references;
++            Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
++            SCH_COMMIT commit( this );
++            std::unordered_set<SCH_SYMBOL*> modified;
++
++            for( size_t i = 0; i < references.GetCount(); ++i )
++            {
++                SCH_REFERENCE& reference = references[i];
++                SCH_SYMBOL* symbol = reference.GetSymbol();
++
++                if( !symbol || !requestedReferences.contains( jsonUtf8( reference.GetFullRef( false ) ) ) )
++                    continue;
++
++                if( modified.insert( symbol ).second )
++                    commit.Modify( symbol, reference.GetSheetPath().LastScreen() );
++
++                setAutoBomField( symbol, wxS( "Manufacturer Part Number" ),
++                                 jsonString( message, "manufacturerPartNumber" ) );
++                setAutoBomField( symbol, wxS( "DigiKey Part Number" ),
++                                 jsonString( message, "digiKeyPartNumber" ) );
++                setAutoBomField( symbol, wxS( "Datasheet" ), jsonString( message, "datasheetUrl" ) );
++
++                const wxString footprint = jsonString( message, "footprintId" );
++
++                if( symbol->GetFootprintFieldText( true, &reference.GetSheetPath(), false ).IsEmpty()
++                    && !footprint.IsEmpty() )
++                    symbol->SetFootprintFieldText( footprint );
++            }
++
++            if( !modified.empty() )
++            {
++                commit.Push( _( "Complete BOM fields" ) );
++                OnModify();
++            }
++
++            return;
++        }
++    }
++    catch( const std::exception& error )
++    {
++        wxLogError( "Auto BOM message failed: %s", error.what() );
++        return;
++    }
++
++    placeAutoBomSymbol( this, aPayload );
++}
++
++
+ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+         SCH_BASE_FRAME( aKiway, aParent, FRAME_SCH, wxT( "Eeschema" ), wxDefaultPosition,
+                         wxDefaultSize, KICAD_DEFAULT_DRAWFRAME_STYLE, SCH_EDIT_FRAME_NAME ),
+@@ -252,6 +423,8 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+         m_designBlocksPane( nullptr ),
+         m_remoteSymbolPane( nullptr ),
+         m_autoBomPanel( nullptr ),
++        m_autoBomManagerFrame( nullptr ),
++        m_autoBomManagerPanel( nullptr ),
+         m_currentVariantCtrl( nullptr )
+ {
+     m_maximizeByDefault = true;
+@@ -318,33 +491,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_autoBomPanel->AddMessageHandler( wxS( "autobom" ),
+                                        [this]( const wxString& aPayload )
+                                        {
+-                                           try
+-                                           {
+-                                               const nlohmann::json message = nlohmann::json::parse( aPayload.ToStdString() );
+-
+-                                               if( jsonString( message, "command" ) == wxS( "ping" ) )
+-                                               {
+-                                                   m_autoBomPanel->RunScriptAsync(
+-                                                           wxS( "window.dispatchEvent(new CustomEvent('autobom-native', {detail:{connected:true}}));" ) );
+-                                                   return;
+-                                               }
+-
+-                                               if( jsonString( message, "command" ) == wxS( "openUrl" ) )
+-                                               {
+-                                                   const wxString url = jsonString( message, "url" );
+-
+-                                                   if( url.StartsWith( wxS( "https://" ) ) || url.StartsWith( wxS( "http://" ) ) )
+-                                                       wxLaunchDefaultBrowser( url );
+-
+-                                                   return;
+-                                               }
+-                                           }
+-                                           catch( const std::exception& )
+-                                           {
+-                                               return;
+-                                           }
+-
+-                                           placeAutoBomSymbol( this, aPayload );
++                                           HandleAutoBomMessage( m_autoBomPanel, aPayload );
+                                        } );
+     m_autoBomPanel->SetHandleExternalLinks( true );
+     m_autoBomPanel->BindLoadedEvent();
+@@ -391,16 +538,16 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     m_auimgr.AddPane( m_remoteSymbolPane, defaultRemoteSymbolPaneInfo( this ) );
+ 
+     m_auimgr.AddPane( m_autoBomPanel, EDA_PANE()
+-                      .Name( wxS( "AutoBomAssistant" ) )
+-                      .Caption( _( "Auto BOM Assistant" ) )
++                      .Name( AutoBomPaneName() )
++                      .Caption( _( "Component Finder" ) )
+                       .Right().Layer( 3 ).Position( 1 )
+                       .TopDockable( false )
+                       .BottomDockable( false )
+-                      .CloseButton( false )
++                      .CloseButton( true )
+                       .MinSize( FromDIP( wxSize( 320, 180 ) ) )
+                       .BestSize( FromDIP( wxSize( 420, 600 ) ) )
+                       .FloatingSize( FromDIP( wxSize( 520, 720 ) ) )
+-                      .Show( true ) );
++                      .Show( false ) );
+ 
+     m_auimgr.AddPane( createHighlightedNetNavigator(), defaultNetNavigatorPaneInfo() );
+ 
+@@ -894,6 +1041,12 @@ void SCH_EDIT_FRAME::setupUIConditions()
+                 return m_auimgr.GetPane( RemoteSymbolPaneName() ).IsShown();
+             };
+ 
++    auto autoBomCond =
++            [ this ] ( const SELECTION& )
++            {
++                return m_auimgr.GetPane( AutoBomPaneName() ).IsShown();
++            };
++
+     auto undoCond =
+             [ this ] (const SELECTION& aSel )
+             {
+@@ -930,6 +1083,7 @@ void SCH_EDIT_FRAME::setupUIConditions()
+     mgr->SetConditions( ACTIONS::showProperties,           CHECK( propertiesCond ) );
+     mgr->SetConditions( SCH_ACTIONS::showDesignBlockPanel, CHECK( designBlockCond ) );
+     mgr->SetConditions( SCH_ACTIONS::showRemoteSymbolPanel, CHECK( remoteSymbolCond ) );
++    mgr->SetConditions( SCH_ACTIONS::showAutoBomPanel,     CHECK( autoBomCond ) );
+     mgr->SetConditions( ACTIONS::toggleGrid,               CHECK( cond.GridVisible() ) );
+     mgr->SetConditions( ACTIONS::toggleGridOverrides,      CHECK( cond.GridOverrides() ) );
+ 
+@@ -3164,6 +3318,75 @@ void SCH_EDIT_FRAME::ToggleRemoteSymbolPanel()
+ }
+ 
+ 
++void SCH_EDIT_FRAME::ToggleAutoBomPanel()
++{
++    wxAuiPaneInfo& pane = m_auimgr.GetPane( AutoBomPaneName() );
++    pane.Show( !pane.IsShown() );
++
++    if( pane.IsShown() )
++    {
++        if( pane.IsDocked() )
++            SetAuiPaneSize( m_auimgr, pane, FromDIP( 440 ), -1 );
++        else
++            m_auimgr.Update();
++
++        m_autoBomPanel->LoadURL( wxS( "http://127.0.0.1:4173/?embedded=kicad" ) );
++    }
++    else
++    {
++        m_auimgr.Update();
++    }
++}
++
++
++void SCH_EDIT_FRAME::ShowAutoBomManager()
++{
++    if( !m_autoBomManagerFrame )
++    {
++        m_autoBomManagerFrame = new wxFrame( this, wxID_ANY, _( "Complete BOM with DigiKey" ),
++                                             wxDefaultPosition, FromDIP( wxSize( 1180, 760 ) ),
++                                             wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
++        m_autoBomManagerFrame->SetMinSize( FromDIP( wxSize( 760, 520 ) ) );
++        m_autoBomManagerPanel = new WEBVIEW_PANEL( m_autoBomManagerFrame );
++        m_autoBomManagerPanel->AddMessageHandler( wxS( "autobom" ),
++                                                  [this]( const wxString& aPayload )
++                                                  {
++                                                      HandleAutoBomMessage( m_autoBomManagerPanel,
++                                                                            aPayload );
++                                                  } );
++        m_autoBomManagerPanel->SetHandleExternalLinks( true );
++        m_autoBomManagerPanel->BindLoadedEvent();
++        m_autoBomManagerPanel->LoadURL(
++                wxS( "http://127.0.0.1:4173/?embedded=kicad&view=bom" ) );
++
++        wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
++        sizer->Add( m_autoBomManagerPanel, 1, wxEXPAND );
++        m_autoBomManagerFrame->SetSizer( sizer );
++        m_autoBomManagerFrame->Bind( wxEVT_CLOSE_WINDOW,
++                                     [this]( wxCloseEvent& aEvent )
++                                     {
++                                         if( aEvent.CanVeto() )
++                                         {
++                                             m_autoBomManagerFrame->Hide();
++                                             aEvent.Veto();
++                                         }
++                                         else
++                                         {
++                                             aEvent.Skip();
++                                         }
++                                     } );
++    }
++    else
++    {
++        m_autoBomManagerPanel->LoadURL(
++                wxS( "http://127.0.0.1:4173/?embedded=kicad&view=bom" ) );
++    }
++
++    m_autoBomManagerFrame->Show();
++    m_autoBomManagerFrame->Raise();
++}
++
++
+ void SCH_EDIT_FRAME::SetSchematic( SCHEMATIC* aSchematic )
+ {
+     wxCHECK( aSchematic, /* void */ );
+diff --git a/eeschema/sch_edit_frame.h b/eeschema/sch_edit_frame.h
+index 07add5d4..ec67252d 100644
+--- a/eeschema/sch_edit_frame.h
++++ b/eeschema/sch_edit_frame.h
+@@ -70,6 +70,7 @@ class DIALOG_SCHEMATIC_SETUP;
+ class PROGRESS_REPORTER;
+ class wxSearchCtrl;
+ class wxGenericTreeCtrl;
++class wxFrame;
+ class BITMAP_BUTTON;
+ class WEBVIEW_PANEL;
+ 
+@@ -851,6 +852,12 @@ public:
+ 
+     void ToggleRemoteSymbolPanel();
+ 
++    void ToggleAutoBomPanel();
++
++    void ShowAutoBomManager();
++
++    static const wxString AutoBomPaneName() { return wxT( "AutoBomAssistant" ); }
++
+ 
+     DIALOG_BOOK_REPORTER* GetSymbolDiffDialog();
+ 
+@@ -1099,6 +1106,11 @@ private:
+     SCH_DESIGN_BLOCK_PANE*      m_designBlocksPane;
+     PANEL_REMOTE_SYMBOL*        m_remoteSymbolPane;
+     WEBVIEW_PANEL*              m_autoBomPanel;
++    wxFrame*                    m_autoBomManagerFrame;
++    WEBVIEW_PANEL*              m_autoBomManagerPanel;
++
++    void HandleAutoBomMessage( WEBVIEW_PANEL* aPanel, const wxString& aPayload );
++    void SendAutoBomSchematic( WEBVIEW_PANEL* aPanel );
+ 
+     wxChoice*                   m_currentVariantCtrl;
+ 
+diff --git a/eeschema/toolbars_sch_editor.cpp b/eeschema/toolbars_sch_editor.cpp
+index 672b4b2b..48ca84fb 100644
+--- a/eeschema/toolbars_sch_editor.cpp
++++ b/eeschema/toolbars_sch_editor.cpp
+@@ -101,7 +101,8 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
+ 
+         config.AppendSeparator()
+               .AppendAction( SCH_ACTIONS::showHierarchy )
+-              .AppendAction( ACTIONS::showProperties );
++              .AppendAction( ACTIONS::showProperties )
++              .AppendAction( SCH_ACTIONS::showAutoBomPanel );
+ 
+         if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
+             config.AppendAction( ACTIONS::toggleBoundingBoxes );
+diff --git a/eeschema/tools/sch_actions.cpp b/eeschema/tools/sch_actions.cpp
+index de0f1a18..b30f9729 100644
+--- a/eeschema/tools/sch_actions.cpp
++++ b/eeschema/tools/sch_actions.cpp
+@@ -131,6 +131,22 @@ TOOL_ACTION SCH_ACTIONS::showRemoteSymbolPanel( TOOL_ACTION_ARGS()
+         .Tooltip( _( "Show/hide the remote symbol panel" ) )
+         .Icon( BITMAPS::library_browser ) );
+ 
++TOOL_ACTION SCH_ACTIONS::showAutoBomPanel( TOOL_ACTION_ARGS()
++        .Name( "eeschema.AutoBom.showPanel" )
++        .Scope( AS_GLOBAL )
++        .DefaultHotkey( MD_CTRL + MD_ALT + 'A' )
++        .FriendlyName( _( "Component Finder" ) )
++        .Tooltip( _( "Show/hide the Auto BOM component finder" ) )
++        .ToolbarState( TOOLBAR_STATE::TOGGLE )
++        .Icon( BITMAPS::post_bom ) );
++
++TOOL_ACTION SCH_ACTIONS::completeAutoBom( TOOL_ACTION_ARGS()
++        .Name( "eeschema.AutoBom.completeBom" )
++        .Scope( AS_GLOBAL )
++        .FriendlyName( _( "Complete BOM with DigiKey..." ) )
++        .Tooltip( _( "Find DigiKey part numbers for unassigned schematic symbols" ) )
++        .Icon( BITMAPS::file_bom ) );
++
+ TOOL_ACTION SCH_ACTIONS::saveSheetAsDesignBlock( TOOL_ACTION_ARGS()
+         .Name( "eeschema.SchDesignBlockControl.saveSheetAsDesignBlock" )
+         .Scope( AS_GLOBAL )
+diff --git a/eeschema/tools/sch_actions.h b/eeschema/tools/sch_actions.h
+index b1c1f97a..82ac035c 100644
+--- a/eeschema/tools/sch_actions.h
++++ b/eeschema/tools/sch_actions.h
+@@ -207,6 +207,8 @@ public:
+     // Design Block management
+     static TOOL_ACTION showDesignBlockPanel;
+     static TOOL_ACTION showRemoteSymbolPanel;
++    static TOOL_ACTION showAutoBomPanel;
++    static TOOL_ACTION completeAutoBom;
+     static TOOL_ACTION saveSheetAsDesignBlock;
+     static TOOL_ACTION saveSelectionAsDesignBlock;
+     static TOOL_ACTION updateDesignBlockFromSheet;
+diff --git a/eeschema/tools/sch_editor_control.cpp b/eeschema/tools/sch_editor_control.cpp
+index 3946b9ef..73daa470 100644
+--- a/eeschema/tools/sch_editor_control.cpp
++++ b/eeschema/tools/sch_editor_control.cpp
+@@ -3155,6 +3155,20 @@ int SCH_EDITOR_CONTROL::ToggleRemoteSymbolPanel( const TOOL_EVENT& aEvent )
+ }
+ 
+ 
++int SCH_EDITOR_CONTROL::ToggleAutoBomPanel( const TOOL_EVENT& aEvent )
++{
++    getEditFrame<SCH_EDIT_FRAME>()->ToggleAutoBomPanel();
++    return 0;
++}
++
++
++int SCH_EDITOR_CONTROL::CompleteAutoBom( const TOOL_EVENT& aEvent )
++{
++    getEditFrame<SCH_EDIT_FRAME>()->ShowAutoBomManager();
++    return 0;
++}
++
++
+ int SCH_EDITOR_CONTROL::ToggleHiddenPins( const TOOL_EVENT& aEvent )
+ {
+     EESCHEMA_SETTINGS* cfg = m_frame->eeconfig();
+@@ -3582,6 +3596,8 @@ void SCH_EDITOR_CONTROL::setTransitions()
+     Go( &SCH_EDITOR_CONTROL::ToggleLibraryTree,       SCH_ACTIONS::showDesignBlockPanel.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleLibraryTree,       SCH_ACTIONS::showDesignBlockPanel.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleRemoteSymbolPanel, SCH_ACTIONS::showRemoteSymbolPanel.MakeEvent() );
++    Go( &SCH_EDITOR_CONTROL::ToggleAutoBomPanel,     SCH_ACTIONS::showAutoBomPanel.MakeEvent() );
++    Go( &SCH_EDITOR_CONTROL::CompleteAutoBom,        SCH_ACTIONS::completeAutoBom.MakeEvent() );
+ 
+     Go( &SCH_EDITOR_CONTROL::ToggleHiddenPins,        SCH_ACTIONS::toggleHiddenPins.MakeEvent() );
+     Go( &SCH_EDITOR_CONTROL::ToggleHiddenFields,      SCH_ACTIONS::toggleHiddenFields.MakeEvent() );
+diff --git a/eeschema/tools/sch_editor_control.h b/eeschema/tools/sch_editor_control.h
+index 9e072f10..5954061d 100644
+--- a/eeschema/tools/sch_editor_control.h
++++ b/eeschema/tools/sch_editor_control.h
+@@ -154,6 +154,8 @@ public:
+     int ToggleProperties( const TOOL_EVENT& aEvent );
+     int ToggleLibraryTree( const TOOL_EVENT& aEvent );
+     int ToggleRemoteSymbolPanel( const TOOL_EVENT& aEvent );
++    int ToggleAutoBomPanel( const TOOL_EVENT& aEvent );
++    int CompleteAutoBom( const TOOL_EVENT& aEvent );
+ 
+     int ToggleHiddenPins( const TOOL_EVENT& aEvent );
+     int ToggleHiddenFields( const TOOL_EVENT& aEvent );

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { buildFallbackQuery, buildSearchQuery } from "./services/digikey.js";
-import { footprintFor, genericSymbol } from "./services/kicad-assets.js";
+import { footprintFor, genericSymbol, resolveKiCadAssets } from "./services/kicad-assets.js";
 
 test("builds a DigiKey query from normalized value and KiCad footprint", () => {
   assert.equal(buildSearchQuery({ value: "4k7", normalizedValue: "4.7 kΩ", footprint: "Resistor_SMD:R_0603_1608Metric" }), "4.7 kohm 0603");
@@ -30,4 +33,17 @@ test("maps ordinary passives to safe KiCad symbols and footprints", () => {
 
 test("does not invent a generic IC symbol with an unknown pinout", () => {
   assert.equal(genericSymbol("Integrated circuit", "QFN-24"), "");
+});
+
+test("uses an exact KiCad symbol's assigned footprint when available", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "auto-bom-symbols-"));
+  try {
+    await writeFile(join(directory, "Regulator_Test.kicad_sym"), `(kicad_symbol_lib\n\t(symbol "TPS5430DDAR"\n\t\t(property "Footprint" "Package_SO:SO-PowerPAD-8_3.9x4.9mm_P1.27mm")\n\t)\n)`);
+    const assets = await resolveKiCadAssets({ componentType: "Integrated circuit" }, { manufacturerPartNumber: "TPS5430DDAR" }, { KICAD10_SYMBOL_DIR: directory });
+    assert.equal(assets.symbolId, "Regulator_Test:TPS5430DDAR");
+    assert.equal(assets.footprintId, "Package_SO:SO-PowerPAD-8_3.9x4.9mm_P1.27mm");
+    assert.equal(assets.placeable, true);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
