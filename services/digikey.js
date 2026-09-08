@@ -10,8 +10,17 @@ export function buildSearchQuery(component) {
 export async function searchDigiKey(component, environment = process.env) {
   requireVariables(environment, ["DIGIKEY_CLIENT_ID", "DIGIKEY_CLIENT_SECRET"]);
   const host = environment.DIGIKEY_ENV === "production" ? "https://api.digikey.com" : "https://sandbox-api.digikey.com";
-  const query = buildSearchQuery(component);
   const token = await getToken(host, environment);
+  const queries = [...new Set([buildSearchQuery(component), buildFallbackQuery(component)].filter(Boolean))];
+  let lastResult = { query: queries[0] || "", candidates: [] };
+  for (const query of queries) {
+    lastResult = await runKeywordSearch(host, token, query, component, environment);
+    if (lastResult.candidates.length) return lastResult;
+  }
+  return lastResult;
+}
+
+async function runKeywordSearch(host, token, query, component, environment) {
   const response = await fetch(`${host}/products/v4/search/keyword`, {
     method: "POST",
     headers: {
@@ -19,14 +28,11 @@ export async function searchDigiKey(component, environment = process.env) {
       "X-DIGIKEY-Locale-Site": environment.DIGIKEY_SITE || "CA", "X-DIGIKEY-Locale-Language": environment.DIGIKEY_LANGUAGE || "en",
       "X-DIGIKEY-Locale-Currency": environment.DIGIKEY_CURRENCY || "CAD",
     },
-    body: JSON.stringify({
-      Keywords: query, Limit: 12, Offset: 0,
-      FilterOptionsRequest: { MinimumQuantityAvailable: Math.max(component.quantity || 1, 1), MarketPlaceFilter: "ExcludeMarketPlace", SearchOptions: ["InStock", "NormallyStocking"] },
-    }),
+    body: JSON.stringify({ Keywords: query, Limit: 12, Offset: 0, FilterOptionsRequest: {
+      MinimumQuantityAvailable: Math.max(component.quantity || 1, 1), MarketPlaceFilter: "ExcludeMarketPlace", SearchOptions: ["InStock", "NormallyStocking"],
+    } }),
   });
-  if (response.status === 403) {
-    throw new Error(`DigiKey denied Product Information V4 for this ${environment.DIGIKEY_ENV === "production" ? "production" : "sandbox"} Client ID. Use credentials from the same DigiKey app that has Product Information V4 enabled.`);
-  }
+  if (response.status === 403) throw new Error(`DigiKey denied Product Information V4 for this ${environment.DIGIKEY_ENV === "production" ? "production" : "sandbox"} Client ID. Use credentials from the same DigiKey app that has Product Information V4 enabled.`);
   const data = await readJson(response, "DigiKey search");
   const seen = new Set();
   const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map(normalizeProduct).filter((candidate) => {
@@ -35,6 +41,24 @@ export async function searchDigiKey(component, environment = process.env) {
     seen.add(key); return true;
   }).sort(compareCandidates).slice(0, 8);
   return { query, candidates };
+}
+
+export function buildFallbackQuery(component) {
+  const value = searchValue(component);
+  const packageName = simplifyFootprint(component.footprint);
+  if (component.componentType === "Capacitor") {
+    const construction = /CP_|Radial/i.test(component.footprint || "") ? "electrolytic" : "ceramic";
+    return [value, packageName, construction, "capacitor"].filter(Boolean).join(" ").trim();
+  }
+  return [value, packageName, component.componentType].filter(Boolean).join(" ").trim();
+}
+
+function searchValue(component) {
+  const value = (component.normalizedValue || component.value || "").replaceAll("Ω", "ohm").replaceAll("µ", "u");
+  if (component.componentType !== "Capacitor") return value;
+  const nanofarads = value.match(/^(\d+(?:\.\d+)?)\s*nF$/i);
+  if (nanofarads && Number(nanofarads[1]) >= 100) return `${Number(nanofarads[1]) / 1000}uF`;
+  return value.replace(/\s+/g, "");
 }
 
 function normalizeProduct(product) {

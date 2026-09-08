@@ -52,7 +52,7 @@ export function completePart(part) {
   if (!footprint) warnings.push("Footprint not present in export");
   if (references.length && Number.isFinite(parsedQuantity) && quantity !== references.length) warnings.push(`Quantity ${quantity} does not match ${references.length} references`);
   return {
-    ...part, references, value, normalizedValue: normalizeValue(value), footprint,
+    ...part, references, value, normalizedValue: normalizeValue(value, componentType), footprint,
     packageDescription: part.packageDescription || inferPackage(footprint), componentType,
     supplierPartNumber: String(part.supplierPartNumber || "").trim(), quantity,
     warnings: [...new Set(warnings)],
@@ -75,10 +75,10 @@ export function applyAiInterpretation(original, ai = {}) {
   });
 }
 
-export function normalizeValue(input = "") {
+export function normalizeValue(input = "", componentType = "") {
   const value = input.trim().replace(/Ω/gi, "ohm").replace(/µ/gi, "u");
   const resistor = value.match(/^(\d+(?:\.\d+)?|\d*[RKM]\d+)([RKM]?)(?:ohm)?$/i);
-  if (resistor) {
+  if (resistor && (!componentType || componentType === "Resistor")) {
     const embedded = resistor[1].match(/^(\d*)([RKM])(\d+)$/i);
     const number = embedded ? Number(`${embedded[1] || "0"}.${embedded[3]}`) : Number(resistor[1]);
     const scaleKey = embedded?.[2] || resistor[2] || "";
@@ -86,7 +86,7 @@ export function normalizeValue(input = "") {
     if (Number.isFinite(number)) return formatEngineering(number * multiplier, "Ω");
   }
   const units = value.match(/^(\d+(?:\.\d+)?)\s*(pf|nf|uf|mf|f|ph|nh|uh|mh|h)$/i);
-  if (units) {
+  if (units && (!componentType || (unitFamily(units[2]) === "F" ? componentType === "Capacitor" : componentType === "Inductor"))) {
     const unit = units[2].toLowerCase();
     const base = unit.endsWith("f") ? "F" : "H";
     const number = Number(units[1]) * { pf: 1e-12, nf: 1e-9, uf: 1e-6, mf: 1e-3, f: 1, ph: 1e-12, nh: 1e-9, uh: 1e-6, mh: 1e-3, h: 1 }[unit];
@@ -94,6 +94,8 @@ export function normalizeValue(input = "") {
   }
   return value;
 }
+
+function unitFamily(unit) { return unit.toLowerCase().endsWith("f") ? "F" : "H"; }
 
 export function inferComponentType(references = [], footprint = "") {
   const prefix = references[0]?.match(/^[A-Za-z]+/)?.[0]?.toUpperCase();

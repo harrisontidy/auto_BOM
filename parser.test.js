@@ -51,3 +51,8 @@ test("AI interpretation cannot overwrite explicit BOM facts", () => {
   assert.deepEqual(result.warnings, []);
   assert.equal(result.aiSearchTerms, "15.8 kΩ 0805 resistor");
 });
+
+test("does not interpret a bare fuse rating as resistance", () => {
+  const [fuse] = parseCsv("Designator,Footprint,Quantity,Designation\nF1,FUSE_3587,1,15");
+  assert.equal(fuse.normalizedValue, "15");
+});

@@ -11,7 +11,7 @@ let bom = [];
 let configuration = { digikey: false, openai: false };
 let importGeneration = 0;
 
-checkConfiguration();
+const configurationReady = checkConfiguration();
 
 ui.sample.addEventListener("click", async () => {
   try {
@@ -38,6 +38,7 @@ ui.export.addEventListener("click", () => {
 async function loadBom(text) {
   const generation = ++importGeneration;
   try {
+    await configurationReady;
     bom = parseCsv(text).map((part) => ({ ...part, analysisStatus: "Parsed", candidates: [], review: null }));
     renderBom();
     if (configuration.openai) {
