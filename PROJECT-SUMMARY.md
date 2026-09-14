@@ -1,8 +1,18 @@
 # Auto BOM for KiCad
 
-I started this as a personal project to make it easier to choose parts and get a small PCB ready for JLCPCB assembly. The aim is to spend less time moving between supplier websites, CAD downloads, and the BOM table.
+Auto BOM reduces the manual component searching and BOM work required when designing a board. It brings supplier inventory, component recommendations, symbol and footprint imports, and sourcing information directly into KiCad.
 
-The prototype adds a component finder and BOM completion to a custom KiCad build. You can describe a part, compare in-stock candidates, and place a selected symbol with its sourcing information. You can also draw a schematic with ordinary symbols, then review suggestions for missing part numbers and footprints.
+## Describe, compare, and place components
+
+Describe the component you need inside KiCad—for example, a “3.3 V regulator, at least 1 A, small SMD package.” The component finder searches available supplier inventory and presents candidates to compare against your requirements, reducing the need to switch between supplier websites and external AI recommendations.
+
+Once you choose a part with available, checked CAD, click **Place**. The tool imports the corresponding symbol and footprint, adds manufacturer and supplier information, and attaches the component to the cursor for placement in the schematic. Automatic EasyEDA symbol and footprint imports are supported today. Broader automatic CAD-model support is a development direction; downloading 3D models is not currently included.
+
+## Fill missing BOM information
+
+Schematics often contain passives and other generic components without manufacturer part numbers. Auto BOM scans for missing sourcing information and suggests parts from your chosen supplier based on component values, packages, and other requirements. Suggestions are presented for review before anything is applied, with alternative-part searches and unresolved results where a suitable match cannot be established.
+
+The project supports JLCPCB/LCSC and DigiKey, including preferences for JLCPCB Basic parts and passive packages such as 0805. The goal is to make selecting purchasable components and completing a BOM part of the design workflow.
 
 ## What works today
 
@@ -28,4 +38,4 @@ Feedback on the component-selection workflow, incomplete BOMs, CAD compatibility
 
 Contact: [Harrison Tidy](mailto:harrisontidy37@icloud.com).
 
-Development and this summary were assisted by OpenAI Codex. This page describes the independent prototype; it is not a human-written submission to KiCad's issue tracker.
+Development has been substantially assisted by OpenAI Codex. This summary was adapted from Harrison's project description with Codex assistance.

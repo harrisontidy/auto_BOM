@@ -1,8 +1,10 @@
 # auto_BOM
 
-See [the project summary](PROJECT-SUMMARY.md) for the latest features, validation limits, and contact information.
+`auto_BOM` brings component search, supplier inventory, and BOM autofill directly into KiCad. Describe what you need—for example, a **3.3 V regulator, at least 1 A, small SMD package**—compare available JLCPCB/LCSC or DigiKey parts, then import the selected part's symbol and footprint when compatible CAD is available and place it with its sourcing information.
 
-`auto_BOM` adds component sourcing and BOM completion directly to KiCad. Describe a component in plain language, compare current JLCPCB / LCSC or DigiKey results, and place a compatible part into the schematic. When the design is ready, KiCad's existing **Generate Bill of Materials** dialog can fill missing manufacturer and supplier part numbers before exporting.
+For components already in a schematic, **BOM autofill** suggests missing manufacturer and supplier part numbers based on values, packages, and other requirements. Review the suggestions before applying them. Preferences include JLCPCB Basic parts and passive packages such as 0805 SMT.
+
+See [the project summary](PROJECT-SUMMARY.md) for the complete workflow, current validation limits, and contact information.
 
 ## Current prototype
 
