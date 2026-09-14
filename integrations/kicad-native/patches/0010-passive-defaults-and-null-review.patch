@@ -1,0 +1,93 @@
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index edb30e1b..12704e97 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -101,6 +101,15 @@ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+     if( !parts.is_array() || parts.empty() )
+         return false;
+ 
++    // Unresolved rows legitimately have no CAD or verification data.
++    for( auto& part : parts )
++    {
++        if( !part.is_object() ) continue;
++        for( const char* key : { "kicadAssets", "verification" } )
++            if( !part.contains( key ) || !part[key].is_object() )
++                part[key] = nlohmann::json::object();
++    }
++
+     wxDialog dialog( aParent, wxID_ANY, _( "Review proposed BOM changes" ),
+                      wxDefaultPosition, wxDefaultSize,
+                      wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER );
+@@ -581,6 +590,31 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent,
+         sourcingSizer->Add( m_autoBomPreferBasic, 0, wxBOTTOM, FromDIP( 6 ) );
+         m_autoBomPreferBasic->Bind( wxEVT_CHECKBOX,
+                 [this]( wxCommandEvent& ) { m_autoBomCompleted = false; } );
++        auto* passiveSizer = new wxBoxSizer( wxHORIZONTAL );
++        passiveSizer->Add( new wxStaticText( sourcingPanel, wxID_ANY,
++                _( "Unspecified R/C mounting:" ) ),
++                0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP( 8 ) );
++        m_autoBomPassiveMounting = new wxChoice( sourcingPanel, wxID_ANY );
++        m_autoBomPassiveMounting->Append( _( "Prefer SMT" ) );
++        m_autoBomPassiveMounting->Append( _( "Prefer through-hole" ) );
++        m_autoBomPassiveMounting->Append( _( "No default" ) );
++        m_autoBomPassiveMounting->SetSelection( 0 );
++        passiveSizer->Add( m_autoBomPassiveMounting, 0, wxRIGHT, FromDIP( 8 ) );
++        passiveSizer->Add( new wxStaticText( sourcingPanel, wxID_ANY, _( "SMT size:" ) ),
++                0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP( 8 ) );
++        m_autoBomPassivePackage = new wxChoice( sourcingPanel, wxID_ANY );
++        for( const wxString size : { wxS( "0201" ), wxS( "0402" ), wxS( "0603" ),
++                wxS( "0805" ), wxS( "1206" ), wxS( "1210" ), wxS( "No default" ) } )
++            m_autoBomPassivePackage->Append( size );
++        m_autoBomPassivePackage->SetSelection( 3 );
++        m_autoBomPassiveMounting->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) {
++            m_autoBomCompleted = false;
++            m_autoBomPassivePackage->Enable( m_autoBomPassiveMounting->GetSelection() == 0 );
++        } );
++        m_autoBomPassivePackage->Bind( wxEVT_CHOICE,
++                [this]( wxCommandEvent& ) { m_autoBomCompleted = false; } );
++        passiveSizer->Add( m_autoBomPassivePackage );
++        sourcingSizer->Add( passiveSizer, 0, wxBOTTOM, FromDIP( 6 ) );
+         m_autoBomComplete = new wxButton( sourcingPanel, wxID_ANY, _( "Fill Missing Parts" ) );
+         m_autoBomStatus = new wxStaticText( sourcingPanel, wxID_ANY, _( "Ready" ) );
+         m_autoBomProgress = new wxGauge( sourcingPanel, wxID_ANY, 100, wxDefaultPosition,
+@@ -2030,12 +2064,18 @@ void DIALOG_SYMBOL_FIELDS_TABLE::StartAutoBomCompletion( bool aExportWhenDone )
+ 
+     request["supplier"] = m_autoBomSupplier->GetSelection() == 0 ? "lcsc" : "digikey";
+     request["preferBasic"] = m_autoBomPreferBasic->GetValue();
++    request["passivePackage"] = m_autoBomPassivePackage->GetSelection() == 6
++            ? "none" : autoBomUtf8( m_autoBomPassivePackage->GetStringSelection() );
++    request["passiveMounting"] = m_autoBomPassiveMounting->GetSelection() == 0 ? "smt"
++            : m_autoBomPassiveMounting->GetSelection() == 1 ? "through-hole" : "none";
+     request["useAi"] = m_autoBomUseAi->IsChecked();
+     m_autoBomExportWhenDone = aExportWhenDone;
+     m_autoBomComplete->SetLabel( _( "Cancel search" ) );
+     m_autoBomUseAi->Disable();
+     m_autoBomSupplier->Disable();
+     m_autoBomPreferBasic->Disable();
++    m_autoBomPassivePackage->Disable();
++    m_autoBomPassiveMounting->Disable();
+     m_buttonExport->Disable();
+     m_grid->Disable();
+     m_variantListBox->Disable();
+@@ -2074,6 +2114,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+     m_autoBomUseAi->Enable();
+     m_autoBomSupplier->Enable();
+     m_autoBomPreferBasic->Enable();
++    m_autoBomPassivePackage->Enable( m_autoBomPassiveMounting->GetSelection() == 0 );
++    m_autoBomPassiveMounting->Enable();
+     m_buttonExport->Enable();
+     m_grid->Enable();
+     m_variantListBox->Enable();
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.h b/eeschema/dialogs/dialog_symbol_fields_table.h
+index 36d39dfb..0df30154 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.h
++++ b/eeschema/dialogs/dialog_symbol_fields_table.h
+@@ -210,6 +210,8 @@ private:
+ 
+     wxChoice*            m_autoBomSupplier = nullptr;
+     wxCheckBox*          m_autoBomPreferBasic = nullptr;
++    wxChoice*            m_autoBomPassivePackage = nullptr;
++    wxChoice*            m_autoBomPassiveMounting = nullptr;
+     wxCheckBox*          m_autoBomUseAi;
+     wxButton*            m_autoBomComplete;
+     wxStaticText*        m_autoBomStatus;

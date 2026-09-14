@@ -1,0 +1,155 @@
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.cpp b/eeschema/widgets/panel_auto_bom_assistant.cpp
+index 6cacf8f4..4f2d4013 100644
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -325,7 +325,7 @@ void PANEL_AUTO_BOM_ASSISTANT::runSearch( std::stop_token aStopToken, uint64_t a
+     try
+     {
+         KICAD_CURL_EASY request;
+-        request.SetURL( "http://127.0.0.1:4173/api/components/search" );
++        request.SetURL( "http://127.0.0.1:4173/api/components/jobs" );
+         request.SetHeader( "Accept", "application/json" );
+         request.SetHeader( "Content-Type", "application/json" );
+         request.SetConnectTimeout( 5 );
+@@ -340,15 +340,62 @@ void PANEL_AUTO_BOM_ASSISTANT::runSearch( std::stop_token aStopToken, uint64_t a
+ 
+         const int transportCode = request.Perform();
+ 
+-        if( aStopToken.stop_requested() )
+-            return;
+-
+         result["transportCode"] = transportCode;
+         result["httpStatus"] = request.GetResponseStatusCode();
+         result["body"] = request.GetBuffer();
+ 
+         if( transportCode != 0 )
+             result["error"] = request.GetErrorText( transportCode );
++
++        if( transportCode == 0 && request.GetResponseStatusCode() == 202 )
++        {
++            const auto started = nlohmann::json::parse( request.GetBuffer() );
++            const std::string id = started.value( "id", std::string() );
++            if( id.size() != 36 || id.find_first_not_of( "abcdef0123456789-" ) != std::string::npos )
++                throw std::runtime_error( "Invalid search identifier." );
++            const std::string url = "http://127.0.0.1:4173/api/components/jobs/" + id;
++            int revision = -1;
++            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds( 180 );
++            while( !aStopToken.stop_requested() && std::chrono::steady_clock::now() < deadline )
++            {
++                KICAD_CURL_EASY poll;
++                poll.SetURL( url );
++                poll.SetConnectTimeout( 2 );
++                poll.SetTimeout( 5 );
++                poll.SetTransferCallback( [aStopToken]( size_t, size_t, size_t, size_t ) {
++                    return aStopToken.stop_requested() ? 1 : 0;
++                }, 0 );
++                const int code = poll.Perform();
++                if( aStopToken.stop_requested() ) break;
++                if( code != 0 || poll.GetResponseStatusCode() != 200 )
++                    throw std::runtime_error( "Could not retrieve search progress." );
++                const auto job = nlohmann::json::parse( poll.GetBuffer() );
++                const std::string status = job.value( "status", std::string() );
++                if( status == "failed" || status == "cancelled" )
++                    throw std::runtime_error( job.value( "error", std::string( "Search cancelled." ) ) );
++                if( job.value( "revision", 0 ) != revision && job.contains( "result" )
++                    && job["result"].is_object() )
++                {
++                    revision = job.value( "revision", 0 );
++                    result["httpStatus"] = 200;
++                    result["pending"] = status == "running";
++                    result["body"] = job["result"].dump();
++                    auto* update = new wxThreadEvent( wxEVT_THREAD, ID_AUTO_BOM_SEARCH_RESULT );
++                    update->SetString( fromUtf8( result.dump() ) );
++                    wxQueueEvent( this, update );
++                }
++                if( status == "complete" ) return;
++                std::this_thread::sleep_for( std::chrono::milliseconds( 150 ) );
++            }
++            KICAD_CURL_EASY cancel;
++            cancel.SetURL( url + "/cancel" );
++            cancel.SetPostFields( std::string( "{}" ) );
++            cancel.SetConnectTimeout( 1 );
++            cancel.SetTimeout( 2 );
++            cancel.Perform();
++            if( aStopToken.stop_requested() ) return;
++            throw std::runtime_error( "Search timed out. Try a more specific request." );
++        }
+     }
+     catch( const std::exception& error )
+     {
+@@ -356,6 +403,8 @@ void PANEL_AUTO_BOM_ASSISTANT::runSearch( std::stop_token aStopToken, uint64_t a
+             return;
+ 
+         result["error"] = error.what();
++        result["transportCode"] = -1;
++        result["pending"] = false;
+     }
+ 
+     if( aStopToken.stop_requested() )
+@@ -384,9 +433,8 @@ void PANEL_AUTO_BOM_ASSISTANT::onSearchComplete( wxThreadEvent& aEvent )
+     if( generation != m_searchGeneration.load() )
+         return;
+ 
+-    setBusy( false );
+-
+     const int transportCode = result.value( "transportCode", 0 );
++    setBusy( result.value( "pending", false ) && transportCode == 0 );
+     const int httpStatus = result.value( "httpStatus", 0 );
+     const std::string error = result.value( "error", std::string() );
+     const std::string body = result.value( "body", std::string() );
+@@ -410,7 +458,13 @@ void PANEL_AUTO_BOM_ASSISTANT::onSearchComplete( wxThreadEvent& aEvent )
+         return;
+     }
+ 
++    int scrollX = 0, scrollY = 0;
++    m_resultsWindow->GetViewStart( &scrollX, &scrollY );
++    clearResults();
+     renderResponse( body );
++    m_resultsWindow->Scroll( scrollX, scrollY );
++    if( result.value( "pending", false ) )
++        setStatus( _( "Parts found. Review and CAD preparation are updating..." ) );
+ }
+ 
+ 
+@@ -619,15 +673,20 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+     if( !placeable )
+     {
+         wxStaticText* unavailable = makeLabel(
+-                card, _( "No safe symbol and footprint pair is available in the installed "
+-                         "KiCad libraries." ) );
++                card, assets.value( "pending", false )
++                        ? _( "Preparing symbol and footprint..." )
++                        : _( "No safe symbol and footprint pair is available in the installed KiCad libraries." ) );
+         unavailable->Wrap( FromDIP( 260 ) );
+         cardSizer->Add( unavailable, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     }
+ 
+     wxBoxSizer* actionSizer = new wxBoxSizer( wxHORIZONTAL );
++    if( candidate.value( "reviewPending", false ) )
++        cardSizer->Add( makeLabel( card, _( "Review in progress..." ) ), 0,
++                        wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     wxButton* placeButton = new wxButton( card, wxID_ANY, _( "Place in Schematic" ) );
+-    placeButton->Enable( placeable && static_cast<bool>( m_placementCallback ) );
++    placeButton->Enable( placeable && !candidate.value( "reviewPending", false )
++                         && static_cast<bool>( m_placementCallback ) );
+     placeButton->Bind( wxEVT_BUTTON,
+                        [this, aCandidateIndex]( wxCommandEvent& )
+                        {
+@@ -701,14 +760,14 @@ void PANEL_AUTO_BOM_ASSISTANT::setBusy( bool aBusy )
+ {
+     m_supplierCtrl->Enable( !aBusy );
+     m_preferBasicCtrl->Enable( !aBusy );
+-    m_queryCtrl->Enable( !aBusy );
+-    m_searchButton->Enable( !aBusy );
++    m_queryCtrl->Enable( true );
++    m_searchButton->Enable( true );
+ 
+     if( aBusy )
+     {
+         m_activity->Show();
+         m_activity->Start();
+-        m_searchButton->SetLabel( _( "Searching..." ) );
++        m_searchButton->SetLabel( _( "Search again" ) );
+     }
+     else
+     {

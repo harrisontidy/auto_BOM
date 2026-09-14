@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { completeSchematicBom } from "./services/bom-completion.js";
 
-const environment = { OPENAI_API_KEY: "test", DIGIKEY_CLIENT_ID: "test", DIGIKEY_CLIENT_SECRET: "test" };
+const environment = { SOURCING_SUPPLIER: "digikey", OPENAI_API_KEY: "test", DIGIKEY_CLIENT_ID: "test", DIGIKEY_CLIENT_SECRET: "test" };
 
 test("completes a missing passive with the cheapest in-stock DigiKey result", async () => {
   let reviews = 0;
@@ -10,7 +10,7 @@ test("completes a missing passive with the cheapest in-stock DigiKey result", as
     { reference: "R1", value: "10k", footprint: "Resistor_SMD:R_0805_2012Metric" },
   ], environment, {
     interpretBomCsv: async (_csv, parts) => ({ parts }),
-    searchDigiKey: async () => ({ candidates: [{ manufacturerPartNumber: "RC0805FR-0710KL", digiKeyPartNumber: "311-10.0KCRCT-ND", quantityAvailable: 5000, unitPrice: 0.02, currency: "CAD", datasheetUrl: "https://example.test/r", description: "10 kOhm 0805 resistor" }] }),
+    searchDigiKey: async () => ({ candidates: [{ manufacturerPartNumber: "RC0805FR-0710KL", digiKeyPartNumber: "311-10.0KCRCT-ND", quantityAvailable: 5000, unitPrice: 0.02, currency: "CAD", datasheetUrl: "https://example.test/r", parameters: { "Package / Case": "0805", "Resistance": "10kΩ" }, description: "10 kOhm 0805 resistor" }] }),
     reviewCandidates: async () => { reviews += 1; },
     resolveKiCadAssets: async () => ({ footprintId: "Resistor_SMD:R_0805_2012Metric" }),
   });
@@ -59,7 +59,7 @@ test("does not search a line that already has a DigiKey number", async () => {
   let searches = 0;
   const result = await completeSchematicBom([
     { reference: "C1", value: "100nF", footprint: "Capacitor_SMD:C_0805_2012Metric", manufacturerPartNumber: "EXISTING", digiKeyPartNumber: "EXISTING-ND" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async () => { searches += 1; return { candidates: [] }; },
   });
   assert.equal(result.parts[0].status, "already assigned");
@@ -71,7 +71,7 @@ test("copies a sibling's DigiKey number only to unassigned references", async ()
   const result = await completeSchematicBom([
     { reference: "C1", value: "100nF", footprint: "Capacitor_SMD:C_0805_2012Metric", manufacturerPartNumber: "CAP-MPN", digiKeyPartNumber: "KEEP-ND" },
     { reference: "C2", value: "100nF", footprint: "Capacitor_SMD:C_0805_2012Metric", manufacturerPartNumber: "CAP-MPN", digiKeyPartNumber: "" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async (part) => {
       searchedPart = part;
       return { candidates: [{ manufacturerPartNumber: "CAP-MPN", digiKeyPartNumber: "KEEP-ND", quantityAvailable: 20 }] };
@@ -86,7 +86,7 @@ test("copies a sibling's DigiKey number only to unassigned references", async ()
 test("enriches a single DigiKey-only row before calling it complete", async () => {
   const result = await completeSchematicBom([
     { reference: "D1", value: "SS14", footprint: "Diode_SMD:D_SMA", digiKeyPartNumber: "SS14-EXISTING-ND" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async (part) => {
       assert.equal(part.supplierPartNumber, "SS14-EXISTING-ND");
       return { candidates: [{ manufacturerPartNumber: "SS14", digiKeyPartNumber: "SS14-EXISTING-ND", quantityAvailable: 20 }] };
@@ -103,7 +103,7 @@ test("enriches a grouped DigiKey-only row and copies its exact number to its sib
   const result = await completeSchematicBom([
     { reference: "D1", value: "SS14", footprint: "Diode_SMD:D_SMA", digiKeyPartNumber: "SS14-EXISTING-ND" },
     { reference: "D2", value: "SS14", footprint: "Diode_SMD:D_SMA", digiKeyPartNumber: "" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async (part) => {
       assert.equal(part.supplierPartNumber, "SS14-EXISTING-ND");
       return { candidates: [{ manufacturerPartNumber: "SS14", digiKeyPartNumber: "SS14-EXISTING-ND", quantityAvailable: 20 }] };
@@ -119,7 +119,7 @@ test("enriches a grouped DigiKey-only row and copies its exact number to its sib
 test("keeps a DigiKey-only row unresolved when exact metadata enrichment finds nothing", async () => {
   const result = await completeSchematicBom([
     { reference: "D1", value: "SS14", footprint: "Diode_SMD:D_SMA", digiKeyPartNumber: "SS14-EXISTING-ND" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async (part) => {
       assert.equal(part.supplierPartNumber, "SS14-EXISTING-ND");
       return { candidates: [] };
@@ -132,7 +132,7 @@ test("keeps a DigiKey-only row unresolved when exact metadata enrichment finds n
   assert.equal(result.parts[0].manufacturerPartNumber, "");
 });
 
-test("continues with deterministic BOM parsing when AI interpretation fails", async () => {
+test("ordinary passive BOM lines do not depend on AI interpretation", async () => {
   let searches = 0;
   const result = await completeSchematicBom([
     { reference: "R1", value: "10k", footprint: "Resistor_SMD:R_0805_2012Metric" },
@@ -140,14 +140,14 @@ test("continues with deterministic BOM parsing when AI interpretation fails", as
     interpretBomCsv: async () => { throw new Error("temporary AI outage"); },
     searchDigiKey: async () => {
       searches += 1;
-      return { candidates: [{ manufacturerPartNumber: "R-MPN", digiKeyPartNumber: "R-ND", quantityAvailable: 20, description: "10 kOhm 0805 resistor" }] };
+      return { candidates: [{ manufacturerPartNumber: "R-MPN", digiKeyPartNumber: "R-ND", quantityAvailable: 20, parameters: { "Package / Case": "0805", "Resistance": "10kΩ" }, description: "10 kOhm 0805 resistor" }] };
     },
     resolveKiCadAssets: async () => ({ footprintId: "Resistor_SMD:R_0805_2012Metric" }),
   });
   assert.equal(result.failed, 0);
-  assert.equal(result.aiFallback, true);
+  assert.equal(result.aiFallback, false);
   assert.equal(searches, 1);
-  assert.match(result.summary, /standard BOM parsing/i);
+  assert.equal(result.interpretedLines, 0);
 });
 
 test("rejects malformed schematic symbols", async () => {
@@ -160,7 +160,7 @@ test("merges repeated units of one KiCad reference before searching", async () =
   const result = await completeSchematicBom([
     { reference: "U1", value: "LM358", footprint: "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", manufacturerPartNumber: "LM358DR" },
     { reference: "U1", value: "LM358", footprint: "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", manufacturerPartNumber: "LM358DR" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async (part) => {
       searchedQuantity = part.quantity;
       return { candidates: [{ manufacturerPartNumber: "LM358DR", digiKeyPartNumber: "296-LM358DRCT-ND", quantityAvailable: 20 }] };
@@ -176,7 +176,7 @@ test("does not search a resistor whose value is only the default R placeholder",
   let searches = 0;
   const result = await completeSchematicBom([
     { reference: "R1", value: "R", footprint: "Resistor_SMD:R_0805_2012Metric" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async () => { searches += 1; return { candidates: [] }; },
   });
   assert.equal(searches, 0);
@@ -213,11 +213,11 @@ test("does not let AI invent a missing electrical value from a blank source fiel
 test("selects the first in-stock resistor that matches both value and package", async () => {
   const result = await completeSchematicBom([
     { reference: "R1", value: "10k", footprint: "Resistor_SMD:R_0805_2012Metric" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async () => ({ candidates: [
       { manufacturerPartNumber: "WRONG-VALUE", digiKeyPartNumber: "WRONG-VALUE-ND", quantityAvailable: 100, description: "1 kOhm 0805 resistor" },
       { manufacturerPartNumber: "WRONG-SIZE", digiKeyPartNumber: "WRONG-SIZE-ND", quantityAvailable: 100, description: "10 kOhm 0603 resistor" },
-      { manufacturerPartNumber: "RIGHT", digiKeyPartNumber: "RIGHT-ND", quantityAvailable: 100, description: "10 kOhm 0805 resistor" },
+      { manufacturerPartNumber: "RIGHT", digiKeyPartNumber: "RIGHT-ND", quantityAvailable: 100, parameters: { "Package / Case": "0805", "Resistance": "10kΩ" }, description: "10 kOhm 0805 resistor" },
     ] }),
     resolveKiCadAssets: async () => ({ footprintId: "Resistor_SMD:R_0805_2012Metric" }),
   });
@@ -246,7 +246,7 @@ test("requires AI review for a diode without an exact part-number field", async 
 test("does not choose a nontrivial part when AI review is disabled", async () => {
   const result = await completeSchematicBom([
     { reference: "F1", value: "2A fuse", footprint: "Fuse:Fuse_1206_3216Metric" },
-  ], {}, {
+  ], { SOURCING_SUPPLIER: "digikey" }, {
     searchDigiKey: async () => ({ candidates: [
       { manufacturerPartNumber: "FUSE-A", digiKeyPartNumber: "FUSE-A-ND", quantityAvailable: 100 },
     ] }),

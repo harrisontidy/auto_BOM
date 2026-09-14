@@ -52,3 +52,6 @@ h2 { margin: 0; font-size: 17px; }
 .text-link { color: #12659f; font-size: 12px; font-weight: 600; }
 .hidden { display: none !important; }
 @media (max-width: 620px) { .app-header { padding: 12px 14px; } main { width: calc(100% - 20px); margin-top: 12px; } .search-panel { padding: 16px; } .search-row { align-items: stretch; flex-direction: column; } }
+
+#supplier { font: inherit; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin: 6px 0 12px; background: white; color: #16263d; }
+#supplier { width: 100%; }

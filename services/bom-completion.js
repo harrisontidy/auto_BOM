@@ -1,32 +1,55 @@
 import { applyAiInterpretation, parseCsv } from "../parser.js";
 import { interpretBomCsv, reviewCandidates } from "./ai.js";
-import { isExactPartNumberMatch, searchDigiKey } from "./digikey.js";
+import { isExactPartNumberMatch } from "./digikey.js";
+import { searchSupplier, sourcingSupplier, supplierLabel, supplierField, candidatePartNumber } from "./sourcing.js";
 import { resolveKiCadAssets } from "./kicad-assets.js";
+import { assessSpecifications, assessSchematicPins } from './specification-checks.js';
 
 const MIN_AI_CONFIDENCE = 0.7;
 
 export async function completeSchematicBom(symbols, environment = process.env, dependencies = {}) {
   validateSymbols(symbols);
+  const supplier = sourcingSupplier(environment.SOURCING_SUPPLIER || "lcsc");
   const services = {
     interpretBomCsv: dependencies.interpretBomCsv || interpretBomCsv,
     reviewCandidates: dependencies.reviewCandidates || reviewCandidates,
-    searchDigiKey: dependencies.searchDigiKey || searchDigiKey,
+    search: dependencies.searchSupplier || dependencies.searchDigiKey || searchSupplier,
     resolveKiCadAssets: dependencies.resolveKiCadAssets || resolveKiCadAssets,
   };
   if (!symbols.length) return { summary: "The schematic has no BOM parts.", completed: 0, failed: 0, parts: [] };
 
   const normalizedSymbols = mergeSymbolsByReference(symbols);
-  const csv = symbolsToCsv(normalizedSymbols);
-  let parts = parseCsv(csv);
+  const demand=new Map();
+  for(const symbol of normalizedSymbols)for(const [kind,value] of [['supplier',symbol[supplierField(supplier)]],['mpn',symbol.manufacturerPartNumber]]) {
+    if(value?.trim()){const key=`${kind}:${normalizeIdentifier(value)}`;demand.set(key,(demand.get(key)||0)+1);}
+  }
+  const exactSearches=new Map(), searchService=services.search;
+  services.search=(component,env)=>{
+    if(!component.supplierPartNumber)return searchService(component,env);
+    const key=JSON.stringify([component.supplier,normalizeIdentifier(component.supplierPartNumber),component.quantity]);
+    if(!exactSearches.has(key))exactSearches.set(key,Promise.resolve().then(()=>searchService(component,env)));
+    return exactSearches.get(key);
+  };
+  const csv = symbolsToCsv(normalizedSymbols, supplier);
+  let parts = parseCsv(csv).map(part => applyPassiveDefaults(part, normalizedSymbols, environment));
+  const byReference = new Map(normalizedSymbols.map((symbol) => [symbol.reference, symbol]));
+  const needsInterpretation = parts.filter(part => !isPlainPassive(part) && !getSearchabilityError(part, '')
+    && !part.references.some(ref => {
+      const symbol=byReference.get(ref);
+      return symbol?.manufacturerPartNumber?.trim() || symbol?.[supplierField(supplier)]?.trim();
+    }));
   let aiFallback = false;
-  if (environment.OPENAI_API_KEY) {
+  if (environment.OPENAI_API_KEY && needsInterpretation.length) {
     try {
-      const interpreted = await services.interpretBomCsv(csv, parts, environment);
+      const neededRefs=new Set(needsInterpretation.flatMap(part=>part.references));
+      const limitedCsv=symbolsToCsv(normalizedSymbols.filter(symbol=>neededRefs.has(symbol.reference)),supplier);
+      const interpreted = await services.interpretBomCsv(limitedCsv, needsInterpretation, environment);
       if (!Array.isArray(interpreted?.parts) || !interpreted.parts.length) throw new Error("AI BOM interpretation returned no parts.");
       parts = parts.map((original) => {
+        if(!needsInterpretation.includes(original))return original;
         const ai = interpreted.parts.find((part) => part.references?.some((reference) => original.references.includes(reference)))
           || interpreted.parts.find((part) => part.id === original.id) || {};
-        const interpretedPart = applyAiInterpretation(original, ai);
+        const interpretedPart = applyAiInterpretation(original, {...ai,value:original.value,footprint:original.footprint,supplierPartNumber:original.supplierPartNumber});
         interpretedPart.warnings = [...new Set([...(interpretedPart.warnings || []), ...(original.warnings || [])])];
         return interpretedPart;
       });
@@ -35,79 +58,88 @@ export async function completeSchematicBom(symbols, environment = process.env, d
     }
   }
 
-  const byReference = new Map(normalizedSymbols.map((symbol) => [symbol.reference, symbol]));
-  const tasks = parts.map((part) => async () => completePart(part, byReference, environment, services));
+  const tasks = parts.map((part) => async () => completePart({ ...part, supplier }, byReference, environment, services, demand));
   const completedParts = await runWithConcurrency(tasks, 3);
   const completed = completedParts.filter((part) => part.status === "completed" || part.status === "already assigned").length;
   const failed = completedParts.length - completed;
   const summary = failed
-      ? `Completed ${completed} of ${completedParts.length} BOM lines; ${failed} need review.`
-      : `Completed all ${completedParts.length} BOM lines and saved their DigiKey selections.`;
+      ? `Prepared ${completed} of ${completedParts.length} BOM lines; ${failed} remain unresolved. Review proposals before applying.`
+      : `Prepared ${supplierLabel(supplier)} selections for all ${completedParts.length} BOM lines. Review proposals before applying.`;
   return {
     summary: aiFallback ? `${summary} AI parsing was unavailable, so standard BOM parsing was used.` : summary,
     completed,
     failed,
     aiFallback,
+    interpretedLines: environment.OPENAI_API_KEY ? needsInterpretation.length : 0,
     parts: completedParts,
   };
 }
 
-async function completePart(part, byReference, environment, services) {
+async function completePart(part, byReference, environment, services, demand) {
+  const field = supplierField(part.supplier);
+  const label = supplierLabel(part.supplier);
   const sourceSymbols = part.references.map((reference) => byReference.get(reference)).filter(Boolean);
+  const conflicting=sourceSymbols.filter(symbol=>symbol.conflicts?.length);
+  const mpns=new Set(sourceSymbols.map(symbol=>normalizeIdentifier(symbol.manufacturerPartNumber)).filter(Boolean));
+  if(conflicting.length || mpns.size>1)return resultFor(part,{status:'needs review',error:conflicting.length
+    ? `Conflicting fields on repeated schematic reference: ${conflicting.map(s=>s.reference).join(', ')}.`
+    : 'This grouped BOM line contains conflicting manufacturer part numbers.'});
   const incompleteSymbols = sourceSymbols.filter((symbol) =>
-    !String(symbol.digiKeyPartNumber || "").trim() || !String(symbol.manufacturerPartNumber || "").trim());
-  const existingDigiKeyNumbers = new Map();
+    !String(symbol[field] || "").trim() || !String(symbol.manufacturerPartNumber || "").trim());
+  const existingSupplierNumbers = new Map();
   for (const symbol of sourceSymbols) {
-    const partNumber = String(symbol.digiKeyPartNumber || "").trim();
-    if (partNumber) existingDigiKeyNumbers.set(normalizeIdentifier(partNumber), partNumber);
+    const partNumber = String(symbol[field] || "").trim();
+    if (partNumber) existingSupplierNumbers.set(normalizeIdentifier(partNumber), partNumber);
   }
-  const existingDigiKey = [...existingDigiKeyNumbers.values()][0] || "";
+  const existingSupplier = [...existingSupplierNumbers.values()][0] || "";
   const existingMpn = (incompleteSymbols.find((symbol) => String(symbol.manufacturerPartNumber || "").trim())
     || sourceSymbols.find((symbol) => String(symbol.manufacturerPartNumber || "").trim()))?.manufacturerPartNumber || "";
+  part={...part,quantity:Math.max(part.quantity,demand.get(existingSupplier?`supplier:${normalizeIdentifier(existingSupplier)}`:`mpn:${normalizeIdentifier(existingMpn)}`)||0)};
   const existingDatasheet = sourceSymbols.find((symbol) => String(symbol.datasheetUrl || "").trim())?.datasheetUrl || "";
   const existingFootprint = (incompleteSymbols.find((symbol) => String(symbol.footprint || "").trim())
     || sourceSymbols.find((symbol) => String(symbol.footprint || "").trim()))?.footprint || part.footprint || "";
 
-  if (existingDigiKeyNumbers.size > 1) {
+  if (existingSupplierNumbers.size > 1) {
     return resultFor(part, {
       references: incompleteSymbols.length
         ? incompleteSymbols.map((symbol) => String(symbol.reference).trim())
         : part.references,
       status: "needs review",
-      error: "This grouped BOM line contains conflicting existing DigiKey part numbers.",
+      error: `This grouped BOM line contains conflicting existing ${label} part numbers.`,
     });
   }
 
-  if (!incompleteSymbols.length) {
+  if (!incompleteSymbols.length && part.supplier !== "lcsc" && existingFootprint) {
     return resultFor(part, {
-      status: "already assigned", manufacturerPartNumber: existingMpn, digiKeyPartNumber: existingDigiKey,
+      status: "already assigned", manufacturerPartNumber: existingMpn, supplierPartNumber: existingSupplier,
       datasheetUrl: existingDatasheet, footprintId: existingFootprint,
     });
   }
 
-  const references = incompleteSymbols.map((symbol) => String(symbol.reference).trim());
+  const references = (part.supplier === "lcsc" ? sourceSymbols : incompleteSymbols).map((symbol) => String(symbol.reference).trim());
 
-  if (existingDigiKey) {
-    return completeFromExistingDigiKey(part, references, existingDigiKey, existingMpn,
-      existingDatasheet, existingFootprint, environment, services);
+  if (existingSupplier) {
+    return completeFromExistingSupplier(part, references, existingSupplier, existingMpn,
+      existingDatasheet, existingFootprint, environment, services, sourceSymbols);
   }
 
   const searchabilityError = getSearchabilityError(part, existingMpn);
   if (searchabilityError) return resultFor(part, { references, status: "needs review", error: searchabilityError });
 
   try {
-    const searchable = { ...part, supplierPartNumber: String(existingMpn || "").trim() };
-    const search = await services.searchDigiKey(searchable, environment);
-    const candidates = (search.candidates || []).filter((candidate) => isUsableInStockCandidate(candidate, part.quantity));
-    if (!candidates.length) return resultFor(part, { references, status: "needs review", error: "No complete, in-stock DigiKey match was found." });
+    const searchable = { ...part, bomContext:sourceSymbols, originalQuery:part.value, preferBasic: environment.PREFER_BASIC !== "false", supplierPartNumber: String(existingMpn || "").trim() };
+    const search = await services.search(searchable, environment);
+    const candidates = (search.candidates || []).map(candidate=>({...candidate,verification:assessSpecifications(searchable,candidate)}))
+      .filter((candidate) => isUsableInStockCandidate(candidate, part.quantity) && !candidate.verification.mismatches.length);
+    if (!candidates.length) return resultFor(part, { references, status: "needs review", error: `No complete, in-stock ${label} match was found.` });
 
     let selected;
     if (existingMpn) {
       selected = candidates.find((candidate) => isExactPartNumberMatch(existingMpn, candidate));
-      if (!selected) return resultFor(part, { references, status: "needs review", error: `DigiKey did not return an exact match for ${existingMpn}.` });
-    } else if (standardPassiveKind(part)) {
+      if (!selected) return resultFor(part, { references, status: "needs review", error: `${label} did not return an exact match for ${existingMpn}.` });
+    } else if (isPlainPassive(part)) {
       selected = candidates.find((candidate) => isCompatibleStandardPassive(part, candidate));
-      if (!selected) return resultFor(part, { references, status: "needs review", error: "No in-stock DigiKey candidate matched the stated value and package." });
+      if (!selected) return resultFor(part, { references, status: "needs review", error: `No in-stock ${label} candidate matched the stated value and package.` });
     } else {
       if (!environment.OPENAI_API_KEY) {
         return resultFor(part, { references, status: "needs review", error: "AI review is required to choose this type of part safely." });
@@ -124,18 +156,24 @@ async function completePart(part, byReference, environment, services) {
           return resultFor(part, { references, status: "needs review", error: "AI confidence was too low to assign this part automatically." });
         }
         selected = findReviewedCandidate(candidates, review);
-        if (!selected) throw new Error("AI review did not select one of the supplied DigiKey candidates.");
+        if (!selected) throw new Error("AI review did not select one of the supplied candidates.");
       } catch (error) {
         return resultFor(part, { references, status: "needs review", error: `AI candidate review failed: ${error.message}` });
       }
     }
 
+    if(selected.verification.unknown.length) return resultFor(part,{references,status:'needs review',
+      error:`Supplier specifications need review: ${selected.verification.unknown.join(' ')}`,verification:selected.verification});
     const assets = await services.resolveKiCadAssets(searchable, selected, environment);
+    const pins=assessSchematicPins(sourceSymbols,assets);
+    if(pins.mismatches.length || pins.unknown.length)return resultFor(part,{references,status:'needs review',
+      error:[...pins.mismatches,...pins.unknown].join(' '),verification:selected.verification});
     return resultFor(part, {
       references,
-      status: "completed",
+      status: existingFootprint || assets.footprintId ? "completed" : "needs review",
+      error: existingFootprint || assets.footprintId ? '' : 'A supplier match was found, but no footprint is available. Assign and verify a footprint before completing this line.',
       manufacturerPartNumber: selected.manufacturerPartNumber,
-      digiKeyPartNumber: selected.digiKeyPartNumber,
+      supplierPartNumber: candidatePartNumber(selected),
       datasheetUrl: selected.datasheetUrl,
       manufacturer: selected.manufacturer,
       productUrl: selected.productUrl,
@@ -144,36 +182,49 @@ async function completePart(part, byReference, environment, services) {
       unitPrice: selected.unitPrice,
       currency: selected.currency,
       description: selected.description,
+      libraryType: selected.libraryType,
+      kicadAssets: assets,
+      verification: selected.verification,
     });
   } catch (error) {
     return resultFor(part, { references, status: "needs review", error: error.message });
   }
 }
 
-async function completeFromExistingDigiKey(part, references, digiKeyPartNumber, manufacturerPartNumber,
-  datasheetUrl, footprintId, environment, services) {
+async function completeFromExistingSupplier(part, references, digiKeyPartNumber, manufacturerPartNumber,
+  datasheetUrl, footprintId, environment, services, sourceSymbols = []) {
   const fallback = {
     references,
-    status: manufacturerPartNumber ? "completed" : "needs review",
+    status: manufacturerPartNumber && footprintId && part.supplier !== "lcsc" ? "completed" : "needs review",
     manufacturerPartNumber,
-    digiKeyPartNumber,
+    supplierPartNumber: digiKeyPartNumber,
     datasheetUrl,
     footprintId,
-    error: manufacturerPartNumber ? "" : `Could not enrich ${digiKeyPartNumber} with its manufacturer part number.`,
+    error: part.supplier === "lcsc" ? "The existing LCSC selection could not be verified against current JLCPCB stock."
+      : manufacturerPartNumber ? footprintId ? "" : "A footprint is still required for this existing selection."
+      : `Could not enrich ${digiKeyPartNumber} with its manufacturer part number.`,
   };
   try {
-    const searchable = { ...part, supplierPartNumber: digiKeyPartNumber };
-    const search = await services.searchDigiKey(searchable, environment);
+    const searchable = { ...part, bomContext:sourceSymbols, supplierPartNumber: digiKeyPartNumber };
+    const search = await services.search(searchable, environment);
     const selected = (search.candidates || []).find((candidate) => isExactPartNumberMatch(digiKeyPartNumber, candidate));
     if (!selected?.manufacturerPartNumber) return resultFor(part, fallback);
+    if (manufacturerPartNumber && !isExactPartNumberMatch(manufacturerPartNumber, { manufacturerPartNumber: selected.manufacturerPartNumber })) return resultFor(part, { ...fallback, status: "needs review", error: "The existing supplier number does not match the specified manufacturer part number." });
+    if (part.supplier === "lcsc" && !isUsableInStockCandidate(selected, part.quantity)) return resultFor(part, fallback);
+    const verification=assessSpecifications({...part,originalQuery:part.value},selected);
+    if(verification.mismatches.length || verification.unknown.length) return resultFor(part,{...fallback,status:'needs review',verification,
+      error:`Existing selection needs specification review: ${[...verification.mismatches,...verification.unknown].join(' ')}`});
     let assets = { footprintId: "" };
     try { assets = await services.resolveKiCadAssets(searchable, selected, environment); } catch { /* Existing assignment remains authoritative. */ }
+    const pins=assessSchematicPins(sourceSymbols,assets);
+    if(pins.mismatches.length || pins.unknown.length)return resultFor(part,{...fallback,status:'needs review',verification,
+      error:[...pins.mismatches,...pins.unknown].join(' ')});
     return resultFor(part, {
       ...fallback,
-      status: "completed",
-      error: "",
+      status: footprintId || assets.footprintId ? "completed" : "needs review",
+      error: footprintId || assets.footprintId ? '' : 'The supplier selection is verified, but a footprint is still required.',
       manufacturerPartNumber: selected.manufacturerPartNumber || manufacturerPartNumber,
-      digiKeyPartNumber,
+      supplierPartNumber: digiKeyPartNumber,
       datasheetUrl: selected.datasheetUrl || datasheetUrl,
       manufacturer: selected.manufacturer,
       productUrl: selected.productUrl,
@@ -182,6 +233,9 @@ async function completeFromExistingDigiKey(part, references, digiKeyPartNumber, 
       unitPrice: selected.unitPrice,
       currency: selected.currency,
       description: selected.description,
+      libraryType: selected.libraryType,
+      kicadAssets: assets,
+      verification,
     });
   } catch {
     return resultFor(part, fallback);
@@ -194,17 +248,22 @@ function resultFor(part, values) {
     value: part.normalizedValue || part.value,
     componentType: part.componentType,
     manufacturerPartNumber: values.manufacturerPartNumber || "",
-    digiKeyPartNumber: values.digiKeyPartNumber || "",
+    supplier: part.supplier,
+    supplierPartNumber: values.supplierPartNumber || "",
+    [supplierField(part.supplier)]: values.supplierPartNumber || "",
     datasheetUrl: values.datasheetUrl || "",
     footprintId: values.footprintId || "",
     stock: values.stock ?? null,
     unitPrice: values.unitPrice ?? null,
-    currency: values.currency || "CAD",
-    description: values.description || "",
+    currency: values.currency || (part.supplier === "lcsc" ? "USD" : "CAD"),
+    description: [values.description, part.defaultNote].filter(Boolean).join(' '),
+    libraryType: values.libraryType || "",
+    kicadAssets: values.kicadAssets || {},
     manufacturer: values.manufacturer || "",
     productUrl: values.productUrl || "",
     status: values.status,
     error: values.error || "",
+    verification: values.verification || {},
   };
 }
 
@@ -216,9 +275,12 @@ export function validateSymbols(symbols) {
     const reference = String(symbol.reference || "").trim();
     if (!reference) throw new Error("Every schematic symbol needs a reference.");
     if (reference.length > 128) throw new Error("A schematic symbol reference is too long.");
-    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "datasheetUrl"]) {
+    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "lcscPartNumber", "datasheetUrl"]) {
       if (symbol[field] != null && typeof symbol[field] !== "string") throw new Error(`${field} must be text for ${reference}.`);
     }
+    if(symbol.pins!==undefined && (!Array.isArray(symbol.pins)||symbol.pins.length>5000
+      || symbol.pins.some(pin=>!pin||typeof pin.number!=='string'||typeof pin.name!=='string'||pin.number.length>128||pin.name.length>256)))
+      throw new Error(`Invalid pin information for ${reference}.`);
   }
 }
 
@@ -231,7 +293,8 @@ function mergeSymbolsByReference(symbols) {
       merged.set(reference, { ...symbol, reference });
       continue;
     }
-    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "datasheetUrl"]) {
+    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "lcscPartNumber", "datasheetUrl"]) {
+      if(existing[field]?.trim() && symbol[field]?.trim() && existing[field].trim()!==symbol[field].trim())existing.conflicts=[...(existing.conflicts||[]),field];
       if (!existing[field] && symbol[field]) existing[field] = symbol[field];
     }
   }
@@ -266,10 +329,39 @@ function standardPassiveKind(part) {
   return "";
 }
 
+export function applyPassiveDefaults(part, symbols, environment = {}) {
+  const size = environment.PASSIVE_PACKAGE ?? '0805';
+  const mounting = environment.PASSIVE_MOUNTING ?? 'smt';
+  if (!['smt','through-hole','none'].includes(mounting)) throw new Error('Unsupported passive mounting preference.');
+  if (!['0201','0402','0603','0805','1206','1210','none'].includes(size)) throw new Error('Unsupported passive package preference.');
+  const sources = symbols.filter(symbol => part.references.includes(symbol.reference));
+  const explicit = sources.some(symbol => symbol.footprint?.trim() || symbol.manufacturerPartNumber?.trim()
+    || symbol.lcscPartNumber?.trim() || symbol.digiKeyPartNumber?.trim());
+  const text = [part.value, ...sources.map(symbol => symbol.symbolId)].join(' ');
+  if (mounting === 'none' || (size === 'none' && mounting === 'smt') || explicit || part.footprint || part.packageDescription
+    || !['Resistor','Capacitor'].includes(part.componentType)
+    || /polar|electroly|tantal|film|radial|axial|through.hole|\bTHT\b|:C_Polarized|:CP(?:_|\b)|potentiometer|network|array|\b(?:0201|0402|0603|0805|1206|1210)\b/i.test(text)) return part;
+  const capacitor = part.componentType === 'Capacitor';
+  if (mounting === 'through-hole') return {...part, packageDescription:'Through-hole',
+    passiveMounting:mounting, capacitorTechnology:capacitor?'ceramic':undefined,
+    defaultNote:'Using preferred through-hole mounting; lead spacing and body dimensions must be verified.'};
+  return {...part, package:size, packageDescription:`${size} SMT`, capacitorTechnology:capacitor?'ceramic':undefined,
+    passiveMounting:mounting,
+    defaultNote:`Using preferred ${size} SMT${capacitor?' ceramic capacitor':''}; no package was specified.`};
+}
+
+function isPlainPassive(part) {
+  const kind=standardPassiveKind(part),value=String(part.value||'').trim();
+  if(!kind || !standardPackageCode(part.footprint||part.packageDescription||''))return false;
+  return kind==='Resistor' ? /^(?:\d+(?:\.\d+)?\s*(?:[kKmM]?(?:ohms?|Ω)|[rRkKmM])?|\d*[rRkKmM]\d+)$/i.test(value)
+    : /^\d+(?:\.\d+)?\s*[pnuµμm]?[FH]$/i.test(value);
+}
+
 function isUsableInStockCandidate(candidate, requestedQuantity = 1) {
-  if (!candidate?.manufacturerPartNumber || !candidate?.digiKeyPartNumber) return false;
+  if (!candidate?.manufacturerPartNumber || !candidatePartNumber(candidate)) return false;
   const stock = Number(candidate.quantityAvailable);
-  if (!Number.isFinite(stock) || stock < Math.max(1, Number(requestedQuantity) || 1)) return false;
+  if (!Number.isFinite(stock) || stock < Math.max(1, Number(requestedQuantity) || 1)
+    || Number(candidate.minimumOrderQuantity || 1) > Math.max(1, Number(requestedQuantity) || 1)) return false;
   const warnings = [...(candidate.checks || []), candidate.status || ""].join(" ");
   return !/out of stock|discontinued|end of life|obsolete|not recommended/i.test(warnings);
 }
@@ -315,21 +407,22 @@ function standardPackageCode(input) {
 function nearlyEqual(a, b) { return Math.abs(a - b) <= Math.max(Math.abs(a), Math.abs(b), 1e-18) * 1e-6; }
 
 function findReviewedCandidate(candidates, review = {}) {
-  const digiKeyPartNumber = String(review.selectedDigiKeyPartNumber || "").trim();
+  const digiKeyPartNumber = String(review.selectedSupplierPartNumber || review.selectedDigiKeyPartNumber || "").trim();
   const manufacturerPartNumber = String(review.selectedManufacturerPartNumber || "").trim();
   if (!digiKeyPartNumber && !manufacturerPartNumber) return null;
   return candidates.find((candidate) =>
-    (!digiKeyPartNumber || candidate.digiKeyPartNumber === digiKeyPartNumber)
+    (!digiKeyPartNumber || candidatePartNumber(candidate) === digiKeyPartNumber)
     && (!manufacturerPartNumber || candidate.manufacturerPartNumber === manufacturerPartNumber)) || null;
 }
 
 function normalizeIdentifier(value) { return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 
-function symbolsToCsv(symbols) {
-  const headers = ["Reference", "Value", "Footprint", "Manufacturer Part Number", "DigiKey Part Number"];
+function symbolsToCsv(symbols, supplier) {
+  const field = supplierField(supplier);
+  const headers = ["Reference", "Value", "Footprint", "Manufacturer Part Number", "Supplier Part Number"];
   const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return [headers.map(quote).join(","), ...symbols.map((symbol) => [
-    symbol.reference, symbol.value, symbol.footprint, symbol.manufacturerPartNumber, symbol.digiKeyPartNumber,
+    symbol.reference, symbol.value, symbol.footprint, symbol.manufacturerPartNumber, symbol[field],
   ].map(quote).join(","))].join("\n");
 }
 

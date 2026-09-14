@@ -16,6 +16,13 @@
     </header>
     <main>
       <form id="component-form" class="search-panel">
+        <label for="supplier">Source parts from</label>
+        <select id="supplier">
+          <option value="lcsc">JLCPCB / LCSC — assembly catalog</option>
+          <option value="digikey">DigiKey</option>
+        </select>
+        <p class="hint" id="supplier-note">Checks JLCPCB catalog stock. Prices exclude assembly fees. No sourcing API key needed.</p>
+        <label><input id="prefer-basic" type="checkbox" checked /> Prefer Basic parts for JLCPCB assembly</label>
         <label for="component-query">Describe the component you need</label>
         <p class="hint">Include the job it must do and any limits that matter.</p>
         <div class="search-row">

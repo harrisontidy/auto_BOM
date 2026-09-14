@@ -1,31 +1,67 @@
 const $ = (selector) => document.querySelector(selector);
 const ui = {
+  preferBasic: $("#prefer-basic"),
+  supplier: $("#supplier"), supplierNote: $("#supplier-note"),
   form: $("#component-form"), query: $("#component-query"), search: $("#component-search"),
   interpreted: $("#interpreted-request"), results: $("#component-results"), cards: $("#component-cards"),
   count: $("#result-count"), message: $("#message"), apiStatus: $("#api-status"),
 };
 
+ui.supplier.value = localStorage.getItem("autoBOM.supplier") === "digikey" ? "digikey" : "lcsc";
+updateSupplierNote();
 checkConfiguration();
+ui.supplier.addEventListener("change", () => {
+  localStorage.setItem("autoBOM.supplier", ui.supplier.value);
+  ui.results.classList.add("hidden");
+  updateSupplierNote();
+  checkConfiguration();
+});
 ui.query.focus();
 
+function updateSupplierNote() {
+  ui.supplierNote.textContent = ui.supplier.value === "lcsc" ? "Checks JLCPCB catalog stock. Prices exclude assembly fees. No sourcing API key needed." : "Requires your DigiKey API credentials.";
+}
+
+let searchGeneration = 0;
+let activeJob = null;
 ui.form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const query = ui.query.value.trim();
   if (!query) return showMessage("Describe the component you need first.", true);
+  const generation = ++searchGeneration;
+  if(activeJob)fetch(`/api/components/jobs/${activeJob}`,{method:'DELETE'}).catch(()=>{});
+  activeJob=null;
   setSearching(true);
   ui.results.classList.add("hidden");
   ui.interpreted.classList.add("hidden");
-  showMessage("Understanding your request and checking current DigiKey stock…");
+  showMessage(`Understanding your request and checking ${ui.supplier.value === "lcsc" ? "JLCPCB" : "DigiKey"} stock…`);
   try {
-    const result = await postJson("/api/components/search", { query });
-    renderResults(result);
+    let job = await postJson("/api/components/jobs", { query, supplier: ui.supplier.value, quantity: 1, preferBasic: ui.preferBasic.checked });
+    if(generation!==searchGeneration){fetch(`/api/components/jobs/${job.id}`,{method:'DELETE'}).catch(()=>{});return;}
+    activeJob=job.id;
+    let revision=-1;
+    while(true) {
+      if(generation!==searchGeneration)return;
+      if(job.result && job.revision!==revision) {
+        renderResults(job.result);revision=job.revision;
+        if(job.status==='running')showMessage('Parts found. Review and CAD preparation are updating…');
+      }
+      if(job.status==='complete')break;
+      if(job.status!=='running')throw new Error(job.error||'Search cancelled.');
+      await new Promise(resolve=>setTimeout(resolve,150));
+      if(generation!==searchGeneration)return;
+      const response=await fetch(`/api/components/jobs/${job.id}`);
+      job=await response.json();
+      if(!response.ok)throw new Error(job.error||'Search unavailable.');
+    }
+    const result=job.result;
     showMessage(result.candidates.length
       ? `Found ${result.candidates.length} in-stock options. The best overall match is first.`
       : "No in-stock match was found. Try describing the part with fewer restrictions.", !result.candidates.length);
   } catch (error) {
-    showMessage(error.message, true);
+    if(generation===searchGeneration)showMessage(error.message, true);
   } finally {
-    setSearching(false);
+    if(generation===searchGeneration){activeJob=null;setSearching(false);}
   }
 });
 
@@ -49,7 +85,7 @@ function componentCard(component, candidate, review) {
   const card = element("article", "", `component-card${recommended ? " recommended" : ""}`);
   const title = element("div", "", "card-title");
   const heading = element("div");
-  heading.append(element("strong", candidate.manufacturerPartNumber || candidate.digiKeyPartNumber));
+  heading.append(element("strong", candidate.manufacturerPartNumber || candidate.supplierPartNumber));
   heading.append(element("span", `${candidate.manufacturer} · ${candidate.packageType || "standard packaging"}`));
   title.append(heading);
   if (recommended) title.append(element("span", needsReview ? "Needs review" : "Best match", `badge${needsReview ? " warning" : ""}`));
@@ -60,14 +96,25 @@ function componentCard(component, candidate, review) {
     fact("Unit price", candidate.unitPrice == null ? "—" : `${candidate.currency} ${candidate.unitPrice.toFixed(4)}`),
     fact("Order minimum", String(candidate.minimumOrderQuantity || 1)),
   );
+  facts.append(fact("Supplier part", candidate.supplierPartNumber || candidate.digiKeyPartNumber));
+  if (candidate.libraryType) facts.append(fact("Assembly library", candidate.libraryType));
   card.append(facts);
+  if (candidate.stockSource) card.append(element("p", `Stock source: ${candidate.stockSource}. Recheck availability when ordering.`, "hint"));
   const assets = candidate.kicadAssets;
-  if (assets) card.append(element("p", assets.placeable
+  if(candidate.reviewPending)card.append(element('p','Review in progress…','hint'));
+  if(assets?.pending)card.append(element('p','Preparing symbol and footprint…','hint'));
+  if (assets?.imported) card.append(element("p", "EasyEDA symbol and footprint downloaded and linked for KiCad.", "hint"));
+  if (assets?.importError) card.append(element("p", assets.importError, "hint"));
+  if (assets && !assets.pending) card.append(element("p", assets.placeable
     ? `Ready for KiCad: ${assets.symbolId} · ${assets.footprintId}`
     : "No safe symbol and footprint pair is available in the installed KiCad libraries.", `asset-note${assets.placeable ? " ready" : ""}`));
   const actions = element("div", "", "card-actions");
+  for(const audit of [candidate.verification,assets?.validation]) {
+    for(const [key,label] of [['checked','Verified'],['unknown','Check manually']])
+      if(audit?.[key]?.length)card.append(element('p',`${label}: ${audit[key].join(' ')}`,'hint'));
+  }
   if (candidate.productUrl) {
-    const link = element("a", "Open on DigiKey", "text-link");
+    const link = element("a", candidate.supplier === "lcsc" ? "Open on JLCPCB" : "Open on DigiKey", "text-link");
     link.href = candidate.productUrl; link.target = "_blank"; link.rel = "noreferrer"; actions.append(link);
   }
   card.append(actions);
@@ -87,15 +134,17 @@ function componentCard(component, candidate, review) {
 }
 
 function isRecommended(candidate, review) {
-  return candidate.digiKeyPartNumber === review?.selectedDigiKeyPartNumber
-    || candidate.manufacturerPartNumber === review?.selectedManufacturerPartNumber;
+  return Boolean(review && ((candidate.supplierPartNumber && candidate.supplierPartNumber === review.selectedSupplierPartNumber)
+    || (candidate.digiKeyPartNumber && candidate.digiKeyPartNumber === review.selectedDigiKeyPartNumber)
+    || (candidate.manufacturerPartNumber && candidate.manufacturerPartNumber === review.selectedManufacturerPartNumber)));
 }
 
 async function checkConfiguration() {
   try {
     const configuration = await (await fetch("/api/status")).json();
-    const enabled = [configuration.openai && "AI", configuration.digikey && "DigiKey"].filter(Boolean);
-    ui.apiStatus.textContent = enabled.length === 2 ? "AI + DigiKey ready" : `${enabled.join(" + ") || "Setup required"}`;
+    const available = ui.supplier.value === "lcsc" || configuration.digikey;
+    const enabled = [configuration.openai && "AI", available && (ui.supplier.value === "lcsc" ? "JLCPCB / LCSC" : "DigiKey")].filter(Boolean);
+    ui.apiStatus.textContent = enabled.length === 2 ? `${enabled.join(" + ")} ready` : `${enabled.join(" + ") || "Setup required"}`;
     ui.apiStatus.className = `api-status ${enabled.length === 2 ? "ready" : "partial"}`;
   } catch {
     ui.apiStatus.textContent = "Service unavailable";
@@ -104,8 +153,10 @@ async function checkConfiguration() {
 }
 
 function setSearching(searching) {
-  ui.search.disabled = searching;
-  ui.search.textContent = searching ? "Searching…" : "Find parts";
+  ui.preferBasic.disabled = searching;
+  ui.search.disabled = false;
+  ui.supplier.disabled = searching;
+  ui.search.textContent = searching ? "Search again" : "Find parts";
 }
 
 async function postJson(url, body) {

@@ -4,6 +4,10 @@ Thumbs.db
 .env.*
 !.env.example
 node_modules/
+.runtime/
+.easyeda_cache/
 __pycache__/
 .pytest_cache/
 *.sqlite3
+/KiCad-AutoBOM.exe
+/KiCad-AutoBOM-Launcher.exe

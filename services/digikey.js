@@ -25,16 +25,17 @@ export function buildSearchQueries(component) {
   if (explicitPartNumber) return [explicitPartNumber];
   const fallbackFirst = component.componentType === "Capacitor";
   return [...new Set([
+    ...(Array.isArray(component.searchQueries) ? component.searchQueries.filter(q=>typeof q==='string'&&q.trim()).slice(0,3) : []),
     buildSpecializedQuery(component),
     fallbackFirst ? buildFallbackQuery(component) : buildSearchQuery(component),
     fallbackFirst ? buildSearchQuery(component) : buildFallbackQuery(component),
-  ].filter(Boolean))];
+  ].filter(Boolean))].slice(0,3);
 }
 
 export function isExactPartNumberMatch(requestedPartNumber, candidate) {
   const requested = normalizePartNumber(requestedPartNumber);
   if (!requested) return true;
-  return [candidate.manufacturerPartNumber, candidate.digiKeyPartNumber]
+  return [candidate.manufacturerPartNumber, candidate.digiKeyPartNumber, candidate.lcscPartNumber, candidate.supplierPartNumber]
     .some((partNumber) => normalizePartNumber(partNumber) === requested);
 }
 
@@ -46,6 +47,8 @@ export function isCompatibleCandidate(component, candidate) {
     : /capacitor/.test(type) ? "Capacitance"
       : /inductor|choke/.test(type) ? "Inductance" : "";
   if (parameterName) {
+    // A resistor/capacitor array is not interchangeable with a single passive.
+    if (!/array|network/.test(type) && /arrays?|networks?/i.test(candidate.description || "")) return false;
     const requestedValue = parseEngineeringValue(component.normalizedValue || component.value, parameterName);
     const candidateValue = parseEngineeringValue(candidate.parameters?.[parameterName], parameterName);
     if (requestedValue !== null && (candidateValue === null || !approximatelyEqual(requestedValue, candidateValue))) return false;
@@ -53,7 +56,7 @@ export function isCompatibleCandidate(component, candidate) {
   const packageSize = simplifyFootprint(component.footprint);
   if (/^(0201|0402|0603|0805|1206|1210)$/.test(packageSize)) {
     const candidatePackage = String(candidate.parameters?.["Package / Case"] || "");
-    if (!new RegExp(`(?:^|[^0-9])${packageSize}(?:[^0-9]|$)`, "i").test(candidatePackage)) return false;
+    if (!new RegExp(`(?:^|[^0-9])${packageSize}(?:[\\s,(]|$)`, "i").test(candidatePackage)) return false;
   }
   return true;
 }

@@ -1,11 +1,22 @@
 param([switch]$NoBrowser)
 
 $ErrorActionPreference = "Stop"
+$autoBomStartupMutex = [System.Threading.Mutex]::new($false, 'Local\AutoBOM-4173-Startup')
+$autoBomStartupLockHeld = $false
+try {
+  try {
+    $autoBomStartupLockHeld = $autoBomStartupMutex.WaitOne(30000)
+  } catch [System.Threading.AbandonedMutexException] {
+    $autoBomStartupLockHeld = $true
+  }
+  if (-not $autoBomStartupLockHeld) {
+    throw 'Another Auto BOM launch is still starting. Please try again shortly.'
+  }
 $projectDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appUrl = "http://127.0.0.1:4173"
 $listener = Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 $isReady = $false
-$expectedProtocolVersion = 2
+$expectedProtocolVersion = 3
 
 function Stop-AutoBom {
   param([string]$Message)
@@ -75,12 +86,14 @@ function Test-AutoBomStatus {
 if ($listener) {
   $status = $null
   for ($attempt = 0; $attempt -lt 10; $attempt += 1) {
+    $listener = Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $listener) { break }
     $status = Get-AutoBomStatus
     if (Test-AutoBomStatus $status $listener.OwningProcess) { $isReady = $true; break }
     Start-Sleep -Milliseconds 200
   }
 
-  if (-not $isReady) {
+  if (-not $isReady -and $listener) {
     $expectedServerPath = Join-Path $projectDirectory "server.js"
     $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)" -ErrorAction SilentlyContinue
     $legacyProjectServer = $listenerProcess -and $listenerProcess.Name -ieq "node.exe" -and
@@ -151,6 +164,11 @@ if (-not $isReady) {
 
     Stop-AutoBom "auto_BOM did not become ready within 10 seconds. Check Node.js and the .env file."
   }
+}
+
+} finally {
+  if ($autoBomStartupLockHeld) { $autoBomStartupMutex.ReleaseMutex() }
+  $autoBomStartupMutex.Dispose()
 }
 
 if (-not $NoBrowser) { Start-Process $appUrl }

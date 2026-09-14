@@ -1,9 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { importEasyEda, parseSexpr } from "./easyeda.js";
 
 const symbolIndexPromises = new Map();
 
 export async function resolveKiCadAssets(component, candidate, environment = process.env) {
+  let importError = "";
   const componentType = String(component.componentType || "").toLowerCase();
   const packageText = [component.package, component.footprint, candidate?.parameters?.["Package / Case"], candidate?.description].filter(Boolean).join(" ");
   const manufacturerPartNumber = candidate?.manufacturerPartNumber || "";
@@ -11,11 +13,15 @@ export async function resolveKiCadAssets(component, candidate, environment = pro
     || (environment.LOCALAPPDATA ? join(environment.LOCALAPPDATA, "Programs", "KiCad", "10.0", "share", "kicad", "symbols") : "");
   const footprintDirectory = environment.KICAD10_FOOTPRINT_DIR
     || (environment.LOCALAPPDATA ? join(environment.LOCALAPPDATA, "Programs", "KiCad", "10.0", "share", "kicad", "footprints") : "");
-  const exactSymbol = await findExactSymbol(manufacturerPartNumber, symbolDirectory);
+  // Standard two-terminal passives do not need an index of every installed IC library.
+  const standardPassive = /^(resistor|capacitor|inductor)$/.test(componentType)
+    && /(?:^|[^0-9])(0201|0402|0603|0805|1206|1210)(?:[^0-9]|$)/.test(packageText)
+    && !/array|network|variable|trimmer|polar|electrolytic/i.test(packageText);
+  const exactSymbol = standardPassive ? null : await findExactSymbol(manufacturerPartNumber, symbolDirectory);
   const symbolId = exactSymbol?.symbolId || genericSymbol(componentType, packageText, component.pinCount);
   const footprintId = exactSymbol?.footprintId || footprintFor(componentType, packageText, component.pinCount);
   const modelExpected = await footprintHasModel(footprintId, footprintDirectory);
-  return {
+  const localAssets = {
     symbolId,
     footprintId,
     exactSymbol: Boolean(exactSymbol),
@@ -23,7 +29,37 @@ export async function resolveKiCadAssets(component, candidate, environment = pro
     footprintSource: exactSymbol?.footprintId ? "Footprint from KiCad symbol library" : footprintId ? "Matched KiCad footprint" : "No safe footprint match",
     modelExpected,
     placeable: Boolean(symbolId && footprintId),
+    importError,
+    ...(component.bomContext?.length ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
   };
+  if (localAssets.placeable) return localAssets;
+  if (candidate?.supplier === "lcsc" && candidate.lcscPartNumber && environment.EASYEDA_DOWNLOADS !== "false") {
+    try { return await importEasyEda(candidate, environment); }
+    catch (error) { localAssets.importError = `EasyEDA import unavailable: ${error.message}`; }
+  }
+  return localAssets;
+}
+
+const pinLibraries=new Map();
+async function installedPinMap(symbolId,directory) {
+  const [library,name]=String(symbolId||'').split(':');
+  if(!library || !name || !directory)return null;
+  const file=join(directory,`${library}.kicad_sym`);
+  if(!pinLibraries.has(file))pinLibraries.set(file,readFile(file,'utf8').then(text=>{
+    const tree=parseSexpr(text);return new Map(tree.filter(node=>Array.isArray(node)&&node[0]==='symbol').map(node=>[node[1],node]));
+  }).catch(()=>null));
+  const definitions=await pinLibraries.get(file);
+  if(!definitions)return null;
+  const children=(node,tag)=>node.filter(item=>Array.isArray(item)&&item[0]===tag);
+  const collect=(node)=>node.flatMap(item=>Array.isArray(item)?[...(item[0]==='pin'?[item]:[]),...collect(item)]:[]);
+  const seen=new Set();
+  function resolve(name) {
+    if(seen.has(name))return {};seen.add(name);
+    const node=definitions.get(name);if(!node)return {};
+    const parent=children(node,'extends')[0]?.[1];
+    return {...(parent?resolve(parent):{}),...Object.fromEntries(collect(node).map(pin=>[children(pin,'number')[0]?.[1],children(pin,'name')[0]?.[1]||'']).filter(([number])=>number))};
+  }
+  const pins=resolve(name);return Object.keys(pins).length?pins:null;
 }
 
 async function footprintHasModel(footprintId, directory) {
