@@ -6,6 +6,7 @@ Thumbs.db
 node_modules/
 .runtime/
 .easyeda_cache/
+/autoBOM/easyeda-v1/
 __pycache__/
 .pytest_cache/
 *.sqlite3

@@ -1,0 +1,120 @@
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 099386f..a4267db 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -242,8 +242,40 @@ static void setAutoBomFieldIfEmpty( SCH_SYMBOL* aSymbol, const wxString& aName,
+ }
+ 
+ 
+-static bool registerAutoBomAssets( const nlohmann::json& aAssets, wxString& aError )
+-{
++static bool registerAutoBomAssets( const nlohmann::json& aAssets, wxString& aError,
++                                   const wxString& aProjectDirectory = wxString() )
++{
++    if( aAssets.is_object() && aAssets.contains( "footprintRemap" ) )
++    {
++        const wxString source = jsonString( aAssets, "remappedFootprintPath" );
++        const wxString footprint = jsonString( aAssets, "footprintId" );
++        const wxString name = footprint.AfterFirst( ':' );
++        const wxString hash = name.Mid( 7 );
++        if( aProjectDirectory.IsEmpty() || !footprint.StartsWith( wxS( "AutoBOM_Mapped:Mapped_" ) )
++            || hash.length() != 16 || hash.find_first_not_of( wxS( "0123456789abcdef" ) ) != wxString::npos
++            || wxFileName( source ).GetFullName() != name + wxS( ".kicad_mod" )
++            || !wxFileExists( source ) )
++        {
++            aError = _( "The remapped footprint is invalid or the project has not been saved." );
++            return false;
++        }
++        const wxString directory = wxFileName::DirName( aProjectDirectory ).GetFullPath()
++                                   + wxS( "AutoBOM_Mapped.pretty" );
++        if( !wxDirExists( directory ) && !wxFileName::Mkdir( directory, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
++        {
++            aError = _( "Could not create the project footprint library." );
++            return false;
++        }
++        const wxFileName destination( directory, name + wxS( ".kicad_mod" ) );
++        if( !wxFileExists( destination.GetFullPath() )
++            && !wxCopyFile( source, destination.GetFullPath(), false ) )
++        {
++            aError = _( "Could not copy the remapped footprint into the project." );
++            return false;
++        }
++        return EnsureRemoteLibraryEntry( LIBRARY_TABLE_TYPE::FOOTPRINT,
++                wxFileName::DirName( directory ), wxS( "AutoBOM_Mapped" ), false, true, aError );
++    }
+     if( !aAssets.is_object() || !aAssets.value( "imported", false ) )
+         return true;
+ 
+@@ -469,7 +501,8 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+         {
+             wxString importError;
+             if( jsonString( part, "status" ) == wxS( "completed" )
+-                && !registerAutoBomAssets( part.value( "kicadAssets", nlohmann::json::object() ), importError ) )
++                && !registerAutoBomAssets( part.value( "kicadAssets", nlohmann::json::object() ), importError,
++                                           Prj().GetProjectPath() ) )
+                 throw std::runtime_error( jsonUtf8( importError ) );
+         }
+ 
+@@ -534,7 +567,8 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+                                             jsonString( part, "libraryType" ), &sheetPath, variant );
+ 
+                 const wxString footprint = jsonString( part, "footprintId" );
+-                if( symbol->GetFootprintFieldText( true, &sheetPath, false, variant ).IsEmpty()
++                const bool remapped = part.value( "kicadAssets", nlohmann::json::object() ).contains( "footprintRemap" );
++                if( ( symbol->GetFootprintFieldText( true, &sheetPath, false, variant ).IsEmpty() || remapped )
+                     && !footprint.IsEmpty() )
+                 {
+                     SCH_FIELD* footprintField = symbol->GetField( FIELD_T::FOOTPRINT );
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index 12704e9..f9a59e5 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -165,14 +165,17 @@ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+                 + _( "\nFootprint: " ) + str( "footprintId" )
+                 + _( "\nDatasheet: " ) + str( "datasheetUrl" ) );
+         grid->SetCellValue( row, 4, wxString::FromUTF8(
+-                part.contains( "stock" ) ? part["stock"].dump() : "Unknown" )
++                part.contains( "stock" ) && part["stock"].is_number() ? part["stock"].dump() : "Unknown" )
+                 + wxS( "\n" ) + str( "libraryType" ) );
+         const auto assets = part.value( "kicadAssets", nlohmann::json::object() );
+         grid->SetCellValue( row, 5, wxString::FromUTF8(
+                 assets.value( "symbolSource", std::string() ) + "\n"
+                 + assets.value( "footprintSource", std::string() ) ) );
+         grid->SetCellValue( row, 6, ready
+-                ? _( "Stocked selection; existing fields preserved.\n" ) + str( "description" )
++                ? ( assets.contains( "footprintRemap" )
++                    ? _( "Stocked selection; footprint will be replaced with a remapped external copy.\n" )
++                      + wxString::FromUTF8( assets["footprintRemap"].value( "note", std::string() ) ) + wxS( "\n" )
++                    : _( "Stocked selection; existing fields preserved.\n" ) ) + str( "description" )
+                 : _( "Needs review: " ) + str( "error" ) );
+         for( int column = 1; column < 7; ++column )
+         {
+@@ -233,7 +236,7 @@ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+                     verification[key].push_back( note );
+             }
+             const auto originalFootprint = context[0].value( "footprint", std::string() );
+-            if( !originalFootprint.empty() && originalFootprint != assets.value( "footprintId", std::string() ) )
++            if( !assets.contains( "footprintRemap" ) && !originalFootprint.empty() && originalFootprint != assets.value( "footprintId", std::string() ) )
+                 verification["unknown"].push_back( "The existing footprint is preserved and differs from the candidate library footprint. Verify its dimensions and pad mapping." );
+             if( !verification.value( "mismatches", nlohmann::json::array() ).empty() )
+             {
+@@ -264,7 +267,7 @@ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+             line["kicadAssets"] = assets;
+             line["verification"] = verification;
+             line["footprintId"] = context[0].value( "footprint", std::string() );
+-            if( line["footprintId"].get<std::string>().empty() )
++            if( line["footprintId"].get<std::string>().empty() || assets.contains( "footprintRemap" ) )
+                 line["footprintId"] = assets.value( "footprintId", std::string() );
+             line["status"] = "completed";
+             line["error"] = "";
+@@ -1205,6 +1208,10 @@ void DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames()
+         }
+     }
+ 
++    // Offer both supplier identifiers even before a part has been sourced.
++    userFieldNames.insert( wxS( "DigiKey Part Number" ) );
++    userFieldNames.insert( wxS( "LCSC Part #" ) );
++
+     for( const wxString& fieldName : userFieldNames )
+         AddField( fieldName, GetGeneratedFieldDisplayName( fieldName ), true, false );
+ 

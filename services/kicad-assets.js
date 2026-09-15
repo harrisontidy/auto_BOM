@@ -1,10 +1,23 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { importEasyEda, parseSexpr } from "./easyeda.js";
+import { assessSchematicPins } from './specification-checks.js';
+import { planPinRemap, remapExternalFootprint } from './footprint-remap.js';
 
 const symbolIndexPromises = new Map();
 
 export async function resolveKiCadAssets(component, candidate, environment = process.env) {
+  const assets=await resolveAssets(component,candidate,environment);
+  const audit=assessSchematicPins(component.bomContext,assets);
+  if (!audit.mismatches.length || candidate?.supplier!=='lcsc' || environment.EASYEDA_DOWNLOADS==='false') return assets;
+  try {
+    const external=assets.imported?assets:await importEasyEda(candidate,environment);
+    if (!planPinRemap(component.bomContext,external.pinMap)) return assets;
+    return await remapExternalFootprint(component.bomContext,external);
+  } catch(error) { return {...assets,importError:`Footprint remapping unavailable: ${error.message}`}; }
+}
+
+async function resolveAssets(component, candidate, environment = process.env) {
   let importError = "";
   const componentType = String(component.componentType || "").toLowerCase();
   const packageText = [component.package, component.footprint, candidate?.parameters?.["Package / Case"], candidate?.description].filter(Boolean).join(" ");

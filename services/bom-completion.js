@@ -177,7 +177,7 @@ async function completePart(part, byReference, environment, services, demand) {
       datasheetUrl: selected.datasheetUrl,
       manufacturer: selected.manufacturer,
       productUrl: selected.productUrl,
-      footprintId: existingFootprint || assets.footprintId,
+      footprintId: assets.footprintRemap ? assets.footprintId : existingFootprint || assets.footprintId,
       stock: selected.quantityAvailable,
       unitPrice: selected.unitPrice,
       currency: selected.currency,
@@ -208,17 +208,31 @@ async function completeFromExistingSupplier(part, references, digiKeyPartNumber,
     const searchable = { ...part, bomContext:sourceSymbols, supplierPartNumber: digiKeyPartNumber };
     const search = await services.search(searchable, environment);
     const selected = (search.candidates || []).find((candidate) => isExactPartNumberMatch(digiKeyPartNumber, candidate));
-    if (!selected?.manufacturerPartNumber) return resultFor(part, fallback);
+    if (!selected?.manufacturerPartNumber) return resultFor(part, {...fallback,
+      error: [fallback.error, ...(search.searchNotes || [])].filter(Boolean).join(' ')});
+    // A later specification/library review must not erase a successful stock lookup.
+    Object.assign(fallback, {
+      stock: selected.quantityAvailable, unitPrice: selected.unitPrice, currency: selected.currency,
+      description: selected.description, libraryType: selected.libraryType,
+      manufacturer: selected.manufacturer, productUrl: selected.productUrl,
+      datasheetUrl: selected.datasheetUrl || datasheetUrl,
+    });
     if (manufacturerPartNumber && !isExactPartNumberMatch(manufacturerPartNumber, { manufacturerPartNumber: selected.manufacturerPartNumber })) return resultFor(part, { ...fallback, status: "needs review", error: "The existing supplier number does not match the specified manufacturer part number." });
-    if (part.supplier === "lcsc" && !isUsableInStockCandidate(selected, part.quantity)) return resultFor(part, fallback);
+    if (part.supplier === "lcsc" && !isUsableInStockCandidate(selected, part.quantity)) return resultFor(part, {...fallback,
+      error: Number.isFinite(selected.quantityAvailable)
+        ? `The catalog reports ${selected.quantityAvailable} available; the selection cannot fulfill the requested quantity or has supplier restrictions.`
+        : 'The catalog did not provide a verifiable stock quantity. Availability is unknown, not confirmed out of stock.'});
     const verification=assessSpecifications({...part,originalQuery:part.value},selected);
     if(verification.mismatches.length || verification.unknown.length) return resultFor(part,{...fallback,status:'needs review',verification,
       error:`Existing selection needs specification review: ${[...verification.mismatches,...verification.unknown].join(' ')}`});
     let assets = { footprintId: "" };
     try { assets = await services.resolveKiCadAssets(searchable, selected, environment); } catch { /* Existing assignment remains authoritative. */ }
     const pins=assessSchematicPins(sourceSymbols,assets);
-    if(pins.mismatches.length || pins.unknown.length)return resultFor(part,{...fallback,status:'needs review',verification,
-      error:[...pins.mismatches,...pins.unknown].join(' ')});
+    if(pins.mismatches.length || pins.unknown.length)return resultFor(part,{...fallback,status:'needs review',
+      verification:{...verification,checked:[...verification.checked,...pins.checked],
+        mismatches:[...verification.mismatches,...new Set(pins.mismatches)],
+        unknown:[...verification.unknown,...new Set(pins.unknown)]},kicadAssets:assets,
+      error:'Stock verified; existing schematic pin mapping needs review. '+[...new Set([...pins.mismatches,...pins.unknown])].join(' ')});
     return resultFor(part, {
       ...fallback,
       status: footprintId || assets.footprintId ? "completed" : "needs review",
@@ -228,7 +242,7 @@ async function completeFromExistingSupplier(part, references, digiKeyPartNumber,
       datasheetUrl: selected.datasheetUrl || datasheetUrl,
       manufacturer: selected.manufacturer,
       productUrl: selected.productUrl,
-      footprintId: footprintId || assets.footprintId,
+      footprintId: assets.footprintRemap ? assets.footprintId : footprintId || assets.footprintId,
       stock: selected.quantityAvailable,
       unitPrice: selected.unitPrice,
       currency: selected.currency,
@@ -237,8 +251,10 @@ async function completeFromExistingSupplier(part, references, digiKeyPartNumber,
       kicadAssets: assets,
       verification,
     });
-  } catch {
-    return resultFor(part, fallback);
+  } catch (error) {
+    return resultFor(part, {...fallback, error: Number.isFinite(fallback.stock)
+      ? 'Stock was retrieved, but the existing selection could not finish validation. Retry or review it manually.'
+      : `${fallback.error} ${error.message || 'The supplier request failed.'}`});
   }
 }
 

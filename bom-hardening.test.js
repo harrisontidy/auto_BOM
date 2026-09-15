@@ -5,6 +5,47 @@ const env={SOURCING_SUPPLIER:'lcsc',OPENAI_API_KEY:'test'};
 const R={value:'10k',footprint:'Resistor_SMD:R_0603_1608Metric'};
 const part={supplier:'lcsc',supplierPartNumber:'C123',lcscPartNumber:'C123',manufacturerPartNumber:'R10K',quantityAvailable:1000,minimumOrderQuantity:1,description:'10kOhm 0603 resistor',parameters:{Resistance:'10kOhm','Package / Case':'0603'},libraryType:'Basic'};
 const assets=async()=>({footprintId:R.footprint,placeable:true});
+
+test('existing stocked parts retain stock and price when pin names need review',async()=>{
+  const r=await completeSchematicBom(['U1','U2'].map(reference=>({reference,value:'NE555',
+    footprint:'Package_SO:SOIC-8',manufacturerPartNumber:'NE555',lcscPartNumber:'C5125085',
+    pins:[{number:'4',name:'~{RST}'}]})),{SOURCING_SUPPLIER:'lcsc'}, {
+    searchSupplier:async()=>({candidates:[{...part,supplierPartNumber:'C5125085',lcscPartNumber:'C5125085',
+      manufacturerPartNumber:'NE555',quantityAvailable:32878,unitPrice:0.045}]}),
+    resolveKiCadAssets:async()=>({pinMap:{'4':'RESET'},footprintId:'Imported:SOIC8'})});
+  const line=r.parts[0];
+  assert.equal(line.status,'needs review');
+  assert.equal(line.stock,32878);assert.equal(line.unitPrice,0.045);
+  assert.match(line.error,/Stock verified/);
+  assert.equal(line.error.match(/Pin 4:/g).length,1);
+  assert.equal(line.verification.unknown.length,1);
+});
+
+test('swapped LED pad conventions stay blocked without hiding known stock',async()=>{
+  const r=await completeSchematicBom([{reference:'D1',value:'LED',footprint:'LED_SMD:LED_0603',
+    manufacturerPartNumber:'KT-0603R',lcscPartNumber:'C2286',pins:[{number:'1',name:'K'},{number:'2',name:'A'}]}],
+    {SOURCING_SUPPLIER:'lcsc'}, {searchSupplier:async()=>({candidates:[{...part,supplierPartNumber:'C2286',lcscPartNumber:'C2286',
+      manufacturerPartNumber:'KT-0603R'}]}),resolveKiCadAssets:async()=>({pinMap:{'1':'A','2':'K'},footprintId:'Imported:LED'})});
+  assert.equal(r.parts[0].status,'needs review');assert.equal(r.parts[0].stock,1000);
+  assert.equal(r.parts[0].verification.mismatches.length,2);
+});
+
+test('supplier outage is reported as unverified stock rather than a stock count',async()=>{
+  const r=await completeSchematicBom([{reference:'U1',value:'NE555',footprint:'Package:SOIC8',lcscPartNumber:'C5125085'}],
+    {SOURCING_SUPPLIER:'lcsc'}, {searchSupplier:async()=>{throw Error('Catalog unavailable (503)');}});
+  assert.equal(r.parts[0].stock,null);assert.match(r.parts[0].error,/Catalog unavailable \(503\)/);
+  assert.equal(r.parts[0].status,'needs review');
+});
+
+test('a verified remapped footprint replaces the existing footprint in the BOM proposal',async()=>{
+  const r=await completeSchematicBom([{reference:'D1',value:'LED',footprint:'LED_SMD:LED_0603',
+    manufacturerPartNumber:'KT-0603R',lcscPartNumber:'C2286',pins:[{number:'1',name:'K'},{number:'2',name:'A'}]}],
+    {SOURCING_SUPPLIER:'lcsc'}, {searchSupplier:async()=>({candidates:[{...part,supplierPartNumber:'C2286',lcscPartNumber:'C2286',
+      manufacturerPartNumber:'KT-0603R'}]}),resolveKiCadAssets:async()=>({pinMap:{'1':'K','2':'A'},
+      footprintId:'AutoBOM_Mapped:Mapped_0123456789abcdef',footprintRemap:{mapping:{'1':'2','2':'1'}}})});
+  assert.equal(r.parts[0].status,'completed');
+  assert.equal(r.parts[0].footprintId,'AutoBOM_Mapped:Mapped_0123456789abcdef');
+});
 test('200 ordinary symbols group into one stock query without AI',async()=>{
   let searches=0,ai=0;
   const r=await completeSchematicBom(Array.from({length:200},(_,i)=>({reference:`R${i+1}`,...R})),env,{
