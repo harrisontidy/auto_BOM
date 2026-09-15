@@ -1,0 +1,11 @@
+{
+  "meta": {"version": 1},
+  "source": {
+    "type": "REST_API",
+    "api_version": "v1",
+    "root_url": "http://127.0.0.1:4173/kicad-api",
+    "token": "",
+    "timeout_parts_seconds": 30,
+    "timeout_categories_seconds": 30
+  }
+}

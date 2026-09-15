@@ -1,0 +1,306 @@
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index 57626b0a..edb30e1b 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -49,6 +49,7 @@
+ #include <widgets/std_bitmap_button.h>
+ #include <widgets/wx_grid.h>
+ #include <widgets/grid_checkbox.h>
++#include <widgets/panel_auto_bom_assistant.h>
+ #include <wx/choice.h>
+ #include <wx/debug.h>
+ #include <wx/ffile.h>
+@@ -67,6 +68,8 @@
+ #include <jobs/job_export_sch_bom.h>
+ #include <nlohmann/json.hpp>
+ #include <chrono>
++#include <map>
++#include <set>
+ 
+ wxDEFINE_EVENT( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxCommandEvent );
+ 
+@@ -92,7 +95,7 @@ static std::string autoBomUtf8( const wxString& aText )
+ }
+ 
+ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+-                                  const nlohmann::json& aSchematic )
++                                  const nlohmann::json& aSchematic, bool aPreferBasic )
+ {
+     auto& parts = aResponse["parts"];
+     if( !parts.is_array() || parts.empty() )
+@@ -179,9 +182,159 @@ static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
+         event.Skip();
+     } );
+     layout->Add( details, 0, wxEXPAND | wxALL, 10 );
++    auto* actions = new wxBoxSizer( wxHORIZONTAL );
++    auto* refine = new wxButton( &dialog, wxID_ANY, _( "Find alternatives for selected line" ) );
++    auto* selectAll = new wxButton( &dialog, wxID_ANY, _( "Select all ready lines" ) );
++    auto* clear = new wxButton( &dialog, wxID_ANY, _( "Clear selections" ) );
++    actions->Add( refine, 0, wxRIGHT, 8 );
++    actions->Add( selectAll, 0, wxRIGHT, 8 );
++    actions->Add( clear );
++    layout->Add( actions, 0, wxALL, 10 );
++    selectAll->Bind( wxEVT_BUTTON, [&]( wxCommandEvent& ) {
++        for( size_t i = 0; i < parts.size(); ++i )
++            if( parts[i].value( "status", std::string() ) == "completed" )
++                grid->SetCellValue( static_cast<int>( i ), 0, wxS( "1" ) );
++    } );
++    clear->Bind( wxEVT_BUTTON, [&]( wxCommandEvent& ) {
++        for( int i = 0; i < grid->GetNumberRows(); ++i ) grid->SetCellValue( i, 0, wxS( "" ) );
++    } );
++    refine->Bind( wxEVT_BUTTON, [&]( wxCommandEvent& ) {
++        const int selectedRow = grid->GetGridCursorRow();
++        if( selectedRow < 0 || selectedRow >= static_cast<int>( parts.size() ) ) return;
++        nlohmann::json context = nlohmann::json::array();
++        const auto refs = parts[selectedRow].value( "references", nlohmann::json::array() );
++        for( const auto& symbol : aSchematic.value( "symbols", nlohmann::json::array() ) )
++            for( const auto& ref : refs )
++                if( symbol.value( "reference", std::string() ) == ref.get<std::string>() )
++                    context.push_back( symbol );
++        if( context.empty() ) return;
++        wxDialog chooser( &dialog, wxID_ANY, _( "Find a BOM alternative" ), wxDefaultPosition,
++                           wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER );
++        auto* chooserLayout = new wxBoxSizer( wxVERTICAL );
++        auto* finder = new PANEL_AUTO_BOM_ASSISTANT( &chooser,
++                [&]( const wxString& payload, wxString& error ) -> bool {
++            const auto chosen = nlohmann::json::parse( autoBomUtf8( payload ) );
++            const auto assets = chosen.value( "kicadAssets", nlohmann::json::object() );
++            auto verification = chosen.value( "verification", nlohmann::json::object() );
++            const auto cadAudit = assets.value( "validation", nlohmann::json::object() );
++            for( const char* key : { "checked", "unknown" } )
++            {
++                if( !verification.contains( key ) ) verification[key] = nlohmann::json::array();
++                for( const auto& note : cadAudit.value( key, nlohmann::json::array() ) )
++                    verification[key].push_back( note );
++            }
++            const auto originalFootprint = context[0].value( "footprint", std::string() );
++            if( !originalFootprint.empty() && originalFootprint != assets.value( "footprintId", std::string() ) )
++                verification["unknown"].push_back( "The existing footprint is preserved and differs from the candidate library footprint. Verify its dimensions and pad mapping." );
++            if( !verification.value( "mismatches", nlohmann::json::array() ).empty() )
++            {
++                error = _( "This part conflicts with the original requirements." );
++                return false;
++            }
++            const std::string supplier = chosen.value( "supplier", std::string() );
++            const std::string supplierNumber = chosen.value( "supplierPartNumber", std::string() );
++            const std::string mpn = chosen.value( "manufacturerPartNumber", std::string() );
++            for( const auto& source : context )
++            {
++                const auto oldMpn = source.value( "manufacturerPartNumber", std::string() );
++                const auto oldSupplier = source.value( supplier == "lcsc" ? "lcscPartNumber" : "digiKeyPartNumber", std::string() );
++                if( ( !oldMpn.empty() && oldMpn != mpn ) || ( !oldSupplier.empty() && oldSupplier != supplierNumber ) )
++                {
++                    error = _( "This line has an existing part assignment. Clear that assignment in the BOM table before replacing it." );
++                    return false;
++                }
++            }
++            auto& line = parts[selectedRow];
++            line["supplier"] = supplier;
++            line["supplierPartNumber"] = supplierNumber;
++            line[supplier == "lcsc" ? "lcscPartNumber" : "digiKeyPartNumber"] = supplierNumber;
++            line["manufacturerPartNumber"] = mpn;
++            for( const char* key : { "manufacturer", "description", "datasheetUrl", "productUrl", "libraryType", "unitPrice", "currency" } )
++                if( chosen.contains( key ) ) line[key] = chosen[key];
++            line["stock"] = chosen.value( "quantityAvailable", 0 );
++            line["kicadAssets"] = assets;
++            line["verification"] = verification;
++            line["footprintId"] = context[0].value( "footprint", std::string() );
++            if( line["footprintId"].get<std::string>().empty() )
++                line["footprintId"] = assets.value( "footprintId", std::string() );
++            line["status"] = "completed";
++            line["error"] = "";
++            line["userSelected"] = true;
++            chooser.EndModal( wxID_OK );
++            return true;
++        } );
++        finder->ConfigureBomSelection( wxString::FromUTF8( context.dump() ),
++                static_cast<int>( refs.size() ), parts[selectedRow].value( "supplier", std::string() ) != "digikey", aPreferBasic );
++        chooserLayout->Add( finder, 1, wxEXPAND );
++        chooserLayout->Add( chooser.CreateSeparatedButtonSizer( wxCANCEL ), 0, wxEXPAND | wxALL, 8 );
++        chooser.SetSizer( chooserLayout );
++        chooser.SetSize( chooser.FromDIP( wxSize( 740, 740 ) ) );
++        chooser.CentreOnParent();
++        wxString query = wxString::FromUTF8( parts[selectedRow].value( "value", std::string() ) );
++        const wxString footprint = wxString::FromUTF8( context[0].value( "footprint", std::string() ) );
++        for( const char* size : { "0201", "0402", "0603", "0805", "1206", "1210" } )
++            if( footprint.Contains( wxString::FromUTF8( size ) ) ) query += wxS( " " ) + wxString::FromUTF8( size );
++        query += wxS( " " ) + wxString::FromUTF8( parts[selectedRow].value( "componentType", std::string() ) );
++        const auto existingMpn = context[0].value( "manufacturerPartNumber", std::string() );
++        if( !existingMpn.empty() ) query = wxS( "MPN: " ) + wxString::FromUTF8( existingMpn );
++        finder->StartSearch( query );
++        if( chooser.ShowModal() != wxID_OK ) return;
++        const auto& line = parts[selectedRow];
++        grid->SetReadOnly( selectedRow, 0, false );
++        grid->SetCellValue( selectedRow, 0, wxS( "1" ) );
++        grid->SetCellValue( selectedRow, 3, wxString::FromUTF8(
++                line.value( "manufacturerPartNumber", std::string() ) + "\n"
++                + line.value( "supplierPartNumber", std::string() ) + "\n"
++                + line.value( "footprintId", std::string() ) ) );
++        grid->SetCellValue( selectedRow, 4, wxString::FromUTF8( line["stock"].dump() + "\n"
++                + line.value( "libraryType", std::string() ) ) );
++        grid->SetCellValue( selectedRow, 5, wxString::FromUTF8(
++                line["kicadAssets"].value( "symbolSource", std::string() ) ) );
++        const auto verification = line.value( "verification", nlohmann::json::object() );
++        wxString notes = _( "Selected by you. Existing schematic fields and footprint are preserved.\n" );
++        for( const char* category : { "checked", "unknown", "limitations" } )
++            for( const auto& note : verification.value( category, nlohmann::json::array() ) )
++                notes += wxString::FromUTF8( std::string( category ) + ": " + note.get<std::string>() + "\n" );
++        grid->SetCellValue( selectedRow, 6, notes );
++        details->SetValue( notes );
++        grid->ForceRefresh();
++    } );
+     layout->Add( dialog.CreateSeparatedButtonSizer( wxOK | wxCANCEL ), 0, wxEXPAND | wxALL, 10 );
+     if( auto* button = wxDynamicCast( dialog.FindWindow( wxID_OK ), wxButton ) )
++    {
+         button->SetLabel( _( "Apply selected lines" ) );
++        button->Bind( wxEVT_BUTTON, [&]( wxCommandEvent& event ) {
++            grid->SaveEditControlValue();
++            std::map<std::string, std::set<std::string>> demand;
++            std::map<std::string, long long> stock;
++            for( size_t i = 0; i < parts.size(); ++i )
++            {
++                const auto& part = parts[i];
++                if( grid->GetCellValue( static_cast<int>( i ), 0 ) != wxS( "1" )
++                    || part.value( "status", std::string() ) != "completed" ) continue;
++                const auto supplier = part.value( "supplier", std::string() );
++                const auto number = part.value( "supplierPartNumber", std::string() );
++                const auto key = supplier + ":" + number;
++                for( const auto& ref : part.value( "references", nlohmann::json::array() ) )
++                    demand[key].insert( ref.get<std::string>() );
++                for( const auto& source : aSchematic.value( "symbols", nlohmann::json::array() ) )
++                    if( source.value( supplier == "lcsc" ? "lcscPartNumber" : "digiKeyPartNumber", std::string() ) == number )
++                        demand[key].insert( source.value( "reference", std::string() ) );
++                if( part.contains( "stock" ) && part["stock"].is_number_integer() )
++                {
++                    const auto available = part["stock"].get<long long>();
++                    stock[key] = stock.contains( key ) ? std::min( stock[key], available ) : available;
++                }
++            }
++            for( const auto& [key, refs] : demand )
++                if( stock.contains( key ) && static_cast<long long>( refs.size() ) > stock[key] )
++                {
++                    DisplayError( &dialog, _( "The selected lines together exceed the reported stock for " ) + wxString::FromUTF8( key ) );
++                    return;
++                }
++            event.Skip();
++        } );
++    }
+     dialog.SetSizer( layout );
+     dialog.SetSize( dialog.FromDIP( wxSize( 1100, 650 ) ) );
+     dialog.CentreOnParent();
+@@ -1941,7 +2094,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+         const std::string responseText = m_autoBomFuture.get();
+         nlohmann::json response = nlohmann::json::parse( responseText );
+         if( !reviewAutoBomChanges( this, response, nlohmann::json::parse(
+-                    autoBomUtf8( m_parent->GetAutoBomSchematicJson() ) ) ) )
++                    autoBomUtf8( m_parent->GetAutoBomSchematicJson() ) ), m_autoBomPreferBasic->GetValue() ) )
+         {
+             m_autoBomStatus->SetLabel( _( "No proposed changes applied." ) );
+             m_autoBomCompleted = false;
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 4a722cbe..099386f1 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -426,7 +426,12 @@ wxString SCH_EDIT_FRAME::GetAutoBomSchematicJson()
+             || sheetPath.GetDNP( variant ) )
+             continue;
+ 
++        nlohmann::json pins = nlohmann::json::array();
++        for( const SCH_PIN* pin : symbol->GetPins( &sheetPath ) )
++            pins.push_back( { { "number", jsonUtf8( pin->GetNumber() ) },
++                               { "name", jsonUtf8( pin->GetName() ) } } );
+         symbols.push_back( {
++            { "pins", std::move( pins ) },
+             { "reference", jsonUtf8( reference.GetFullRef( false ) ) },
+             { "value", jsonUtf8( symbol->GetValue( true, &sheetPath, false, variant ) ) },
+             { "footprint", jsonUtf8( symbol->GetFootprintFieldText( true, &sheetPath, false,
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.cpp b/eeschema/widgets/panel_auto_bom_assistant.cpp
+index 4f2d4013..699e1b06 100644
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -301,7 +301,8 @@ void PANEL_AUTO_BOM_ASSISTANT::beginSearch( const wxString& aQuery )
+     nlohmann::json request = { { "query", toUtf8( query ) },
+         { "supplier", m_supplierCtrl->GetSelection() == 0 ? "lcsc" : "digikey" },
+         { "preferBasic", m_preferBasicCtrl->GetValue() },
+-        { "quantity", 1 } };
++        { "quantity", m_bomQuantity } };
++    if( m_bomSelection ) request["bomContext"] = nlohmann::json::parse( m_bomContext );
+     const uint64_t generation = ++m_searchGeneration;
+     m_searchThread = std::jthread(
+             [this, generation, requestBody = request.dump()]( std::stop_token aStopToken )
+@@ -681,10 +682,26 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+     }
+ 
+     wxBoxSizer* actionSizer = new wxBoxSizer( wxHORIZONTAL );
++    for( const auto& audit : { candidate.value( "verification", nlohmann::json::object() ),
++                              assets.value( "validation", nlohmann::json::object() ) } )
++    {
++        for( const char* section : { "checked", "unknown" } )
++        {
++            wxString text;
++            for( const auto& note : audit.value( section, nlohmann::json::array() ) )
++                text += wxString::FromUTF8( note.get<std::string>() ) + wxS( "\n" );
++            if( text.IsEmpty() ) continue;
++            text.Prepend( std::string( section ) == "checked" ? _( "Verified:\n" ) : _( "Check manually:\n" ) );
++            auto* label = makeLabel( card, text );
++            label->Wrap( FromDIP( 280 ) );
++            cardSizer->Add( label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++        }
++    }
+     if( candidate.value( "reviewPending", false ) )
+         cardSizer->Add( makeLabel( card, _( "Review in progress..." ) ), 0,
+                         wxLEFT | wxRIGHT | wxBOTTOM, margin );
+-    wxButton* placeButton = new wxButton( card, wxID_ANY, _( "Place in Schematic" ) );
++    wxButton* placeButton = new wxButton( card, wxID_ANY,
++            m_bomSelection ? _( "Use for this BOM line" ) : _( "Place in Schematic" ) );
+     placeButton->Enable( placeable && !candidate.value( "reviewPending", false )
+                          && static_cast<bool>( m_placementCallback ) );
+     placeButton->Bind( wxEVT_BUTTON,
+@@ -737,6 +754,7 @@ void PANEL_AUTO_BOM_ASSISTANT::placeCandidate( size_t aCandidateIndex )
+ 
+         if( m_placementCallback( fromUtf8( candidate.dump() ), placementError ) )
+         {
++            if( m_bomSelection ) return;
+             setStatus( wxString::Format( _( "%s is attached to the cursor. Click the schematic "
+                                             "to place it." ),
+                                          jsonText( candidate, "manufacturerPartNumber" ) ) );
+@@ -755,6 +773,16 @@ void PANEL_AUTO_BOM_ASSISTANT::placeCandidate( size_t aCandidateIndex )
+     }
+ }
+ 
++void PANEL_AUTO_BOM_ASSISTANT::ConfigureBomSelection( const wxString& aContext,
++        int aQuantity, bool aLcsc, bool aPreferBasic )
++{
++    m_bomSelection = true;
++    m_bomContext = toUtf8( aContext );
++    m_bomQuantity = aQuantity;
++    m_supplierCtrl->SetSelection( aLcsc ? 0 : 1 );
++    m_preferBasicCtrl->SetValue( aPreferBasic );
++}
++
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::setBusy( bool aBusy )
+ {
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.h b/eeschema/widgets/panel_auto_bom_assistant.h
+index 94833b36..ce25fc3a 100644
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -63,6 +63,8 @@ public:
+ 
+     /** Populate the request field and immediately run a search. */
+     void StartSearch( const wxString& aQuery );
++    void ConfigureBomSelection( const wxString& aContext, int aQuantity,
++                                bool aLcsc, bool aPreferBasic );
+ 
+ private:
+     void onSearch( wxCommandEvent& aEvent );
+@@ -93,6 +95,9 @@ private:
+     std::atomic<uint64_t>     m_searchGeneration;
+     std::string               m_componentJson;
+     std::vector<std::string>  m_candidateJson;
++    std::string               m_bomContext;
++    int                       m_bomQuantity = 1;
++    bool                      m_bomSelection = false;
+ 
+     wxDECLARE_NO_COPY_CLASS( PANEL_AUTO_BOM_ASSISTANT );
+ };

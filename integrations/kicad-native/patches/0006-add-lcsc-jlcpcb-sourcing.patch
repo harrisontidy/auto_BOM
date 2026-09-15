@@ -1,0 +1,476 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Harrison Tidy <harrisontidy@users.noreply.github.com>
+Date: Fri, 11 Sep 2026 18:00:00 -0700
+Subject: [PATCH] Add LCSC sourcing, Basic preference and EasyEDA imports
+
+---
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index 37314183..61424712 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -49,6 +49,7 @@
+ #include <widgets/std_bitmap_button.h>
+ #include <widgets/wx_grid.h>
+ #include <widgets/grid_checkbox.h>
++#include <wx/choice.h>
+ #include <wx/debug.h>
+ #include <wx/ffile.h>
+ #include <wx/grid.h>
+@@ -94,6 +95,10 @@ static std::string autoBomUtf8( const wxString& aText )
+ static const wxString AUTO_BOM_EXPORT_FIELDS[] = {
+     wxS( "Manufacturer" ),
+     wxS( "Manufacturer Part Number" ),
++    wxS( "LCSC Part #" ),
++    wxS( "JLCPCB Stock" ),
++    wxS( "JLCPCB Unit Price" ),
++    wxS( "JLCPCB Product URL" ),
+     wxS( "DigiKey Part Number" ),
+     wxS( "DigiKey Stock" ),
+     wxS( "DigiKey Unit Price" ),
+@@ -299,9 +304,22 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent,
+         wxPanel* sourcingPanel = new wxPanel( m_rightPanel );
+         wxBoxSizer* sourcingSizer = new wxBoxSizer( wxVERTICAL );
+         wxBoxSizer* sourcingControls = new wxBoxSizer( wxHORIZONTAL );
++        m_autoBomSupplier = new wxChoice( sourcingPanel, wxID_ANY );
++        m_autoBomSupplier->Append( _( "JLCPCB / LCSC" ) );
++        m_autoBomSupplier->Append( _( "DigiKey" ) );
++        m_autoBomSupplier->SetSelection( 0 );
++        sourcingSizer->Add( m_autoBomSupplier, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
++        m_autoBomSupplier->Bind( wxEVT_CHOICE,
++                [this]( wxCommandEvent& ) { m_autoBomCompleted = false; } );
+         m_autoBomUseAi = new wxCheckBox( sourcingPanel, wxID_ANY,
+                                          _( "Use AI when filling missing part numbers" ) );
+         m_autoBomUseAi->SetValue( true );
++        m_autoBomPreferBasic = new wxCheckBox( sourcingPanel, wxID_ANY,
++                                              _( "Prefer JLCPCB Basic parts" ) );
++        m_autoBomPreferBasic->SetValue( true );
++        sourcingSizer->Add( m_autoBomPreferBasic, 0, wxBOTTOM, FromDIP( 6 ) );
++        m_autoBomPreferBasic->Bind( wxEVT_CHECKBOX,
++                [this]( wxCommandEvent& ) { m_autoBomCompleted = false; } );
+         m_autoBomComplete = new wxButton( sourcingPanel, wxID_ANY, _( "Fill Missing Parts" ) );
+         m_autoBomStatus = new wxStaticText( sourcingPanel, wxID_ANY, _( "Ready" ) );
+         m_autoBomProgress = new wxGauge( sourcingPanel, wxID_ANY, 100, wxDefaultPosition,
+@@ -1669,7 +1687,7 @@ bool DIALOG_SYMBOL_FIELDS_TABLE::AutoBomCompletionNeeded() const
+         {
+             const char* requiredPartNumbers[] = {
+                 "manufacturerPartNumber",
+-                "digiKeyPartNumber"
++                m_autoBomSupplier && m_autoBomSupplier->GetSelection() == 0 ? "lcscPartNumber" : "digiKeyPartNumber"
+             };
+ 
+             for( const char* fieldName : requiredPartNumbers )
+@@ -1699,7 +1717,7 @@ bool DIALOG_SYMBOL_FIELDS_TABLE::AutoBomCompletionNeeded() const
+ 
+ bool DIALOG_SYMBOL_FIELDS_TABLE::ConfirmExportCurrentBom( const wxString& aDetail )
+ {
+-    wxString message = _( "Auto BOM could not complete every missing DigiKey part number." );
++    wxString message = _( "Auto BOM could not complete every missing supplier part number." );
+ 
+     if( !aDetail.IsEmpty() )
+         message += wxS( "\n\n" ) + aDetail;
+@@ -1742,10 +1760,14 @@ void DIALOG_SYMBOL_FIELDS_TABLE::StartAutoBomCompletion( bool aExportWhenDone )
+         return;
+     }
+ 
++    request["supplier"] = m_autoBomSupplier->GetSelection() == 0 ? "lcsc" : "digikey";
++    request["preferBasic"] = m_autoBomPreferBasic->GetValue();
+     request["useAi"] = m_autoBomUseAi->IsChecked();
+     m_autoBomExportWhenDone = aExportWhenDone;
+     m_autoBomComplete->Disable();
+     m_autoBomUseAi->Disable();
++    m_autoBomSupplier->Disable();
++    m_autoBomPreferBasic->Disable();
+     m_buttonExport->Disable();
+     m_grid->Disable();
+     m_variantListBox->Disable();
+@@ -1781,6 +1803,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+     m_autoBomProgress->Hide();
+     m_autoBomComplete->Enable();
+     m_autoBomUseAi->Enable();
++    m_autoBomSupplier->Enable();
++    m_autoBomPreferBasic->Enable();
+     m_buttonExport->Enable();
+     m_grid->Enable();
+     m_variantListBox->Enable();
+@@ -1850,7 +1874,9 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnExport( wxCommandEvent& aEvent )
+ {
+-    if( m_autoBomComplete && !m_autoBomCompleted && AutoBomCompletionNeeded() )
++    if( m_autoBomComplete && !m_autoBomCompleted
++        && ( AutoBomCompletionNeeded()
++             || ( m_autoBomSupplier && m_autoBomSupplier->GetSelection() == 0 ) ) )
+     {
+         StartAutoBomCompletion( true );
+         return;
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.h b/eeschema/dialogs/dialog_symbol_fields_table.h
+index 5262d137..36d39dfb 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.h
++++ b/eeschema/dialogs/dialog_symbol_fields_table.h
+@@ -208,6 +208,8 @@ private:
+ 
+     JOB_EXPORT_SCH_BOM* m_job;
+ 
++    wxChoice*            m_autoBomSupplier = nullptr;
++    wxCheckBox*          m_autoBomPreferBasic = nullptr;
+     wxCheckBox*          m_autoBomUseAi;
+     wxButton*            m_autoBomComplete;
+     wxStaticText*        m_autoBomStatus;
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 80917d5f..5b987f73 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -126,6 +126,8 @@
+ #include <wx/textdlg.h>
+ #include <wx/generic/treectlg.h>
+ #include <nlohmann/json.hpp>
++#include <libraries/library_manager.h>
++#include <remote_symbol_import_utils.h>
+ 
+ 
+ #ifdef KICAD_IPC_API
+@@ -240,6 +242,56 @@ static void setAutoBomFieldIfEmpty( SCH_SYMBOL* aSymbol, const wxString& aName,
+ }
+ 
+ 
++static bool registerAutoBomAssets( const nlohmann::json& aAssets, wxString& aError )
++{
++    if( !aAssets.is_object() || !aAssets.value( "imported", false ) )
++        return true;
++
++    const wxString nickname = jsonString( aAssets, "libraryName" );
++    const wxString symbolPath = jsonString( aAssets, "symbolLibraryPath" );
++    const wxString footprintPath = jsonString( aAssets, "footprintLibraryPath" );
++    const wxString id = nickname.Mid( 9 );
++    if( !nickname.StartsWith( wxS( "AutoBOM_C" ) ) || id.IsEmpty()
++        || id.find_first_not_of( wxS( "0123456789" ) ) != wxString::npos
++        || wxFileName( symbolPath ).GetFullName() != nickname + wxS( ".kicad_sym" )
++        || !wxFileExists( symbolPath ) || !wxDirExists( footprintPath ) )
++    {
++        aError = _( "The downloaded KiCad library paths are invalid." );
++        return false;
++    }
++
++    for( const auto& [type, path] : {
++            std::pair{ LIBRARY_TABLE_TYPE::SYMBOL, symbolPath },
++            std::pair{ LIBRARY_TABLE_TYPE::FOOTPRINT, footprintPath } } )
++    {
++        const wxFileName libraryPath = type == LIBRARY_TABLE_TYPE::FOOTPRINT
++                                              ? wxFileName::DirName( path ) : wxFileName( path );
++        auto existing = Pgm().GetLibraryManager().GetRow( type, nickname );
++        if( existing && !LIBRARY_MANAGER::UrisAreEquivalent(
++                                ( *existing )->URI(), libraryPath.GetFullPath() ) )
++        {
++            aError = _( "A different library already uses this Auto BOM library name." );
++            return false;
++        }
++        if( !EnsureRemoteLibraryEntry( type, libraryPath, nickname, true, true, aError ) )
++            return false;
++
++        // LoadSymbol only reads libraries already loaded by the adapter. A newly
++        // registered download must be loaded before the first placement.
++        if( type == LIBRARY_TABLE_TYPE::SYMBOL )
++        {
++            auto status = Pgm().GetLibraryManager().LoadLibraryEntry( type, nickname );
++            if( !status || status->load_status != LOAD_STATUS::LOADED )
++            {
++                aError = _( "KiCad could not load the downloaded symbol library." );
++                return false;
++            }
++        }
++    }
++    return true;
++}
++
++
+ static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload,
+                                 wxString& aError )
+ {
+@@ -262,6 +314,9 @@ static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+             return false;
+         }
+ 
++        if( !registerAutoBomAssets( message.value( "kicadAssets", nlohmann::json::object() ), aError ) )
++            return false;
++
+         LIB_ID symbolId( symbolIdText.Left( separator ), symbolIdText.Mid( separator + 1 ) );
+         LIB_SYMBOL* libSymbol = aFrame->GetLibSymbol( symbolId );
+ 
+@@ -294,13 +349,15 @@ static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+                                                        message["unitPrice"].get<double>(),
+                                                        jsonString( message, "currency" ) )
+                                    : wxString();
++        const bool isLcsc = jsonString( message, "supplier" ) == wxS( "lcsc" );
+         const std::pair<const char*, wxString> fields[] = {
+             { "Manufacturer", jsonString( message, "manufacturer" ) },
+             { "Manufacturer Part Number", jsonString( message, "manufacturerPartNumber" ) },
+-            { "DigiKey Part Number", jsonString( message, "digiKeyPartNumber" ) },
+-            { "DigiKey Stock", stock },
+-            { "DigiKey Unit Price", unitPrice },
+-            { "DigiKey Product URL", jsonString( message, "productUrl" ) },
++            { isLcsc ? "LCSC Part #" : "DigiKey Part Number", jsonString( message, isLcsc ? "lcscPartNumber" : "digiKeyPartNumber" ) },
++            { isLcsc ? "JLCPCB Stock" : "DigiKey Stock", stock },
++            { isLcsc ? "JLCPCB Unit Price" : "DigiKey Unit Price", unitPrice },
++            { isLcsc ? "JLCPCB Product URL" : "DigiKey Product URL", jsonString( message, "productUrl" ) },
++            { "JLCPCB Library Type", isLcsc ? jsonString( message, "libraryType" ) : wxString() },
+             { "Datasheet", jsonString( message, "datasheetUrl" ) }
+         };
+ 
+@@ -369,6 +426,9 @@ wxString SCH_EDIT_FRAME::GetAutoBomSchematicJson()
+             { "manufacturerPartNumber", jsonUtf8( autoBomFirstFieldText(
+                     symbol, { wxS( "Manufacturer Part Number" ), wxS( "MPN" ),
+                               wxS( "MFR Part Number" ) }, &sheetPath, variant ) ) },
++            { "lcscPartNumber", jsonUtf8( autoBomFirstFieldText(
++                    symbol, { wxS( "LCSC Part #" ), wxS( "LCSC Part Number" ), wxS( "LCSC" ) },
++                    &sheetPath, variant ) ) },
+             { "digiKeyPartNumber", jsonUtf8( autoBomFirstFieldText(
+                     symbol, { wxS( "DigiKey Part Number" ), wxS( "Digi-Key Part Number" ),
+                               wxS( "Digi-Key_PN" ), wxS( "DigiKey" ) }, &sheetPath,
+@@ -390,6 +450,15 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+         if( !message.contains( "parts" ) || !message["parts"].is_array() )
+             return 0;
+ 
++        // Register downloaded libraries before modifying any schematic fields.
++        for( const nlohmann::json& part : message["parts"] )
++        {
++            wxString importError;
++            if( jsonString( part, "status" ) == wxS( "completed" )
++                && !registerAutoBomAssets( part.value( "kicadAssets", nlohmann::json::object() ), importError ) )
++                throw std::runtime_error( jsonUtf8( importError ) );
++        }
++
+         SCH_REFERENCE_LIST references;
+         Schematic().Hierarchy().GetSymbols( references, SYMBOL_FILTER_NON_POWER, false );
+         SCH_COMMIT commit( this );
+@@ -401,6 +470,7 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+                 || jsonString( part, "status" ) != wxS( "completed" ) )
+                 continue;
+ 
++            const bool isLcsc = jsonString( part, "supplier" ) == wxS( "lcsc" );
+             std::unordered_set<std::string> requestedReferences;
+             for( const nlohmann::json& reference : part["references"] )
+             {
+@@ -426,25 +496,28 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+                 setAutoBomFieldIfEmpty( symbol, wxS( "Manufacturer Part Number" ),
+                                         jsonString( part, "manufacturerPartNumber" ), &sheetPath,
+                                         variant );
+-                setAutoBomFieldIfEmpty( symbol, wxS( "DigiKey Part Number" ),
+-                                        jsonString( part, "digiKeyPartNumber" ), &sheetPath,
++                setAutoBomFieldIfEmpty( symbol, isLcsc ? wxS( "LCSC Part #" ) : wxS( "DigiKey Part Number" ),
++                                        jsonString( part, isLcsc ? "lcscPartNumber" : "digiKeyPartNumber" ), &sheetPath,
+                                         variant );
+                 setAutoBomFieldIfEmpty(
+-                        symbol, wxS( "DigiKey Stock" ),
++                        symbol, isLcsc ? wxS( "JLCPCB Stock" ) : wxS( "DigiKey Stock" ),
+                         part.contains( "stock" ) && part["stock"].is_number()
+                                 ? wxString::Format( wxS( "%lld" ), part["stock"].get<long long>() )
+                                 : wxString(), &sheetPath, variant );
+                 setAutoBomFieldIfEmpty(
+-                        symbol, wxS( "DigiKey Unit Price" ),
++                        symbol, isLcsc ? wxS( "JLCPCB Unit Price" ) : wxS( "DigiKey Unit Price" ),
+                         part.contains( "unitPrice" ) && part["unitPrice"].is_number()
+                                 ? wxString::Format( wxS( "%.4f %s" ),
+                                                    part["unitPrice"].get<double>(),
+                                                    jsonString( part, "currency" ) )
+                                 : wxString(), &sheetPath, variant );
+-                setAutoBomFieldIfEmpty( symbol, wxS( "DigiKey Product URL" ),
++                setAutoBomFieldIfEmpty( symbol, isLcsc ? wxS( "JLCPCB Product URL" ) : wxS( "DigiKey Product URL" ),
+                                         jsonString( part, "productUrl" ), &sheetPath, variant );
+                 setAutoBomFieldIfEmpty( symbol, wxS( "Datasheet" ),
+                                         jsonString( part, "datasheetUrl" ), &sheetPath, variant );
++                if( isLcsc )
++                    setAutoBomFieldIfEmpty( symbol, wxS( "JLCPCB Library Type" ),
++                                            jsonString( part, "libraryType" ), &sheetPath, variant );
+ 
+                 const wxString footprint = jsonString( part, "footprintId" );
+                 if( symbol->GetFootprintFieldText( true, &sheetPath, false, variant ).IsEmpty()
+@@ -459,7 +532,7 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+ 
+         if( !modified.empty() )
+         {
+-            commit.Push( _( "Complete BOM with DigiKey" ) );
++            commit.Push( _( "Complete BOM sourcing" ) );
+             OnModify();
+         }
+ 
+@@ -467,8 +540,7 @@ int SCH_EDIT_FRAME::ApplyAutoBomCompletionJson( const wxString& aPayload )
+     }
+     catch( const std::exception& error )
+     {
+-        wxLogError( "Auto BOM completion failed: %s", error.what() );
+-        return 0;
++        throw std::runtime_error( std::string( "Auto BOM completion failed: " ) + error.what() );
+     }
+ }
+ 
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.cpp b/eeschema/widgets/panel_auto_bom_assistant.cpp
+index 38f0dcdd..6cacf8f4 100644
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -28,6 +28,8 @@
+ 
+ #include <wx/activityindicator.h>
+ #include <wx/button.h>
++#include <wx/choice.h>
++#include <wx/checkbox.h>
+ #include <wx/intl.h>
+ #include <wx/numformatter.h>
+ #include <wx/scrolwin.h>
+@@ -186,11 +188,22 @@ PANEL_AUTO_BOM_ASSISTANT::PANEL_AUTO_BOM_ASSISTANT(
+     mainSizer->Add( title, 0, wxLEFT | wxRIGHT | wxTOP, margin );
+ 
+     wxStaticText* introduction = makeLabel(
+-            this, _( "Describe the component you need. AI interprets the request, then DigiKey "
++            this, _( "Describe the component you need. AI interprets the request, then your selected supplier "
+                      "finds in-stock parts you can place directly." ) );
+     introduction->Wrap( FromDIP( 300 ) );
+     mainSizer->Add( introduction, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+ 
++    m_supplierCtrl = new wxChoice( this, wxID_ANY );
++    m_supplierCtrl->Append( _( "JLCPCB / LCSC" ) );
++    m_supplierCtrl->Append( _( "DigiKey" ) );
++    m_supplierCtrl->SetSelection( 0 );
++    mainSizer->Add( m_supplierCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
++    m_supplierCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { clearResults(); } );
++    m_preferBasicCtrl = new wxCheckBox( this, wxID_ANY, _( "Prefer JLCPCB Basic parts" ) );
++    m_preferBasicCtrl->SetValue( true );
++    mainSizer->Add( m_preferBasicCtrl, 0, wxLEFT | wxRIGHT | wxTOP, margin );
++    m_preferBasicCtrl->Bind( wxEVT_CHECKBOX, [this]( wxCommandEvent& ) { clearResults(); } );
++
+     m_queryCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                   wxDefaultSize, wxTE_PROCESS_ENTER );
+     m_queryCtrl->SetHint( _( "Example: efficient 5 V 3 A buck regulator" ) );
+@@ -283,9 +296,12 @@ void PANEL_AUTO_BOM_ASSISTANT::beginSearch( const wxString& aQuery )
+ 
+     clearResults();
+     setBusy( true );
+-    setStatus( _( "Understanding your request and checking DigiKey stock..." ) );
++    setStatus( _( "Understanding your request and checking supplier stock..." ) );
+ 
+-    nlohmann::json request = { { "query", toUtf8( query ) } };
++    nlohmann::json request = { { "query", toUtf8( query ) },
++        { "supplier", m_supplierCtrl->GetSelection() == 0 ? "lcsc" : "digikey" },
++        { "preferBasic", m_preferBasicCtrl->GetValue() },
++        { "quantity", 1 } };
+     const uint64_t generation = ++m_searchGeneration;
+     m_searchThread = std::jthread(
+             [this, generation, requestBody = request.dump()]( std::stop_token aStopToken )
+@@ -427,7 +443,7 @@ void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody
+         candidates = nlohmann::json::array();
+ 
+     m_componentJson = component.dump();
+-    const wxString selectedDigiKey = jsonText( review, "selectedDigiKeyPartNumber" );
++    const wxString selectedDigiKey = jsonText( review, "selectedSupplierPartNumber" );
+     const wxString selectedManufacturer = jsonText( review, "selectedManufacturerPartNumber" );
+ 
+     std::stable_sort( candidates.begin(), candidates.end(),
+@@ -435,13 +451,13 @@ void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody
+                       {
+                           const bool leftRecommended =
+                                   ( !selectedDigiKey.IsEmpty()
+-                                    && jsonText( aLeft, "digiKeyPartNumber" ) == selectedDigiKey )
++                                    && jsonText( aLeft, "supplierPartNumber" ) == selectedDigiKey )
+                                   || ( !selectedManufacturer.IsEmpty()
+                                        && jsonText( aLeft, "manufacturerPartNumber" )
+                                                   == selectedManufacturer );
+                           const bool rightRecommended =
+                                   ( !selectedDigiKey.IsEmpty()
+-                                    && jsonText( aRight, "digiKeyPartNumber" ) == selectedDigiKey )
++                                    && jsonText( aRight, "supplierPartNumber" ) == selectedDigiKey )
+                                   || ( !selectedManufacturer.IsEmpty()
+                                        && jsonText( aRight, "manufacturerPartNumber" )
+                                                   == selectedManufacturer );
+@@ -476,7 +492,7 @@ void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody
+             const nlohmann::json candidate = nlohmann::json::parse( m_candidateJson[i] );
+             const bool recommended =
+                     ( !selectedDigiKey.IsEmpty()
+-                      && jsonText( candidate, "digiKeyPartNumber" ) == selectedDigiKey )
++                      && jsonText( candidate, "supplierPartNumber" ) == selectedDigiKey )
+                     || ( !selectedManufacturer.IsEmpty()
+                          && jsonText( candidate, "manufacturerPartNumber" )
+                                     == selectedManufacturer );
+@@ -526,7 +542,7 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+     wxString partNumber = jsonText( candidate, "manufacturerPartNumber" );
+ 
+     if( partNumber.IsEmpty() )
+-        partNumber = jsonText( candidate, "digiKeyPartNumber" );
++        partNumber = jsonText( candidate, "supplierPartNumber" );
+ 
+     wxStaticText* partNumberLabel = makeLabel( card, partNumber, true );
+     partNumberLabel->Wrap( FromDIP( 175 ) );
+@@ -543,7 +559,7 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+     cardSizer->Add( headingSizer, 0, wxEXPAND | wxALL, margin );
+ 
+     wxString manufacturer = jsonText( candidate, "manufacturer" );
+-    wxString digiKeyPart = jsonText( candidate, "digiKeyPartNumber" );
++    wxString digiKeyPart = jsonText( candidate, "supplierPartNumber" );
+     wxStaticText* identity = makeLabel( card, manufacturer + wxS( "  \u00b7  " ) + digiKeyPart );
+     identity->Wrap( FromDIP( 260 ) );
+     cardSizer->Add( identity, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+@@ -569,10 +585,17 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+     addFact( facts, card, _( "Packaging" ), jsonText( candidate, "packageType" ) );
+     addFact( facts, card, _( "KiCad symbol" ), jsonText( assets, "symbolId" ) );
+     addFact( facts, card, _( "Footprint" ), jsonText( assets, "footprintId" ) );
++    addFact( facts, card, _( "Library source" ), jsonText( assets, "symbolSource" ) );
++    if( !jsonText( assets, "importError" ).IsEmpty() )
++        addFact( facts, card, _( "Download status" ), jsonText( assets, "importError" ) );
+     addFact( facts, card, _( "3D model" ),
+              assets.value( "modelExpected", false )
+                      ? _( "Available in installed KiCad library" )
+                      : _( "Not found in installed KiCad library" ) );
++    if( jsonText( candidate, "supplier" ) == wxS( "lcsc" ) )
++    {
++        addFact( facts, card, _( "Library" ), jsonText( candidate, "libraryType" ) );
++    }
+     cardSizer->Add( facts, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+ 
+     if( !aRecommendation.IsEmpty() )
+@@ -616,7 +639,7 @@ void PANEL_AUTO_BOM_ASSISTANT::addCandidateCard( size_t aCandidateIndex, bool aR
+ 
+     if( !productUrl.IsEmpty() )
+     {
+-        wxButton* digiKeyButton = new wxButton( card, wxID_ANY, _( "DigiKey" ) );
++        wxButton* digiKeyButton = new wxButton( card, wxID_ANY, jsonText( candidate, "supplier" ) == wxS( "lcsc" ) ? _( "JLCPCB" ) : _( "DigiKey" ) );
+         digiKeyButton->Bind( wxEVT_BUTTON,
+                              [productUrl]( wxCommandEvent& )
+                              {
+@@ -676,6 +699,8 @@ void PANEL_AUTO_BOM_ASSISTANT::placeCandidate( size_t aCandidateIndex )
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::setBusy( bool aBusy )
+ {
++    m_supplierCtrl->Enable( !aBusy );
++    m_preferBasicCtrl->Enable( !aBusy );
+     m_queryCtrl->Enable( !aBusy );
+     m_searchButton->Enable( !aBusy );
+ 
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.h b/eeschema/widgets/panel_auto_bom_assistant.h
+index 03499915..94833b36 100644
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -34,6 +34,8 @@
+ class wxActivityIndicator;
+ class wxBoxSizer;
+ class wxButton;
++class wxChoice;
++class wxCheckBox;
+ class wxScrolledWindow;
+ class wxStaticText;
+ class wxTextCtrl;
+@@ -44,7 +46,7 @@ class wxThreadEvent;
+  * Native KiCad component finder backed by the local Auto BOM service.
+  *
+  * The service interprets a natural-language request and returns current
+- * DigiKey candidates with resolved KiCad library assets.  This panel owns
++ * supplier candidates with resolved KiCad library assets.  This panel owns
+  * presentation and network activity; the schematic editor supplies the
+  * callback that turns a selected candidate into an interactive placement.
+  */
+@@ -78,6 +80,8 @@ private:
+ 
+ private:
+     PLACEMENT_CALLBACK        m_placementCallback;
++    wxChoice*                 m_supplierCtrl;
++    wxCheckBox*               m_preferBasicCtrl;
+     wxTextCtrl*               m_queryCtrl;
+     wxButton*                 m_searchButton;
+     wxActivityIndicator*      m_activity;

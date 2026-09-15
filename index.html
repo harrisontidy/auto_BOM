@@ -3,36 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>auto_BOM</title>
+    <title>KiCad Component Finder</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="site-header">
-      <div><h1>auto_BOM</h1><p>KiCad BOM cleanup and component sourcing</p></div>
-      <span id="api-status" class="api-status">Checking API setup…</span>
+    <header class="app-header">
+      <div>
+        <span class="eyebrow">KiCad assistant</span>
+        <strong>Component Finder</strong>
+      </div>
+      <span id="api-status" class="api-status">Checking services</span>
     </header>
     <main>
-      <section class="panel import-panel">
-        <div><h2>1. Import a BOM</h2><p>Load a CSV export. The app parses it, asks AI to review the structure, then searches every line automatically.</p></div>
-        <div class="actions">
-          <button id="sample-button" class="button secondary" type="button">Load sample</button>
-          <button id="stress-test-button" class="button secondary" type="button">Load stress test</button>
-          <label class="button primary">Choose CSV<input id="file-input" type="file" accept=".csv,text/csv" /></label>
+      <form id="component-form" class="search-panel">
+        <label for="supplier">Source parts from</label>
+        <select id="supplier">
+          <option value="lcsc">JLCPCB / LCSC — assembly catalog</option>
+          <option value="digikey">DigiKey</option>
+        </select>
+        <p class="hint" id="supplier-note">Checks JLCPCB catalog stock. Prices exclude assembly fees. No sourcing API key needed.</p>
+        <label><input id="prefer-basic" type="checkbox" checked /> Prefer Basic parts for JLCPCB assembly</label>
+        <label for="component-query">Describe the component you need</label>
+        <p class="hint">Include the job it must do and any limits that matter.</p>
+        <div class="search-row">
+          <input id="component-query" autocomplete="off" placeholder="5 V, 3 A buck regulator with a 12 V input" />
+          <button id="component-search" class="button primary" type="submit">Find parts</button>
         </div>
-      </section>
-      <div id="message" class="message hidden" role="status"></div>
-      <section id="empty-state" class="panel empty-state"><h2>No BOM loaded</h2><p>Use the sample file to try the importer.</p></section>
-      <section id="results" class="panel hidden">
-        <div class="results-header">
-          <div><h2>2. Completed BOM</h2><p><span id="line-count">0</span> lines · <span id="part-count">0</span> parts · <span id="warning-count">0</span> missing fields</p></div>
-          <button id="export-button" class="button secondary" type="button">Export JSON</button>
-        </div>
-        <div class="table-wrap"><table><thead><tr><th>References</th><th>Requested part</th><th>Qty</th><th>Manufacturer part #</th><th>DigiKey part #</th><th>Stock</th><th>Unit price</th><th>Status</th><th></th></tr></thead><tbody id="bom-body"></tbody></table></div>
-      </section>
-      <section id="candidate-panel" class="panel hidden">
-        <div class="results-header"><div><h2>3. DigiKey candidates</h2><p id="candidate-context"></p></div></div>
-        <div id="ai-result" class="review hidden"></div>
-        <div class="table-wrap"><table><thead><tr><th>Part number</th><th>Manufacturer</th><th>Description</th><th>Stock</th><th>Unit price</th><th>Status</th></tr></thead><tbody id="candidate-body"></tbody></table></div>
+      </form>
+      <div id="message" class="message hidden" role="status" aria-live="polite"></div>
+      <section id="interpreted-request" class="request-summary hidden"></section>
+      <section id="component-results" class="hidden">
+        <div class="section-heading"><h2>Suggested parts</h2><span id="result-count"></span></div>
+        <div id="component-cards" class="component-list"></div>
       </section>
     </main>
     <script type="module" src="app.js"></script>

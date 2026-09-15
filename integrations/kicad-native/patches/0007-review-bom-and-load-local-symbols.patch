@@ -1,0 +1,223 @@
+diff --git a/eeschema/dialogs/dialog_symbol_fields_table.cpp b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+index 61424712..57626b0a 100644
+--- a/eeschema/dialogs/dialog_symbol_fields_table.cpp
++++ b/eeschema/dialogs/dialog_symbol_fields_table.cpp
+@@ -91,6 +91,114 @@ static std::string autoBomUtf8( const wxString& aText )
+     return std::string( aText.utf8_str() );
+ }
+ 
++static bool reviewAutoBomChanges( wxWindow* aParent, nlohmann::json& aResponse,
++                                  const nlohmann::json& aSchematic )
++{
++    auto& parts = aResponse["parts"];
++    if( !parts.is_array() || parts.empty() )
++        return false;
++
++    wxDialog dialog( aParent, wxID_ANY, _( "Review proposed BOM changes" ),
++                     wxDefaultPosition, wxDefaultSize,
++                     wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER );
++    auto* layout = new wxBoxSizer( wxVERTICAL );
++    auto* guidance = new wxStaticText( &dialog, wxID_ANY,
++            _( "Select the lines to apply. Existing fields are preserved. Unchecked lines stay unchanged.\n"
++               "Stock is a snapshot. Verify electrical ratings, symbol pins and footprint dimensions." ) );
++    layout->Add( guidance, 0, wxALL, 10 );
++    auto* grid = new wxGrid( &dialog, wxID_ANY );
++    grid->CreateGrid( static_cast<int>( parts.size() ), 7 );
++    const wxString labels[] = { _( "Apply" ), _( "References" ), _( "Current fields" ),
++                                _( "Proposed fields" ), _( "Stock / library" ),
++                                _( "CAD source" ), _( "Selection / review notes" ) };
++    for( int column = 0; column < 7; ++column )
++        grid->SetColLabelValue( column, labels[column] );
++    grid->SetRowLabelSize( 0 );
++    grid->SetColSize( 0, 55 );
++    for( int column = 1; column < 7; ++column )
++        grid->SetColSize( column, column == 1 ? 110 : 220 );
++
++    int row = 0;
++    for( const auto& part : parts )
++    {
++        auto str = [&part]( const char* key ) {
++            return wxString::FromUTF8( part.value( key, std::string() ) );
++        };
++        const bool ready = part.value( "status", std::string() ) == "completed";
++        wxString refs, current;
++        for( const auto& ref : part.value( "references", nlohmann::json::array() ) )
++        {
++            if( !refs.IsEmpty() ) refs += wxS( ", " );
++            refs += wxString::FromUTF8( ref.get<std::string>() );
++            for( const auto& symbol : aSchematic.value( "symbols", nlohmann::json::array() ) )
++            {
++                if( symbol.value( "reference", std::string() ) != ref.get<std::string>() )
++                    continue;
++                current += wxString::FromUTF8( symbol.value( "reference", std::string() )
++                        + ": " + symbol.value( "value", std::string() ) + "\nMPN: "
++                        + symbol.value( "manufacturerPartNumber", std::string() ) + "\nSupplier: "
++                        + symbol.value( "lcscPartNumber", std::string() ) + " "
++                        + symbol.value( "digiKeyPartNumber", std::string() ) + "\nFootprint: "
++                        + symbol.value( "footprint", std::string() ) + "\n" );
++            }
++        }
++        grid->SetCellRenderer( row, 0, new wxGridCellBoolRenderer() );
++        grid->SetCellEditor( row, 0, new wxGridCellBoolEditor() );
++        grid->SetCellValue( row, 0, wxS( "" ) );
++        grid->SetReadOnly( row, 0, !ready );
++        grid->SetCellValue( row, 1, refs );
++        grid->SetCellValue( row, 2, current );
++        grid->SetCellValue( row, 3, _( "MPN: " ) + str( "manufacturerPartNumber" )
++                + _( "\nSupplier: " ) + str( "supplierPartNumber" )
++                + _( "\nFootprint: " ) + str( "footprintId" )
++                + _( "\nDatasheet: " ) + str( "datasheetUrl" ) );
++        grid->SetCellValue( row, 4, wxString::FromUTF8(
++                part.contains( "stock" ) ? part["stock"].dump() : "Unknown" )
++                + wxS( "\n" ) + str( "libraryType" ) );
++        const auto assets = part.value( "kicadAssets", nlohmann::json::object() );
++        grid->SetCellValue( row, 5, wxString::FromUTF8(
++                assets.value( "symbolSource", std::string() ) + "\n"
++                + assets.value( "footprintSource", std::string() ) ) );
++        grid->SetCellValue( row, 6, ready
++                ? _( "Stocked selection; existing fields preserved.\n" ) + str( "description" )
++                : _( "Needs review: " ) + str( "error" ) );
++        for( int column = 1; column < 7; ++column )
++        {
++            grid->SetReadOnly( row, column );
++            grid->SetCellRenderer( row, column, new wxGridCellAutoWrapStringRenderer() );
++        }
++        grid->SetRowSize( row, 130 );
++        ++row;
++    }
++    layout->Add( grid, 1, wxEXPAND | wxLEFT | wxRIGHT, 10 );
++    auto* details = new wxTextCtrl( &dialog, wxID_ANY, _( "Select a cell to read its full contents." ),
++            wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY );
++    details->SetMinSize( dialog.FromDIP( wxSize( -1, 90 ) ) );
++    grid->Bind( wxEVT_GRID_SELECT_CELL, [grid, details]( wxGridEvent& event ) {
++        details->SetValue( grid->GetCellValue( event.GetRow(), event.GetCol() ) );
++        event.Skip();
++    } );
++    layout->Add( details, 0, wxEXPAND | wxALL, 10 );
++    layout->Add( dialog.CreateSeparatedButtonSizer( wxOK | wxCANCEL ), 0, wxEXPAND | wxALL, 10 );
++    if( auto* button = wxDynamicCast( dialog.FindWindow( wxID_OK ), wxButton ) )
++        button->SetLabel( _( "Apply selected lines" ) );
++    dialog.SetSizer( layout );
++    dialog.SetSize( dialog.FromDIP( wxSize( 1100, 650 ) ) );
++    dialog.CentreOnParent();
++    if( dialog.ShowModal() != wxID_OK )
++        return false;
++    grid->SaveEditControlValue();
++    nlohmann::json accepted = nlohmann::json::array();
++    for( size_t i = 0; i < parts.size(); ++i )
++        if( grid->GetCellValue( static_cast<int>( i ), 0 ) == wxS( "1" )
++            && parts[i].value( "status", std::string() ) == "completed" )
++            accepted.push_back( parts[i] );
++    aResponse["failed"] = parts.size() - accepted.size();
++    aResponse["completed"] = accepted.size();
++    parts = std::move( accepted );
++    return !parts.empty();
++}
++
+ 
+ static const wxString AUTO_BOM_EXPORT_FIELDS[] = {
+     wxS( "Manufacturer" ),
+@@ -1642,6 +1750,13 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSidebarToggle( wxCommandEvent& event )
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomComplete( wxCommandEvent& aEvent )
+ {
++    if( m_autoBomFuture.valid() && m_autoBomCancel )
++    {
++        m_autoBomCancel->store( true );
++        m_autoBomComplete->Disable();
++        m_autoBomStatus->SetLabel( _( "Cancelling search..." ) );
++        return;
++    }
+     StartAutoBomCompletion( false );
+ }
+ 
+@@ -1764,7 +1879,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::StartAutoBomCompletion( bool aExportWhenDone )
+     request["preferBasic"] = m_autoBomPreferBasic->GetValue();
+     request["useAi"] = m_autoBomUseAi->IsChecked();
+     m_autoBomExportWhenDone = aExportWhenDone;
+-    m_autoBomComplete->Disable();
++    m_autoBomComplete->SetLabel( _( "Cancel search" ) );
+     m_autoBomUseAi->Disable();
+     m_autoBomSupplier->Disable();
+     m_autoBomPreferBasic->Disable();
+@@ -1802,6 +1917,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+     m_autoBomTimer.Stop();
+     m_autoBomProgress->Hide();
+     m_autoBomComplete->Enable();
++    m_autoBomComplete->SetLabel( _( "Fill Missing Parts" ) );
+     m_autoBomUseAi->Enable();
+     m_autoBomSupplier->Enable();
+     m_autoBomPreferBasic->Enable();
+@@ -1809,14 +1925,35 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+     m_grid->Enable();
+     m_variantListBox->Enable();
+ 
++    if( m_autoBomCancel && m_autoBomCancel->load() )
++    {
++        try { m_autoBomFuture.get(); } catch( const std::exception& ) {}
++        m_autoBomCancel.reset();
++        m_autoBomCompleted = false;
++        m_autoBomExportWhenDone = false;
++        m_autoBomStatus->SetLabel( _( "Search cancelled. No proposed changes applied." ) );
++        m_rightPanel->Layout();
++        return;
++    }
++
+     try
+     {
+         const std::string responseText = m_autoBomFuture.get();
+-        const nlohmann::json response = nlohmann::json::parse( responseText );
++        nlohmann::json response = nlohmann::json::parse( responseText );
++        if( !reviewAutoBomChanges( this, response, nlohmann::json::parse(
++                    autoBomUtf8( m_parent->GetAutoBomSchematicJson() ) ) ) )
++        {
++            m_autoBomStatus->SetLabel( _( "No proposed changes applied." ) );
++            m_autoBomCompleted = false;
++            m_autoBomExportWhenDone = false;
++            m_autoBomCancel.reset();
++            m_rightPanel->Layout();
++            return;
++        }
+         const int failed = response.value( "failed", 0 );
+ 
+         m_autoBomApplying = true;
+-        const int changed = m_parent->ApplyAutoBomCompletionJson( wxString::FromUTF8( responseText ) );
++        const int changed = m_parent->ApplyAutoBomCompletionJson( wxString::FromUTF8( response.dump() ) );
+         m_autoBomApplying = false;
+         const bool unresolved = failed > 0 || AutoBomCompletionNeeded();
+         m_autoBomCompleted = !unresolved;
+@@ -1874,14 +2011,6 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnAutoBomTimer( wxTimerEvent& aEvent )
+ 
+ void DIALOG_SYMBOL_FIELDS_TABLE::OnExport( wxCommandEvent& aEvent )
+ {
+-    if( m_autoBomComplete && !m_autoBomCompleted
+-        && ( AutoBomCompletionNeeded()
+-             || ( m_autoBomSupplier && m_autoBomSupplier->GetSelection() == 0 ) ) )
+-    {
+-        StartAutoBomCompletion( true );
+-        return;
+-    }
+-
+     ExportNow();
+ }
+ 
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+index 5b987f73..4a722cbe 100644
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -318,6 +318,15 @@ static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload
+             return false;
+ 
+         LIB_ID symbolId( symbolIdText.Left( separator ), symbolIdText.Mid( separator + 1 ) );
++        const auto libraryStatus = Pgm().GetLibraryManager().LoadLibraryEntry(
++                LIBRARY_TABLE_TYPE::SYMBOL, symbolIdText.Left( separator ) );
++        if( !libraryStatus || libraryStatus->load_status != LOAD_STATUS::LOADED )
++        {
++            aError = wxString::Format(
++                    _( "Could not load library '%s'. Check that it is enabled in Manage Symbol Libraries." ),
++                    symbolIdText.Left( separator ) );
++            return false;
++        }
+         LIB_SYMBOL* libSymbol = aFrame->GetLibSymbol( symbolId );
+ 
+         if( !libSymbol )

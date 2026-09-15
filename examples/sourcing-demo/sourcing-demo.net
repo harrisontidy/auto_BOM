@@ -1,0 +1,471 @@
+(export
+	(version "E")
+	(design
+		(source "C:\\Users\\harri\\OneDrive\\Documents\\ChatGPT\\autoBOM\\examples\\sourcing-demo\\sourcing-demo.kicad_sch")
+		(date "2026-09-11T21:59:46")
+		(tool "Eeschema 10.0.6")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "Auto BOM sourcing demo — RC divider")
+				(company)
+				(rev)
+				(date)
+				(source "sourcing-demo.kicad_sch")
+				(comment
+					(number "1")
+					(value "Two 10k resistors + 100nF capacitor. VIN/2 at DC; approximately 318Hz cutoff unloaded.")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C1")
+			(value "100nF")
+			(footprint "AutoBOM_C14663:C0603")
+			(datasheet "https://www.lcsc.com/datasheet/lcsc_datasheet_2211101700_YAGEO-CC0603KRX7R9BB104_C14663.pdf")
+			(fields
+				(field
+					(name "Manufacturer Part Number") "CC0603KRX7R9BB104")
+				(field
+					(name "Manufacturer") "YAGEO")
+				(field
+					(name "LCSC Part #") "C14663")
+				(field
+					(name "JLCPCB Stock") "52289174")
+				(field
+					(name "JLCPCB Unit Price") "0.0124 USD")
+				(field
+					(name "JLCPCB Product URL") "https://jlcpcb.com/partdetail/C14663")
+				(field
+					(name "JLCPCB Library Type") "Basic")
+				(field
+					(name "Footprint") "AutoBOM_C14663:C0603")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/lcsc_datasheet_2211101700_YAGEO-CC0603KRX7R9BB104_C14663.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Manufacturer Part Number")
+				(value "CC0603KRX7R9BB104")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO")
+			)
+			(property
+				(name "LCSC Part #")
+				(value "C14663")
+			)
+			(property
+				(name "JLCPCB Stock")
+				(value "52289174")
+			)
+			(property
+				(name "JLCPCB Unit Price")
+				(value "0.0124 USD")
+			)
+			(property
+				(name "JLCPCB Product URL")
+				(value "https://jlcpcb.com/partdetail/C14663")
+			)
+			(property
+				(name "JLCPCB Library Type")
+				(value "Basic")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sourcing-demo.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e4a18023-134d-4ac1-9363-391c6de53a5e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(datasheet "https://www.lcsc.com/datasheet/lcsc_datasheet_2411221126_UNI-ROYAL-Uniroyal-Elec-0805W8F1002T5E_C17414.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "UNI-ROYAL(Uniroyal Elec)")
+				(field
+					(name "Manufacturer Part Number") "0805W8F1002T5E")
+				(field
+					(name "LCSC Part #") "C17414")
+				(field
+					(name "JLCPCB Stock") "54318947")
+				(field
+					(name "JLCPCB Unit Price") "0.0039 USD")
+				(field
+					(name "JLCPCB Product URL") "https://jlcpcb.com/partdetail/C17414")
+				(field
+					(name "JLCPCB Library Type") "Basic")
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/lcsc_datasheet_2411221126_UNI-ROYAL-Uniroyal-Elec-0805W8F1002T5E_C17414.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(Uniroyal Elec)")
+			)
+			(property
+				(name "Manufacturer Part Number")
+				(value "0805W8F1002T5E")
+			)
+			(property
+				(name "LCSC Part #")
+				(value "C17414")
+			)
+			(property
+				(name "JLCPCB Stock")
+				(value "54318947")
+			)
+			(property
+				(name "JLCPCB Unit Price")
+				(value "0.0039 USD")
+			)
+			(property
+				(name "JLCPCB Product URL")
+				(value "https://jlcpcb.com/partdetail/C17414")
+			)
+			(property
+				(name "JLCPCB Library Type")
+				(value "Basic")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sourcing-demo.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "04f4d795-0c15-4a26-b5ab-d27d1e41505c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R2")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(datasheet "https://www.lcsc.com/datasheet/lcsc_datasheet_2411221126_UNI-ROYAL-Uniroyal-Elec-0805W8F1002T5E_C17414.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "UNI-ROYAL(Uniroyal Elec)")
+				(field
+					(name "Manufacturer Part Number") "0805W8F1002T5E")
+				(field
+					(name "LCSC Part #") "C17414")
+				(field
+					(name "JLCPCB Stock") "54318947")
+				(field
+					(name "JLCPCB Unit Price") "0.0039 USD")
+				(field
+					(name "JLCPCB Product URL") "https://jlcpcb.com/partdetail/C17414")
+				(field
+					(name "JLCPCB Library Type") "Basic")
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/lcsc_datasheet_2411221126_UNI-ROYAL-Uniroyal-Elec-0805W8F1002T5E_C17414.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(Uniroyal Elec)")
+			)
+			(property
+				(name "Manufacturer Part Number")
+				(value "0805W8F1002T5E")
+			)
+			(property
+				(name "LCSC Part #")
+				(value "C17414")
+			)
+			(property
+				(name "JLCPCB Stock")
+				(value "54318947")
+			)
+			(property
+				(name "JLCPCB Unit Price")
+				(value "0.0039 USD")
+			)
+			(property
+				(name "JLCPCB Product URL")
+				(value "https://jlcpcb.com/partdetail/C17414")
+			)
+			(property
+				(name "JLCPCB Library Type")
+				(value "Basic")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sourcing-demo.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "351860f9-9d2a-4dff-b47f-0a69f55478ae")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Device")
+			(part "C")
+			(description "Unpolarized capacitor")
+			(footprints
+				(fp "C_*")
+			)
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "R")
+			(description "Resistor")
+			(footprints
+				(fp "R_*")
+			)
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Resistor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Device")
+			(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "/GND")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R2")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "2")
+			(name "/VIN")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/VOUT")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R2")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+	)
+)

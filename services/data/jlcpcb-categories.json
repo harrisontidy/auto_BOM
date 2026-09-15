@@ -1,0 +1,4271 @@
+{
+  "source": "https://jlcpcb.com/parts/all-electronic-components",
+  "updatedAt": "2026-09-12T05:45:03.146Z",
+  "categories": [
+    {
+      "id": 2226,
+      "name": "Aluminum Electrolytic Capacitors (Can - Screw Terminals)",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2931,
+      "name": "Aluminum Electrolytic Capacitors - Leaded",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2965,
+      "name": "Aluminum Electrolytic Capacitors - SMD",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2151,
+      "name": "Capacitor Networks, Arrays",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3718,
+      "name": "Disc Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3244,
+      "name": "Film Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2242,
+      "name": "Horn-Type Electrolytic Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2109,
+      "name": "Hybrid Aluminum Electrolytic Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2251,
+      "name": "Mica and PTFE Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2973,
+      "name": "Multilayer Ceramic Capacitors MLCC - Leaded",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2929,
+      "name": "Multilayer Ceramic Capacitors MLCC - SMD/SMT",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3282,
+      "name": "Niobium Oxide Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2250,
+      "name": "Paper Dielectric Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3196,
+      "name": "Polymer Aluminum Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3057,
+      "name": "Polypropylene Film Capacitors (CBB)",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2998,
+      "name": "Safety Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2252,
+      "name": "Silicon Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2930,
+      "name": "Tantalum Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 2972,
+      "name": "Through Hole Ceramic Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3055,
+      "name": "Trimmers, Variable Capacitors",
+      "parent": "Capacitors"
+    },
+    {
+      "id": 3004,
+      "name": "AC-DC Controllers and Regulators",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3098,
+      "name": "Battery Management",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2105,
+      "name": "Charge Pumps",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2328,
+      "name": "Current Source / Constant Current Source",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2326,
+      "name": "DC-DC Controllers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3005,
+      "name": "DC-DC Converters",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2106,
+      "name": "Isolated DC/DC Converters",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2107,
+      "name": "Isolators - Gate Drivers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1626,
+      "name": "Leakage Protection ICs",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2587,
+      "name": "LED Protection",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3097,
+      "name": "Motor Driver ICs",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1640,
+      "name": "ORing Controllers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1637,
+      "name": "PFC Controllers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3231,
+      "name": "Power Distribution Switches",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3006,
+      "name": "Power Management - Specialized",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2327,
+      "name": "Power Over Ethernet (PoE) Controllers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1641,
+      "name": "Power Sequencers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3202,
+      "name": "Supervisor and Reset ICs",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2570,
+      "name": "Surge Protection Devices (SPDs)",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1638,
+      "name": "Synchronous Rectifier Controllers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2108,
+      "name": "Transformer Drivers",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 1639,
+      "name": "USB PD",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 3007,
+      "name": "Voltage Reference",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2956,
+      "name": "Voltage Regulators - Linear, Low Drop Out (LDO) Regulators",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2529,
+      "name": "Wireless Charge-Discharge ICs",
+      "parent": "Power Management (PMIC)"
+    },
+    {
+      "id": 2279,
+      "name": "2G/3G/4G/5G Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2282,
+      "name": "Bluetooth Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2283,
+      "name": "CAN Bus Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2286,
+      "name": "Ethernet Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 3206,
+      "name": "GNSS Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2280,
+      "name": "LoRa Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 3207,
+      "name": "RF Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2278,
+      "name": "RFID Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2285,
+      "name": "RS232 Bus Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2284,
+      "name": "RS485 Bus Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 3300,
+      "name": "USB Conversion Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 3205,
+      "name": "WiFi Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2281,
+      "name": "ZigBee Modules",
+      "parent": "IoT Communication Modules"
+    },
+    {
+      "id": 2934,
+      "name": "Bipolar (BJT)",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2308,
+      "name": "Darlington Transistor Arrays",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2991,
+      "name": "Darlington Transistors",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 3061,
+      "name": "Digital Transistors",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 3193,
+      "name": "IGBT Transistors / Modules",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2277,
+      "name": "Intelligent Power Modules (IPM)",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2220,
+      "name": "JFETs",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2954,
+      "name": "MOSFETs",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2238,
+      "name": "Pre-ordered transistors",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2256,
+      "name": "Semiconductor Discharge Tubes (TSS)",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2957,
+      "name": "Thyristors (SCR)/Modules",
+      "parent": "Transistors Thyristors"
+    },
+    {
+      "id": 2057,
+      "name": "AC Power Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3080,
+      "name": "Audio Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2608,
+      "name": "Automobile Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2137,
+      "name": "Barrier Terminal Blocks",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2048,
+      "name": "Blade / Shrapnel Contact Battery Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3223,
+      "name": "Board-to-Board and Backplane Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2989,
+      "name": "Button And Strip Battery Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3131,
+      "name": "Circular Connectors & Cable Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2050,
+      "name": "Circular DIN Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2136,
+      "name": "Coaxial Connectors (RF)",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2588,
+      "name": "Cold-pressed Terminals",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3287,
+      "name": "Connector Accessories",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2143,
+      "name": "Connector Housings",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3114,
+      "name": "D-Sub / VGA Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3059,
+      "name": "DC Power Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2059,
+      "name": "DIN41612 Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2055,
+      "name": "DisplayPort (DP) Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3197,
+      "name": "DVI Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2147,
+      "name": "Edgeboard Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2983,
+      "name": "Ethernet Connectors / Modular Connectors (RJ45 RJ11)",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2060,
+      "name": "Feed-Voltage/Radio-Frequency Insulator",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3128,
+      "name": "Female Headers",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3190,
+      "name": "FFC Cable (Flexible Flat Cable)",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3051,
+      "name": "FFC, FPC (Flat Flexible) Connector Assemblies",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3173,
+      "name": "Fiber Optic Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2053,
+      "name": "Hard Disk Connector (SAS/SATA/M.2)",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3260,
+      "name": "HDMI Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2134,
+      "name": "Housing Contact",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2131,
+      "name": "Housings (Wire To Board / Wire To Wire )",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2943,
+      "name": "IC / Transistor Socket",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3224,
+      "name": "IDC Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2056,
+      "name": "IEEE 1394 / Firewire Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2054,
+      "name": "Memory Connector (DDR)",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2058,
+      "name": "Micro-Match Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2051,
+      "name": "Optical Module Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2052,
+      "name": "PCI / PCIe Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2223,
+      "name": "Photovoltaic(Solar Panel)Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2047,
+      "name": "Pin / Jack",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3127,
+      "name": "Pin Headers",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2135,
+      "name": "Pluggable System Terminal Block",
+      "parent": "Connectors"
+    },
+    {
+      "id": 103,
+      "name": "Pogo Pin Spring Probe Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2237,
+      "name": "Pre-ordered Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2061,
+      "name": "RCA Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2204,
+      "name": "Screw Terminal Blocks",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2589,
+      "name": "SD Card / Memory Card Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3129,
+      "name": "Shunts, Jumpers",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3121,
+      "name": "SIM Card Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2974,
+      "name": "Spring Clamp System Terminal Block",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2541,
+      "name": "Test Points / Test Rings",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2945,
+      "name": "USB Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2132,
+      "name": "Wire To Board Connector",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2046,
+      "name": "Wiring Quick-Connect Terminals",
+      "parent": "Connectors"
+    },
+    {
+      "id": 2049,
+      "name": "XLR (Cannon) Connectors",
+      "parent": "Connectors"
+    },
+    {
+      "id": 3079,
+      "name": "Accelerometers",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3192,
+      "name": "Ambient Light Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3340,
+      "name": "Capacitive Sensor IC",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2022,
+      "name": "Differential Pressure Sensor",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2157,
+      "name": "Fiber Optic / Laser Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2535,
+      "name": "Float Level Senors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 1278,
+      "name": "Flow Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2216,
+      "name": "Force Sensors, Load Cells",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2024,
+      "name": "Gas Flow Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3296,
+      "name": "Gas Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 90,
+      "name": "Heart Rate Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2539,
+      "name": "Human Body Sensing Sensor",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3078,
+      "name": "Image Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2977,
+      "name": "NTC Thermistors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2533,
+      "name": "Photointerrupters - Slot Type - Logic Output",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3054,
+      "name": "Photoresistors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2023,
+      "name": "PM2.5 Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2187,
+      "name": "Position Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3298,
+      "name": "Pressure Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2540,
+      "name": "Proximity Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3047,
+      "name": "PTC Thermistors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3299,
+      "name": "Sensor Modules",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2156,
+      "name": "Specialized Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3191,
+      "name": "Temperature and Humidity Sensor",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3076,
+      "name": "Temperature Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3283,
+      "name": "Thermostat Switches",
+      "parent": "Sensors"
+    },
+    {
+      "id": 3174,
+      "name": "Touch Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2210,
+      "name": "Ultrasonic Receivers, Transmitters",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2537,
+      "name": "Vibration Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2025,
+      "name": "VOC Sensors",
+      "parent": "Sensors"
+    },
+    {
+      "id": 2300,
+      "name": "Accessories - Inductors/Transformers",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2298,
+      "name": "Adjustable Inductors",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2297,
+      "name": "Audio Transformers",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2301,
+      "name": "Color Ring Inductors / Through Hole Inductors",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3210,
+      "name": "Current Sense Transformers",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2936,
+      "name": "Inductors (SMD)",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3741,
+      "name": "Molding Power Inductors",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3050,
+      "name": "Power Inductors",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3120,
+      "name": "Power Transformers",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2240,
+      "name": "Pre-ordered RLCs",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2296,
+      "name": "Pulse Transformers",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3049,
+      "name": "Pulse Transformers(LAN)",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 2299,
+      "name": "Wireless Charging Coils",
+      "parent": "Inductors Coils Chokes"
+    },
+    {
+      "id": 3177,
+      "name": "Automotive Fuses",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 3281,
+      "name": "Disposable fuses",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 3035,
+      "name": "ESD and Surge Protection (TVS/ESD)",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 3068,
+      "name": "ESD Protection Devices",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 2961,
+      "name": "Fuseholders",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 2255,
+      "name": "Gas Discharge Tube Arresters (GDT)",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 2257,
+      "name": "Glass Discharge Tubes",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 3294,
+      "name": "Resettable Fuses",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 2958,
+      "name": "Thermal Fuses (TCO)",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 3003,
+      "name": "Varistors",
+      "parent": "Circuit Protection"
+    },
+    {
+      "id": 2574,
+      "name": "Analog Switches - Special Purpose",
+      "parent": "Interface"
+    },
+    {
+      "id": 3103,
+      "name": "Analog Switches, Multiplexers",
+      "parent": "Interface"
+    },
+    {
+      "id": 2578,
+      "name": "Audio Interface ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2126,
+      "name": "CAN Controllers",
+      "parent": "Interface"
+    },
+    {
+      "id": 3093,
+      "name": "CAN Transceivers",
+      "parent": "Interface"
+    },
+    {
+      "id": 2127,
+      "name": "Ethernet Controllers",
+      "parent": "Interface"
+    },
+    {
+      "id": 2128,
+      "name": "Ethernet Switches",
+      "parent": "Interface"
+    },
+    {
+      "id": 3072,
+      "name": "Ethernet Transceivers",
+      "parent": "Interface"
+    },
+    {
+      "id": 2178,
+      "name": "I/O Expanders",
+      "parent": "Interface"
+    },
+    {
+      "id": 2577,
+      "name": "Interface - PCIs / PCIEs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2175,
+      "name": "Interface - Specialized",
+      "parent": "Interface"
+    },
+    {
+      "id": 2183,
+      "name": "LIN Transceivers",
+      "parent": "Interface"
+    },
+    {
+      "id": 3094,
+      "name": "LVDS ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2239,
+      "name": "Pre-ordered Chips",
+      "parent": "Interface"
+    },
+    {
+      "id": 3071,
+      "name": "RS-485 / RS-422 ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 3070,
+      "name": "RS232 ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2197,
+      "name": "Security Verification / Encryption ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2184,
+      "name": "Serializers, Deserializers",
+      "parent": "Interface"
+    },
+    {
+      "id": 2177,
+      "name": "Signal Buffers, Repeaters, Splitters",
+      "parent": "Interface"
+    },
+    {
+      "id": 2174,
+      "name": "Telecom Interface ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 2575,
+      "name": "UART",
+      "parent": "Interface"
+    },
+    {
+      "id": 3069,
+      "name": "USB Converters",
+      "parent": "Interface"
+    },
+    {
+      "id": 1622,
+      "name": "USB HUB Controllers",
+      "parent": "Interface"
+    },
+    {
+      "id": 3115,
+      "name": "Video Interface ICs",
+      "parent": "Interface"
+    },
+    {
+      "id": 3182,
+      "name": "Antennas",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2192,
+      "name": "Balun",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2142,
+      "name": "Duplexers",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3088,
+      "name": "Low Noise Amplifiers (LNA) - RF",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3247,
+      "name": "RF Amplifiers",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3278,
+      "name": "RF Attenuators",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2586,
+      "name": "RF Cables",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3249,
+      "name": "RF Detectors",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3290,
+      "name": "RF Directional Coupler",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2556,
+      "name": "RF Front End Circuits",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2228,
+      "name": "RF Misc ICs and Modules",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3248,
+      "name": "RF Mixers",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2555,
+      "name": "RF Modulators and Demodulators",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2557,
+      "name": "RF Power Amplifiers",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2559,
+      "name": "RF Power Splitters / Combiners",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3242,
+      "name": "RF Switches",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3048,
+      "name": "RF Transceiver ICs",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 3243,
+      "name": "RFID ICs",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2558,
+      "name": "Tunable Filters",
+      "parent": "RF and Wireless"
+    },
+    {
+      "id": 2552,
+      "name": "ADCs/DACs - Special Purpose",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 2553,
+      "name": "Analog Front End (AFE)",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3100,
+      "name": "Analog to Digital Converters (ADC)",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3105,
+      "name": "Digital Potentiometers",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3101,
+      "name": "Digital to Analog Converters (DAC)",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3144,
+      "name": "Direct Digital Synthesis (DDS)",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3104,
+      "name": "Energy Metering",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 2550,
+      "name": "RMS to DC Converters",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3291,
+      "name": "Touch Screen Controllers",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 2551,
+      "name": "V/F and F/V Converters",
+      "parent": "Data Acquisition"
+    },
+    {
+      "id": 3167,
+      "name": "DDR SDRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2325,
+      "name": "DRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 3019,
+      "name": "EEPROM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2323,
+      "name": "eMMC",
+      "parent": "Memory"
+    },
+    {
+      "id": 3141,
+      "name": "Font chips",
+      "parent": "Memory"
+    },
+    {
+      "id": 3021,
+      "name": "FRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2125,
+      "name": "iButton Memory",
+      "parent": "Memory"
+    },
+    {
+      "id": 2320,
+      "name": "Memory - Configuration Proms for FPGAs",
+      "parent": "Memory"
+    },
+    {
+      "id": 2321,
+      "name": "Memory - Serial MCP (Multi Chip Package)",
+      "parent": "Memory"
+    },
+    {
+      "id": 2319,
+      "name": "Memory Controllers",
+      "parent": "Memory"
+    },
+    {
+      "id": 2322,
+      "name": "NAND FLASH",
+      "parent": "Memory"
+    },
+    {
+      "id": 3143,
+      "name": "Non-Volatile Memory (ROM)",
+      "parent": "Memory"
+    },
+    {
+      "id": 3018,
+      "name": "NOR FLASH",
+      "parent": "Memory"
+    },
+    {
+      "id": 2124,
+      "name": "nvSRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2123,
+      "name": "PSRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2324,
+      "name": "Random Access Memory (RAM)",
+      "parent": "Memory"
+    },
+    {
+      "id": 3295,
+      "name": "SDRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 3020,
+      "name": "SRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2122,
+      "name": "SSRAM",
+      "parent": "Memory"
+    },
+    {
+      "id": 2121,
+      "name": "UFS",
+      "parent": "Memory"
+    },
+    {
+      "id": 2145,
+      "name": "Aluminum Case/Porcelain Tube Resistance",
+      "parent": "Resistors"
+    },
+    {
+      "id": 2980,
+      "name": "Chip Resistor - Surface Mount",
+      "parent": "Resistors"
+    },
+    {
+      "id": 3179,
+      "name": "Current Sense Resistors / Shunt Resistors",
+      "parent": "Resistors"
+    },
+    {
+      "id": 3033,
+      "name": "Potentiometers, Variable Resistors",
+      "parent": "Resistors"
+    },
+    {
+      "id": 2928,
+      "name": "Resistor Networks, Arrays",
+      "parent": "Resistors"
+    },
+    {
+      "id": 2295,
+      "name": "Through Hole Resistors",
+      "parent": "Resistors"
+    },
+    {
+      "id": 2073,
+      "name": "DI/DO Isolators",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 3073,
+      "name": "Digital Isolators",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2085,
+      "name": "Digital Isolators (with Power)",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2071,
+      "name": "I2C Isolators",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2072,
+      "name": "Isolated ADCs",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2080,
+      "name": "Isolated ADCs with power",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2070,
+      "name": "Isolated CAN Transceivers",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2088,
+      "name": "Isolated CAN Transceivers (with Power)",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2077,
+      "name": "Isolated Comparators",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2087,
+      "name": "Isolated I2C (with Power)",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2076,
+      "name": "Isolated LVDS Buffers",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2078,
+      "name": "Isolated RS-232 Transceivers",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2083,
+      "name": "Isolated RS-232 Transceivers (with Power)",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2069,
+      "name": "Isolated RS-485/422 Transceivers",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2086,
+      "name": "Isolated RS-485/422 Transceivers with power",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2075,
+      "name": "Isolated USB ICs",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2082,
+      "name": "Isolated USB ICs with power",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2315,
+      "name": "Isolation Amplifiers",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2084,
+      "name": "Isolation Amplifiers with power",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2110,
+      "name": "Isolation-Solid State Relays",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2074,
+      "name": "Optocoupler Emulator (Optocoupler Replacement)",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2079,
+      "name": "SPI Isolators",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2081,
+      "name": "SPI Isolators with power",
+      "parent": "Signal Isolation Devices"
+    },
+    {
+      "id": 2563,
+      "name": "Automotive Relays",
+      "parent": "Relays"
+    },
+    {
+      "id": 2113,
+      "name": "High Frequency / RF Relay",
+      "parent": "Relays"
+    },
+    {
+      "id": 2562,
+      "name": "Magnetic Latching Relays",
+      "parent": "Relays"
+    },
+    {
+      "id": 3039,
+      "name": "Power Relays",
+      "parent": "Relays"
+    },
+    {
+      "id": 2564,
+      "name": "Reed Relays",
+      "parent": "Relays"
+    },
+    {
+      "id": 2185,
+      "name": "Relay Sockets and Accessories",
+      "parent": "Relays"
+    },
+    {
+      "id": 2561,
+      "name": "Signal Relays",
+      "parent": "Relays"
+    },
+    {
+      "id": 3031,
+      "name": "Audio Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3030,
+      "name": "Comparators",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2317,
+      "name": "Current Sense Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3091,
+      "name": "Differential Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3087,
+      "name": "FET Input Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3083,
+      "name": "Instrumentation Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2247,
+      "name": "Linear - Analog Multipliers, Dividers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3029,
+      "name": "Operational Amplifier",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3086,
+      "name": "Precision Op Amps",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2318,
+      "name": "Programmable / Variable Gain Amplifiers (PGA/VGA)",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2314,
+      "name": "Sample / Hold Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 3306,
+      "name": "Special Purpose Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2316,
+      "name": "Video Amplifiers",
+      "parent": "Amplifiers Comparators"
+    },
+    {
+      "id": 2307,
+      "name": "Buzzer Plates",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 2955,
+      "name": "Buzzers",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 2306,
+      "name": "MEMS Microphones",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 3045,
+      "name": "Microphones",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 3044,
+      "name": "Speakers",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 3176,
+      "name": "Vibration Motors",
+      "parent": "Audio Products  Vibration Motors"
+    },
+    {
+      "id": 1582,
+      "name": "Decorative panel",
+      "parent": "Building materials  Building hardware"
+    },
+    {
+      "id": 1955,
+      "name": "Iron wire",
+      "parent": "Building materials  Building hardware"
+    },
+    {
+      "id": 1621,
+      "name": "Partition board",
+      "parent": "Building materials  Building hardware"
+    },
+    {
+      "id": 1597,
+      "name": "PVC board",
+      "parent": "Building materials  Building hardware"
+    },
+    {
+      "id": 3396,
+      "name": "Water heater",
+      "parent": "Building materials  Building hardware"
+    },
+    {
+      "id": 2101,
+      "name": "555 Timers / Counters",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2171,
+      "name": "Application Specific Clock/Timing",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2582,
+      "name": "Clock and Data Recovery / Retiming",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2172,
+      "name": "Clock Buffers, Drivers, Distributors",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2173,
+      "name": "Clock Generators, PLLs, Frequency Synthesizers",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2119,
+      "name": "Clock Multipliers",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2579,
+      "name": "Jitter Attenuators",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2102,
+      "name": "Network Clock Synchronization(SyncE,IEEE 1588)",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 3017,
+      "name": "Real Time Clocks",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2581,
+      "name": "Time Delays",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 2580,
+      "name": "Timers / Counters",
+      "parent": "Clock Timing"
+    },
+    {
+      "id": 110,
+      "name": "Chip test socket",
+      "parent": "Consumables and auxiliary materials"
+    },
+    {
+      "id": 915,
+      "name": "Other auxiliary materials",
+      "parent": "Consumables and auxiliary materials"
+    },
+    {
+      "id": 87,
+      "name": "Plastic shell",
+      "parent": "Consumables and auxiliary materials"
+    },
+    {
+      "id": 3456,
+      "name": "Silicone pad",
+      "parent": "Consumables and auxiliary materials"
+    },
+    {
+      "id": 3038,
+      "name": "Ceramic Resonators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2942,
+      "name": "Crystal Oscillators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 3043,
+      "name": "Crystals",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2104,
+      "name": "Digitally Controlled Oscillators(DCOs)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2312,
+      "name": "Oven Controlled Crystal Oscillators (OCXOs)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2243,
+      "name": "Programmable Oscillators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2313,
+      "name": "SAW Oscillators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 3037,
+      "name": "SAW Resonators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 1646,
+      "name": "Spread Spectrum Oscillators(SSOs)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2311,
+      "name": "Temperature Compensated Crystal Oscillators (TCXO)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2120,
+      "name": "Temperature Sensing Resonators",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2560,
+      "name": "Voltage Controlled Oscillators (VCOs)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2111,
+      "name": "Voltage Controlled Temperature Compensated Oscillators (VCTXO)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2310,
+      "name": "Voltage-Controlled Crystal Oscillators (VCXOs)",
+      "parent": "Crystals Oscillators Resonators"
+    },
+    {
+      "id": 2199,
+      "name": "Development Boards & Kits",
+      "parent": "Development Boards Tools"
+    },
+    {
+      "id": 2203,
+      "name": "PCBs & Breadboards",
+      "parent": "Development Boards Tools"
+    },
+    {
+      "id": 2200,
+      "name": "Programmers, Emulators, and Debuggers",
+      "parent": "Development Boards Tools"
+    },
+    {
+      "id": 2215,
+      "name": "Raspberry Pi",
+      "parent": "Development Boards Tools"
+    },
+    {
+      "id": 3169,
+      "name": "Avalanche Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2951,
+      "name": "Bridge Rectifiers",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2946,
+      "name": "Diodes - General Purpose",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2947,
+      "name": "Diodes - Rectifiers - Fast Recovery",
+      "parent": "Diodes"
+    },
+    {
+      "id": 3233,
+      "name": "Diodes - Variable Capacitance",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2948,
+      "name": "Fast Recovery / High Efficiency Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 3171,
+      "name": "High Effic Rectifier",
+      "parent": "Diodes"
+    },
+    {
+      "id": 1645,
+      "name": "PIN Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2949,
+      "name": "Schottky Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2254,
+      "name": "Super Barrier Rectifiers (SBR)",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2952,
+      "name": "Switching Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2953,
+      "name": "Trigger Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2933,
+      "name": "Zener Diodes",
+      "parent": "Diodes"
+    },
+    {
+      "id": 2089,
+      "name": "E-ink Display",
+      "parent": "Displays"
+    },
+    {
+      "id": 2206,
+      "name": "LCD Screen",
+      "parent": "Displays"
+    },
+    {
+      "id": 3125,
+      "name": "LED Dot Matrix and Cluster",
+      "parent": "Displays"
+    },
+    {
+      "id": 3040,
+      "name": "LED Segment Displays",
+      "parent": "Displays"
+    },
+    {
+      "id": 2205,
+      "name": "OLED Display",
+      "parent": "Displays"
+    },
+    {
+      "id": 2208,
+      "name": "Vacuum Fluorescent Display Screen",
+      "parent": "Displays"
+    },
+    {
+      "id": 3222,
+      "name": "Modules",
+      "parent": "Educational Kits"
+    },
+    {
+      "id": 2288,
+      "name": "Motor Driver Boards, Modules",
+      "parent": "Educational Kits"
+    },
+    {
+      "id": 2287,
+      "name": "V-Audio Modules",
+      "parent": "Educational Kits"
+    },
+    {
+      "id": 3063,
+      "name": "ADI",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2994,
+      "name": "ATMEL & AVR",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2225,
+      "name": "CPLD/FPGA",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2996,
+      "name": "CYPRESS",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2583,
+      "name": "Digital Signal Processors (DSP/DSC)",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2245,
+      "name": "HDSC",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 3002,
+      "name": "MEGAWIN",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2992,
+      "name": "MICROCHIP",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2584,
+      "name": "Microcontrollers (MCU/MPU/SOC)",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 3023,
+      "name": "NUVOTON",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2993,
+      "name": "NXP MCU",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2180,
+      "name": "Other Processors and Microcontrollers (MCUs)",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2241,
+      "name": "Pre-ordered MCUs",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2585,
+      "name": "Programmable Logic Device (CPLDs/FPGAs)",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 3161,
+      "name": "SAMSUNG",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 3092,
+      "name": "SILICON LABS",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2182,
+      "name": "sinowealth",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2181,
+      "name": "SOC",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2995,
+      "name": "ST Microelectronics",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 3024,
+      "name": "STC",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2997,
+      "name": "TI MCU",
+      "parent": "Embedded Processors Controllers"
+    },
+    {
+      "id": 2289,
+      "name": "Evaluation Boards - Power Supply",
+      "parent": "Evaluation Boards"
+    },
+    {
+      "id": 2291,
+      "name": "Evaluation Boards - Sensors",
+      "parent": "Evaluation Boards"
+    },
+    {
+      "id": 2292,
+      "name": "Evaluation Boards - Specialized ICs",
+      "parent": "Evaluation Boards"
+    },
+    {
+      "id": 3455,
+      "name": "LiChuang service",
+      "parent": "Evaluation Boards"
+    },
+    {
+      "id": 3310,
+      "name": "Active Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 3253,
+      "name": "Ceramic Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 3309,
+      "name": "Clamp Filters (Ferrite Core with Case)",
+      "parent": "Filters"
+    },
+    {
+      "id": 3124,
+      "name": "Common Mode Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 2303,
+      "name": "Crystal Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 3311,
+      "name": "EMC Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 3308,
+      "name": "EMI/RFI Filters (LC, RC Networks)",
+      "parent": "Filters"
+    },
+    {
+      "id": 3256,
+      "name": "Feed Through Capacitors",
+      "parent": "Filters"
+    },
+    {
+      "id": 3036,
+      "name": "Ferrite Beads",
+      "parent": "Filters"
+    },
+    {
+      "id": 2305,
+      "name": "Noise Suppressors",
+      "parent": "Filters"
+    },
+    {
+      "id": 3254,
+      "name": "RF Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 3255,
+      "name": "SAW Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 2304,
+      "name": "Switched Capacitor Filters",
+      "parent": "Filters"
+    },
+    {
+      "id": 2093,
+      "name": "GaN Transistors(GaN HEMT)",
+      "parent": "Gallium Nitride (GaN) Devices"
+    },
+    {
+      "id": 3334,
+      "name": "Global Sourcing Parts",
+      "parent": "Global Sourcing Parts"
+    },
+    {
+      "id": 2621,
+      "name": "Cable Tie",
+      "parent": "Handling Packaging Storage"
+    },
+    {
+      "id": 3626,
+      "name": "Aluminum Profile Heat Dissipation Accessories",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 704,
+      "name": "American fine thread wire screw sleeve",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 810,
+      "name": "Angular contact ball bearing",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2043,
+      "name": "Bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3723,
+      "name": "Brass Heat-Set Threaded Insert",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3722,
+      "name": "Brass Knurled Insert Nut",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3724,
+      "name": "Brass Straight Knurled Insert Nut",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 683,
+      "name": "Carriage bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 635,
+      "name": "Cassette nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2038,
+      "name": "Composite gasket",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 754,
+      "name": "Compression Spring",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 678,
+      "name": "Conical pin",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 713,
+      "name": "Cross pan head machine screw three combinations",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 724,
+      "name": "Cross pan head machine screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 652,
+      "name": "Cross pan head triangular thread machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 745,
+      "name": "Cross slot countersunk flat tail self-tapping screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 640,
+      "name": "Cross slot countersunk machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 655,
+      "name": "Cross slot countersunk screw with drill tail self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 654,
+      "name": "Cross slot countersunk self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 660,
+      "name": "Cross slot half round head self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 641,
+      "name": "Cross slot large flat head machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 656,
+      "name": "Cross slot large flat head self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 642,
+      "name": "Cross slot pan head machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 740,
+      "name": "Cross slot pan head screws and flat washer combination",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 727,
+      "name": "Cross slot pan head screws and spring washer combination",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 657,
+      "name": "Cross slot pan head self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 734,
+      "name": "Cross slot pan head self-tapping screws with insulation",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 744,
+      "name": "Cross slot round head flat tail self-tapping screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 661,
+      "name": "Cross slot washer head self-drilling self-tapping screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2011,
+      "name": "Cross Slotted Head Screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 665,
+      "name": "Cylindrical pins",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 817,
+      "name": "Cylindrical roller bearings",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 812,
+      "name": "Deep groove ball bearing",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 677,
+      "name": "Elastic cylindrical pin",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 741,
+      "name": "External hexagon bolts and nut kit",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 730,
+      "name": "External hexagon self-tapping screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3669,
+      "name": "Female-Female Hex Standoff",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3670,
+      "name": "Female-Female Round Standoff",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3347,
+      "name": "Ferrite magnetic beads",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3740,
+      "name": "Fields",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 667,
+      "name": "Flat key",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 296,
+      "name": "Flat washers",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2981,
+      "name": "Heat sink / cooling fin",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3606,
+      "name": "Hex socket screw with flat washer & spring washer assembly",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 273,
+      "name": "Hex socket screws with countersunk head",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3599,
+      "name": "Hex Washer Head Self-Drilling Screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 276,
+      "name": "Hexagon socket cylindrical head screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3605,
+      "name": "Hexagon socket flange screw with serrated flange",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 624,
+      "name": "Hexagonal nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 625,
+      "name": "Hexagonal nylon locking nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1661,
+      "name": "Hose clamp",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3481,
+      "name": "Hot-dip galvanized screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3479,
+      "name": "Inductor core",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 714,
+      "name": "Internal hexagon cylindrical head flat washer three combinations",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 653,
+      "name": "Internal hexagonal flat round head screw with washer",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 784,
+      "name": "Joint",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3499,
+      "name": "LED isolation column",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3668,
+      "name": "Male-Female Round Standoff",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2036,
+      "name": "Metal gasket",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2008,
+      "name": "Metal Products SMT Copper Sheet",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 818,
+      "name": "Needle bearings",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1662,
+      "name": "Nut",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2041,
+      "name": "Oil seal",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 666,
+      "name": "Open type flat round head blind rivet",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 945,
+      "name": "Other hardware",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 940,
+      "name": "Other nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 939,
+      "name": "Other rivets",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 938,
+      "name": "Other screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 948,
+      "name": "Other Seals",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3491,
+      "name": "Outer hex bolts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 778,
+      "name": "padlock",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 723,
+      "name": "Patch round nut",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3465,
+      "name": "PC Board Spacer",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3604,
+      "name": "Phillips hex washer head machine screw with recess",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3607,
+      "name": "Phillips pan head washer self-drilling screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1695,
+      "name": "Pin & key",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1667,
+      "name": "Plastic cable drag chain",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 673,
+      "name": "Press rivet nut",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1488,
+      "name": "Probe",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3609,
+      "name": "Round head bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1696,
+      "name": "Screw & bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 676,
+      "name": "Screw tail pin shaft",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 816,
+      "name": "Self-aligning roller bearings",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 717,
+      "name": "Self-Clinching Studs",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 785,
+      "name": "Shielding clip",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 720,
+      "name": "Single-ended hex stud",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 647,
+      "name": "Slotted pan head machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 627,
+      "name": "Slotted Round Nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 753,
+      "name": "SMD hex nut columns",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3601,
+      "name": "Socket flat countersunk head screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3602,
+      "name": "Socket flat-head machine screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3574,
+      "name": "Solder Terminal",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 664,
+      "name": "split pin",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2066,
+      "name": "Spring",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 749,
+      "name": "Star pan head machine screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 731,
+      "name": "Star slot countersunk self-tapping screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 732,
+      "name": "Star slot pan head self-tapping screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 884,
+      "name": "Straight pipe/straight connector",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1674,
+      "name": "Studs & Screws",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3725,
+      "name": "Surface Mount Jumper",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 687,
+      "name": "Swivel bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 684,
+      "name": "T-bolt",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3355,
+      "name": "TapeMagneticBeads",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 2596,
+      "name": "Threaded Inserts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 736,
+      "name": "Through hole embedded round nuts",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 758,
+      "name": "Torsion spring",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3608,
+      "name": "Torx Flat Head Machine Screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3600,
+      "name": "Torx Machine Screw with Plain & Spring Washer Combo",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3610,
+      "name": "Torx Self-Tapping Screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1643,
+      "name": "Type T magnetic ring",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 3598,
+      "name": "Weld Screw",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 726,
+      "name": "Welding studs",
+      "parent": "Hardware Fasteners"
+    },
+    {
+      "id": 1103,
+      "name": "AC contactor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3738,
+      "name": "AC Cooling Fan",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3353,
+      "name": "AmorphousCores",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 539,
+      "name": "Antenna spring",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 86,
+      "name": "Aviation connector/waterproof connector",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3742,
+      "name": "Batter Holder",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1303,
+      "name": "Battery accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3747,
+      "name": "Battery Clip",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1651,
+      "name": "Battery connector",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3739,
+      "name": "Battery holder base",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3743,
+      "name": "Battery Snap",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3744,
+      "name": "Battery Spring Contact",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1669,
+      "name": "Board end",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1644,
+      "name": "Buckled magnetic ring",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 427,
+      "name": "Button indicator light accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1193,
+      "name": "Button switch accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1102,
+      "name": "Buzzer/Electronic Beeper",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 956,
+      "name": "Ceramic plugin capacitor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1199,
+      "name": "Cold press terminals/Terminal blocks",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 862,
+      "name": "Communication accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1292,
+      "name": "Connecting accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1104,
+      "name": "Contactor accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2276,
+      "name": "Cooling fan",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1293,
+      "name": "Crimp contact pins",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 174,
+      "name": "Cylindrical battery",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1106,
+      "name": "DC contactor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 916,
+      "name": "Distribution frame",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1677,
+      "name": "Electric Energy Meter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3391,
+      "name": "Electrode plug",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1275,
+      "name": "Electromechanical Contactor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1281,
+      "name": "Encoder",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 964,
+      "name": "Fiber optic sensor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1176,
+      "name": "Filter capacitors",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3354,
+      "name": "Fs FlatMagneticRing",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1109,
+      "name": "Fuse",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2214,
+      "name": "Fuse/Current Protector",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 912,
+      "name": "Guide rail switching power supply",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3227,
+      "name": "Heat shrink tubing",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1101,
+      "name": "Indicator Light",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3633,
+      "name": "Industrial Computer",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1174,
+      "name": "Industrial terminal blocks",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 438,
+      "name": "Insulation tape/ adhesive tape",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3351,
+      "name": "Inverter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1288,
+      "name": "LED light strip",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1215,
+      "name": "LED Tube",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1185,
+      "name": "Lighting transformers",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1119,
+      "name": "Limit Switch/Travel Switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1993,
+      "name": "Lithium-Ion Battery",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3748,
+      "name": "Micro blower",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1218,
+      "name": "Micro switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1111,
+      "name": "Miniature Circuit Breaker",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1205,
+      "name": "Miniature leakage protection circuit breaker",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 572,
+      "name": "Motor starter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3356,
+      "name": "NanocrystallineMagneticRing",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 957,
+      "name": "Other contactors",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 175,
+      "name": "Other electrical auxiliary materials",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 952,
+      "name": "Other industrial control products",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3339,
+      "name": "Other modules/collectors",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 953,
+      "name": "Other sensors",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1439,
+      "name": "Passive Filter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 960,
+      "name": "Photoelectric sensor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1297,
+      "name": "Pin plug",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 580,
+      "name": "plug",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1307,
+      "name": "Plug-in cross link assembly",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 571,
+      "name": "Potentiometer",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2944,
+      "name": "Power connector / plug connector",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1678,
+      "name": "Power meter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1209,
+      "name": "Power Module/Power Supply",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1277,
+      "name": "Proximity Sensor/Proximity Switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1100,
+      "name": "Push Button Switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1316,
+      "name": "Radiator fan accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1694,
+      "name": "relay",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1117,
+      "name": "Relay accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1302,
+      "name": "Relay base",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1320,
+      "name": "Relay module",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1642,
+      "name": "RH type magnetic ring",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1274,
+      "name": "Safety Relay",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1272,
+      "name": "Safety switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1221,
+      "name": "Selector Switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1279,
+      "name": "Servo Motor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2521,
+      "name": "Socket/power strip/extension cord",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 165,
+      "name": "Soft pack battery",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1295,
+      "name": "Solid state relay",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1276,
+      "name": "Solid state relays",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 168,
+      "name": "Square battery",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 574,
+      "name": "Stepper motor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1178,
+      "name": "Surge protectors/Lightning protectors",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2990,
+      "name": "Switching power supply",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1115,
+      "name": "Switching Power Supply Accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1217,
+      "name": "Tactile Switch/Push Button Switch",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1280,
+      "name": "Temperature Controller",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1294,
+      "name": "terminal  accessories",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1216,
+      "name": "Terminal strips",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3575,
+      "name": "Thermal Sensor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3736,
+      "name": "Thermoelectric Cooler",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 2719,
+      "name": "Touch screen",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 1038,
+      "name": "Transformer/Electromagnetic inducer",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 3444,
+      "name": "Transmitter",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 955,
+      "name": "Ultra high voltage capacitor",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 913,
+      "name": "Waterproof LED driver power supply",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 179,
+      "name": "Wire organizer",
+      "parent": "Industrial control electrical"
+    },
+    {
+      "id": 448,
+      "name": "Accelerator/primer",
+      "parent": "Industrial reagents lubrication rust removal"
+    },
+    {
+      "id": 3510,
+      "name": "Body Worn Camera",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3219,
+      "name": "Conductive Silver Paste",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3701,
+      "name": "DAQ",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 1680,
+      "name": "Frequency Meter",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3639,
+      "name": "Infrared Thermal Imager Accessories",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3703,
+      "name": "Microscope Accessories",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3638,
+      "name": "Ohmmeter",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 1679,
+      "name": "Power Factor Meter",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3546,
+      "name": "Pressure Controllers",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3624,
+      "name": "Refrigerant Gauge Set",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 81,
+      "name": "Resistance-capacitance inductance measurement/RLC bridge",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3659,
+      "name": "Tension meter",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 903,
+      "name": "Torsion tester",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 1478,
+      "name": "Ultrasonic level gauge",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3623,
+      "name": "USB tester",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 1676,
+      "name": "Volt Meter",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3405,
+      "name": "Water Quality Analyzer",
+      "parent": "Instrumentation and meters"
+    },
+    {
+      "id": 3688,
+      "name": "Block",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3692,
+      "name": "Center",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3699,
+      "name": "Chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3651,
+      "name": "clamping auxiliary",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3689,
+      "name": "Clamping Plate",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3667,
+      "name": "demagnetizer",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3673,
+      "name": "Drawbar / Pull stud",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3694,
+      "name": "Drive Clamp",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3666,
+      "name": "Extension Fixture",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3476,
+      "name": "Generator",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3662,
+      "name": "indexing head",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3399,
+      "name": "Industrial Belts",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3697,
+      "name": "knife sharpener",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3674,
+      "name": "Magnetic Block",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3679,
+      "name": "Magnetic Chip Collector",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3681,
+      "name": "Magnetic Chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3682,
+      "name": "Magnetic Pickup Tool",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3693,
+      "name": "Magnetic Tapping Attachment",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3678,
+      "name": "Milling Chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3663,
+      "name": "permanent-magnetic chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3653,
+      "name": "Pneumatic Tapping Machine",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3657,
+      "name": "punch former",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3687,
+      "name": "Right Angle Attachment",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3677,
+      "name": "Rotary Table",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3672,
+      "name": "Safety Operator",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3596,
+      "name": "ScrewNut",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3665,
+      "name": "sine table",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3686,
+      "name": "Tap Collet Chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3680,
+      "name": "Tool Locking Collar",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3652,
+      "name": "V-Block",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3664,
+      "name": "vacuum chuck",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3654,
+      "name": "Wire EDM Clamp Plate",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3684,
+      "name": "Z-Axis Height Setter",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 3685,
+      "name": "Z-Axis Setup Device",
+      "parent": "Lathes and accessories"
+    },
+    {
+      "id": 2542,
+      "name": "Digital Tube Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 2530,
+      "name": "Laser Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 3075,
+      "name": "LCD Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 3074,
+      "name": "LED Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 2193,
+      "name": "Lighting Drivers & Controllers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 2544,
+      "name": "OLED Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 2543,
+      "name": "VFD Drivers",
+      "parent": "LED Drivers"
+    },
+    {
+      "id": 2169,
+      "name": "Buffers, Drivers, Receivers, Transceivers",
+      "parent": "Logic"
+    },
+    {
+      "id": 2167,
+      "name": "Counters, Dividers",
+      "parent": "Logic"
+    },
+    {
+      "id": 2568,
+      "name": "Digital Comparators",
+      "parent": "Logic"
+    },
+    {
+      "id": 2566,
+      "name": "FIFOs Memory",
+      "parent": "Logic"
+    },
+    {
+      "id": 2163,
+      "name": "Flip Flops",
+      "parent": "Logic"
+    },
+    {
+      "id": 2567,
+      "name": "Inverters",
+      "parent": "Logic"
+    },
+    {
+      "id": 2170,
+      "name": "Latches",
+      "parent": "Logic"
+    },
+    {
+      "id": 2168,
+      "name": "Logic Gates",
+      "parent": "Logic"
+    },
+    {
+      "id": 2176,
+      "name": "Monostable Multivibrators",
+      "parent": "Logic"
+    },
+    {
+      "id": 2569,
+      "name": "Parity Generators and Checkers",
+      "parent": "Logic"
+    },
+    {
+      "id": 2565,
+      "name": "Receivers & Transceivers",
+      "parent": "Logic"
+    },
+    {
+      "id": 2166,
+      "name": "Shift Registers",
+      "parent": "Logic"
+    },
+    {
+      "id": 2164,
+      "name": "Signal Switches, Multiplexers, Decoders",
+      "parent": "Logic"
+    },
+    {
+      "id": 2165,
+      "name": "Specialty Logic",
+      "parent": "Logic"
+    },
+    {
+      "id": 2162,
+      "name": "Translators, Level Shifters",
+      "parent": "Logic"
+    },
+    {
+      "id": 1635,
+      "name": "3D Magnetic Sensors",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 2159,
+      "name": "Current Sensors",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 1634,
+      "name": "Hall Switches",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 2150,
+      "name": "Linear Hall Sensors",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 1633,
+      "name": "Magnetic Angle Sensors",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 1636,
+      "name": "Reed Switches",
+      "parent": "Magnetic Sensors"
+    },
+    {
+      "id": 1628,
+      "name": "Brushed DC Motor Drivers",
+      "parent": "Motor Driver ICs"
+    },
+    {
+      "id": 1627,
+      "name": "Brushless DC (BLDC) Motor Driver",
+      "parent": "Motor Driver ICs"
+    },
+    {
+      "id": 2129,
+      "name": "Gate Drivers",
+      "parent": "Motor Driver ICs"
+    },
+    {
+      "id": 1630,
+      "name": "Relay / Coil Drivers",
+      "parent": "Motor Driver ICs"
+    },
+    {
+      "id": 1629,
+      "name": "Stepper Motor Driver",
+      "parent": "Motor Driver ICs"
+    },
+    {
+      "id": 3418,
+      "name": "Laser Printer",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 1107,
+      "name": "Panel Switch/Panel Socket",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3726,
+      "name": "PDU Socket",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3275,
+      "name": "Power cord",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 1207,
+      "name": "Reel",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3719,
+      "name": "RF Antennas",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 198,
+      "name": "RJ sheath",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 1317,
+      "name": "Socket panel box",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3716,
+      "name": "SSD",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3717,
+      "name": "TF card",
+      "parent": "Office Daily Use"
+    },
+    {
+      "id": 3337,
+      "name": "old batch",
+      "parent": "old batch"
+    },
+    {
+      "id": 2546,
+      "name": "Chip On Board (COB) Light Sources",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2196,
+      "name": "Fiber Optical Transceivers",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 3123,
+      "name": "Infrared LED Emitters",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2234,
+      "name": "Infrared Remote Receiver (IRM)",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 3237,
+      "name": "IrDA Transceiver Modules",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2549,
+      "name": "Laser Diodes",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 71,
+      "name": "LED Indication - Discrete",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 3221,
+      "name": "Optoelectronics Accessories",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2984,
+      "name": "Photodiodes",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2986,
+      "name": "Photointerrupters - Slot Type - Transistor Output",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2548,
+      "name": "Phototransistors",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2534,
+      "name": "Reflective Optical Interrupters",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2114,
+      "name": "RGB LEDs",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2115,
+      "name": "RGB LEDs(Built-in IC)",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2547,
+      "name": "Ultraviolet LEDs (UVLED)",
+      "parent": "Optoelectronics"
+    },
+    {
+      "id": 2030,
+      "name": "Gate Drive Optocoupler",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 2545,
+      "name": "Logic Output Optoisolators",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 3189,
+      "name": "Solid State Relays (MOS Output)",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 2554,
+      "name": "Solid State Relays (Triac Output)",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 2938,
+      "name": "Transistor, Photovoltaic Output Optoisolators",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 3200,
+      "name": "Triac, SCR Output Optoisolators",
+      "parent": "Optoisolators"
+    },
+    {
+      "id": 2721,
+      "name": "Button/Signal Lamp/Main Switch",
+      "parent": "other"
+    },
+    {
+      "id": 1659,
+      "name": "Comprehensive Electronic",
+      "parent": "other"
+    },
+    {
+      "id": 2715,
+      "name": "Daily Necessities",
+      "parent": "other"
+    },
+    {
+      "id": 1690,
+      "name": "electronic cable",
+      "parent": "other"
+    },
+    {
+      "id": 2272,
+      "name": "Hand Protection",
+      "parent": "other"
+    },
+    {
+      "id": 963,
+      "name": "MRO presale new products",
+      "parent": "other"
+    },
+    {
+      "id": 1701,
+      "name": "Unclassified goods",
+      "parent": "other"
+    },
+    {
+      "id": 2244,
+      "name": "Abolished Device",
+      "parent": "Others"
+    },
+    {
+      "id": 1716,
+      "name": "BOM allocation",
+      "parent": "Others"
+    },
+    {
+      "id": 2221,
+      "name": "Consumables for Own Use",
+      "parent": "Others"
+    },
+    {
+      "id": 1728,
+      "name": "Developed by Channel Personnel",
+      "parent": "Others"
+    },
+    {
+      "id": 1724,
+      "name": "HWDG",
+      "parent": "Others"
+    },
+    {
+      "id": 3297,
+      "name": "Lack of specifications",
+      "parent": "Others"
+    },
+    {
+      "id": 1725,
+      "name": "LCDH",
+      "parent": "Others"
+    },
+    {
+      "id": 3286,
+      "name": "New Arrivals",
+      "parent": "Others"
+    },
+    {
+      "id": 2224,
+      "name": "No specification for star making plan",
+      "parent": "Others"
+    },
+    {
+      "id": 1479,
+      "name": "Panel printing materials",
+      "parent": "Others"
+    },
+    {
+      "id": 2302,
+      "name": "Panel printing product",
+      "parent": "Others"
+    },
+    {
+      "id": 2248,
+      "name": "SMT",
+      "parent": "Others"
+    },
+    {
+      "id": 3302,
+      "name": "Uncategorized",
+      "parent": "Others"
+    },
+    {
+      "id": 3627,
+      "name": "Air Pump",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3431,
+      "name": "Fire Hydrant",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 1203,
+      "name": "Other pipes",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3434,
+      "name": "Pipe Elbow",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 1247,
+      "name": "Sewage pump",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3584,
+      "name": "Slide table cylinder",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3695,
+      "name": "water meter",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3426,
+      "name": "Welded Elbow",
+      "parent": "Pneumatic hydraulic valves pumps"
+    },
+    {
+      "id": 3118,
+      "name": "AC-DC Power Modules",
+      "parent": "Power Modules"
+    },
+    {
+      "id": 2118,
+      "name": "DC-AC Module (Inverter)",
+      "parent": "Power Modules"
+    },
+    {
+      "id": 2116,
+      "name": "DC-DC Power Modules",
+      "parent": "Power Modules"
+    },
+    {
+      "id": 2117,
+      "name": "Isolated Power Modules",
+      "parent": "Power Modules"
+    },
+    {
+      "id": 2029,
+      "name": "SiC Diodes",
+      "parent": "Silicon Carbide (SiC) Devices"
+    },
+    {
+      "id": 2091,
+      "name": "SiC JFETs",
+      "parent": "Silicon Carbide (SiC) Devices"
+    },
+    {
+      "id": 2090,
+      "name": "Silicon Carbide Field Effect Transistor (MOSFET)",
+      "parent": "Silicon Carbide (SiC) Devices"
+    },
+    {
+      "id": 3336,
+      "name": "Sourcing Parts",
+      "parent": "Sourcing Parts"
+    },
+    {
+      "id": 2971,
+      "name": "DIP Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2531,
+      "name": "Keylock Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2969,
+      "name": "Limit Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2212,
+      "name": "Mechanical Keyboard Shaft",
+      "parent": "Switches"
+    },
+    {
+      "id": 3277,
+      "name": "Metal Dome Pot",
+      "parent": "Switches"
+    },
+    {
+      "id": 2976,
+      "name": "Multi-Directional Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2099,
+      "name": "Multidirectional Switch",
+      "parent": "Switches"
+    },
+    {
+      "id": 2100,
+      "name": "Navigation Switches, Joystick",
+      "parent": "Switches"
+    },
+    {
+      "id": 2968,
+      "name": "Pushbutton Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2967,
+      "name": "Rocker Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2097,
+      "name": "Rotary Coding Switch",
+      "parent": "Switches"
+    },
+    {
+      "id": 3209,
+      "name": "Rotary Encoders",
+      "parent": "Switches"
+    },
+    {
+      "id": 3312,
+      "name": "Rotary Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2098,
+      "name": "Rotary Wheel Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 3138,
+      "name": "Slide Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2190,
+      "name": "Specialty Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2130,
+      "name": "Switch Accessories / Caps",
+      "parent": "Switches"
+    },
+    {
+      "id": 2970,
+      "name": "Tactile Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 2532,
+      "name": "Toggle Switches",
+      "parent": "Switches"
+    },
+    {
+      "id": 3369,
+      "name": "BV Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3374,
+      "name": "Closed-End Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3367,
+      "name": "E Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3368,
+      "name": "EN Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3372,
+      "name": "FRD / MPD Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3364,
+      "name": "Hook Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3366,
+      "name": "Knife Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3373,
+      "name": "Magnetic Wire Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3375,
+      "name": "No-Break Wire Clamp",
+      "parent": "Terminal"
+    },
+    {
+      "id": 104,
+      "name": "PCB Welding Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3371,
+      "name": "Quick Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3361,
+      "name": "Ring Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3362,
+      "name": "SC Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3377,
+      "name": "SMD Quick Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3370,
+      "name": "Solder Ring Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3363,
+      "name": "Spade Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3378,
+      "name": "Square Copper Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3365,
+      "name": "Wire Pin Terminal",
+      "parent": "Terminal"
+    },
+    {
+      "id": 3715,
+      "name": "Charging Port Test Board",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 159,
+      "name": "Crimping pliers",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3727,
+      "name": "Electric Soldering Iron",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 882,
+      "name": "Grease gun",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 1754,
+      "name": "Hex driver sleeve",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3730,
+      "name": "Soldering Iron Handle",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3733,
+      "name": "Soldering Iron Tip Cleaner",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3728,
+      "name": "Soldering Tip",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3734,
+      "name": "Specialty Screwdriver",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 3710,
+      "name": "Spot Welder",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 2362,
+      "name": "Tile drill bits",
+      "parent": "Tool Equipment"
+    },
+    {
+      "id": 1468,
+      "name": "Accessories",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1698,
+      "name": "Adapter cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 3731,
+      "name": "Audio & Video Cables",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 182,
+      "name": "Audio cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 3235,
+      "name": "Banana Connectors / Alligator Clips",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1470,
+      "name": "Cable Supports and Fasteners",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1163,
+      "name": "Cable Terminals and Intermediate Joints",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1472,
+      "name": "Cable Ties and Zip Ties",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1462,
+      "name": "Cable Trays, Ducts",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 917,
+      "name": "Cables and wire clips",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 3644,
+      "name": "circular connector",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1314,
+      "name": "Coaxial cable (RF)",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 909,
+      "name": "Cold shrink tape / tubing",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 185,
+      "name": "D-Sub Cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1447,
+      "name": "Dedicated cable assemblies",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 2999,
+      "name": "Dupont wire / terminal block wire / electronic wire",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1457,
+      "name": "Fiber Optic Cables",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 2003,
+      "name": "Fixed Attenuator",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 181,
+      "name": "Hub/Adapter",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1319,
+      "name": "Jumper wire/enamelled wire/pre-cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1473,
+      "name": "Labels, tags",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1456,
+      "name": "Modular - Flat Cables",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1448,
+      "name": "Multi-conductor cables",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1310,
+      "name": "Network cable/modular cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1321,
+      "name": "Power line/brake line/extension line",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1459,
+      "name": "Protective Hoses, Solid Tubes, Sleeves",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1451,
+      "name": "Rectangular Cable Assemblies",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 885,
+      "name": "Rubber plug / rubber cap / protective cover",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 422,
+      "name": "Servo power line",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 434,
+      "name": "Single wire cable (ground wire)",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1440,
+      "name": "Sleeve connector cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1704,
+      "name": "Test leads",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 84,
+      "name": "USB cable/data cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 3732,
+      "name": "USB to Serial Cable",
+      "parent": "Wires and cables"
+    },
+    {
+      "id": 1476,
+      "name": "Welding sleeves",
+      "parent": "Wires and cables"
+    }
+  ]
+}

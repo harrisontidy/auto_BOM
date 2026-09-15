@@ -1,0 +1,179 @@
+diff --git a/pcbnew/build_BOM_from_board.cpp b/pcbnew/build_BOM_from_board.cpp
+index d69200a7..4f5e503e 100644
+--- a/pcbnew/build_BOM_from_board.cpp
++++ b/pcbnew/build_BOM_from_board.cpp
+@@ -33,6 +33,7 @@
+ #include <project.h>
+ #include <wildcards_and_files_ext.h>
+ #include <footprint.h>
++#include <pcb_field.h>
+ #include <tools/board_editor_control.h>
+ #include <wx/filedlg.h>
+ #include <vector>
+@@ -63,6 +64,8 @@ public:
+     wxString              m_Val;
+     LIB_ID                m_FPID;
+     int                   m_Count;
++    wxString              m_Lcsc;
++    wxString              m_Mpn;
+ };
+ 
+ 
+@@ -102,30 +105,39 @@ int BOARD_EDITOR_CONTROL::GenBOMFileFromBoard( const TOOL_EVENT& aEvent )
+         return 0;
+     }
+ 
+-    // Write header:
+-    wxString msg = wxT( "\"" );
+-    msg << _( "Id" ) << wxT( "\";\"" );
+-    msg << _( "Designator" ) << wxT( "\";\"" );
+-    msg << _( "Footprint" ) << wxT( "\";\"" );
+-    msg << _( "Quantity" ) << wxT( "\";\"" );
+-    msg << _( "Designation" ) << wxT( "\";\"" );
+-    msg << _( "Supplier and ref" ) << wxT( "\";\n" );
++    // Stable, non-localized JLCPCB headers and RFC 4180 quoting.
++    wxString msg = wxS( "Comment,Designator,Footprint,LCSC Part #\n" );
+     fprintf( fp_bom, "%s", TO_UTF8( msg ) );
++    auto csv = []( wxString text ) {
++        text.Replace( wxS( "\"" ), wxS( "\"\"" ) );
++        return wxS( "\"" ) + text + wxS( "\"" );
++    };
+ 
+     // Build list
+     std::vector<BOM_ENTRY> list;
+ 
+     for( FOOTPRINT* footprint : board->Footprints() )
+     {
+-        if( footprint->GetAttributes() & FP_EXCLUDE_FROM_BOM )
++        if( footprint->GetExcludedFromBOMForVariant( board->GetCurrentVariant() )
++                || footprint->GetDNPForVariant( board->GetCurrentVariant() ) )
+             continue;
+ 
++        wxString lcsc;
++        for( const wxString name : { wxS( "LCSC Part #" ), wxS( "LCSC PN" ),
++                wxS( "LCSC Part" ), wxS( "LCSC" ) } )
++            if( PCB_FIELD* field = footprint->GetField( name ); field && !field->GetText().IsEmpty() )
++            { lcsc = field->GetText(); break; }
++        wxString mpn;
++        if( PCB_FIELD* field = footprint->GetField( wxS( "Manufacturer Part Number" ) ) )
++            mpn = field->GetText();
++
+         bool valExist = false;
+ 
+         // try to find component in existing list
+         for( BOM_ENTRY& curEntry : list )
+         {
+-            if( curEntry.m_Val == footprint->GetValue() && curEntry.m_FPID == footprint->GetFPID() )
++            if( curEntry.m_Val == footprint->GetValue() && curEntry.m_FPID == footprint->GetFPID()
++                    && curEntry.m_Lcsc == lcsc && curEntry.m_Mpn == mpn )
+             {
+                 curEntry.m_Refs.emplace_back( footprint->Reference().GetShownText( false ) );
+                 curEntry.m_Count++;
+@@ -144,6 +156,8 @@ int BOARD_EDITOR_CONTROL::GenBOMFileFromBoard( const TOOL_EVENT& aEvent )
+             newEntry.m_Refs.emplace_back( footprint->Reference().GetShownText( false ) );
+             newEntry.m_FPID = footprint->GetFPID();
+             newEntry.m_Count = 1;
++            newEntry.m_Lcsc = lcsc;
++            newEntry.m_Mpn = mpn;
+         }
+     }
+ 
+@@ -163,24 +177,15 @@ int BOARD_EDITOR_CONTROL::GenBOMFileFromBoard( const TOOL_EVENT& aEvent )
+             } );
+ 
+     // Print list.
+-    int id = 1;
+-
+     for( const BOM_ENTRY& curEntry : list )
+     {
+-        msg.Empty();
+-
+-        msg << id++ << wxT( ";\"" );
+-
+-        msg << curEntry.m_Refs[0];
+-
++        wxString refs = curEntry.m_Refs[0];
+         for( int ii = 1; ii < (int) curEntry.m_Refs.size(); ++ii )
+-            msg << wxT( ", " ) << curEntry.m_Refs[ii];
+-
+-        msg << wxT( "\";\"" );
+-
+-        msg << From_UTF8( curEntry.m_FPID.GetLibItemName().c_str() ) << wxT( "\";" );
+-        msg << curEntry.m_Count << wxT( ";\"" );
+-        msg << curEntry.m_Val << wxT( "\";;;\n" );
++            refs << wxS( ", " ) << curEntry.m_Refs[ii];
++        msg = csv( curEntry.m_Mpn.IsEmpty() ? curEntry.m_Val : curEntry.m_Mpn ) + wxS( "," )
++                + csv( refs ) + wxS( "," )
++                + csv( From_UTF8( curEntry.m_FPID.GetLibItemName().c_str() ) ) + wxS( "," )
++                + csv( curEntry.m_Lcsc ) + wxS( "\n" );
+         fprintf( fp_bom, "%s", TO_UTF8( msg ) );
+     }
+ 
+diff --git a/pcbnew/dialogs/dialog_gen_footprint_position.cpp b/pcbnew/dialogs/dialog_gen_footprint_position.cpp
+index 66e0b92d..1604d185 100644
+--- a/pcbnew/dialogs/dialog_gen_footprint_position.cpp
++++ b/pcbnew/dialogs/dialog_gen_footprint_position.cpp
+@@ -57,6 +57,12 @@ DIALOG_GEN_FOOTPRINT_POSITION::DIALOG_GEN_FOOTPRINT_POSITION( PCB_EDIT_FRAME* aE
+     m_messagesPanel->MsgPanelSetMinSize( wxSize( -1, 160 ) );
+ 
+     m_browseButton->SetBitmap( KiBitmapBundle( BITMAPS::small_folder ) );
++    m_formatCtrl->SetSelection( static_cast<int>( JOB_EXPORT_PCB_POS::FORMAT::CSV ) );
++    m_unitsCtrl->SetSelection( 1 );
++    m_singleFile->SetValue( true );
++    m_excludeDNP->SetValue( true );
++    m_excludeBOM->SetValue( true );
++    m_negateXcb->SetValue( false );
+ 
+     m_variantChoiceCtrl->Append( m_editFrame->GetBoard()->GetVariantNamesForUI() );
+ 
+@@ -170,7 +176,10 @@ void DIALOG_GEN_FOOTPRINT_POSITION::updateOptionCheckbox( wxUpdateUIEvent& aEven
+ 
+ void DIALOG_GEN_FOOTPRINT_POSITION::onUpdateUIUnits( wxUpdateUIEvent& event )
+ {
+-    bool textFormat = selectedFormat() != JOB_EXPORT_PCB_POS::FORMAT::GERBER;
++    bool textFormat = selectedFormat() != JOB_EXPORT_PCB_POS::FORMAT::GERBER
++            && selectedFormat() != JOB_EXPORT_PCB_POS::FORMAT::CSV;
++    if( selectedFormat() == JOB_EXPORT_PCB_POS::FORMAT::CSV )
++        m_unitsCtrl->SetSelection( 1 ); // JLCPCB CSV coordinates are always millimetres.
+ 
+     m_unitsLabel->Enable( textFormat );
+     m_unitsCtrl->Enable( textFormat );
+diff --git a/pcbnew/exporters/place_file_exporter.cpp b/pcbnew/exporters/place_file_exporter.cpp
+index 9b32bd01..53414730 100644
+--- a/pcbnew/exporters/place_file_exporter.cpp
++++ b/pcbnew/exporters/place_file_exporter.cpp
+@@ -182,11 +182,17 @@ std::string PLACE_FILE_EXPORTER::GenPositionData()
+         wxChar csv_sep = ',';
+ 
+         // Set first line:;
+-        snprintf( line, sizeof(line), "Ref%cVal%cPackage%cPosX%cPosY%cRot%cSide\n",
++        snprintf( line, sizeof(line), "Designator%cComment%cFootprint%cMid X%cMid Y%cRotation%cLayer\n",
+                   csv_sep, csv_sep, csv_sep, csv_sep, csv_sep, csv_sep );
++        conv_unit = conv_unit_mm;
+ 
+         buffer += line;
+ 
++        auto csvQuote = []( wxString text ) {
++            text.Replace( wxS( "\"" ), wxS( "\"\"" ) );
++            return wxS( "\"" ) + text + wxS( "\"" );
++        };
++
+         for( int ii = 0; ii < m_fpCount; ii++ )
+         {
+             VECTOR2I footprint_pos;
+@@ -199,12 +205,9 @@ std::string PLACE_FILE_EXPORTER::GenPositionData()
+             if( layer == B_Cu && m_negateBottomX )
+                 footprint_pos.x = - footprint_pos.x;
+ 
+-            wxLine = wxT( "\"" ) + list[ii].m_Reference;
+-            wxLine << wxT( "\"" ) << csv_sep;
+-            wxLine << wxT( "\"" ) << list[ii].m_Value;
+-            wxLine << wxT( "\"" ) << csv_sep;
+-            wxLine << wxT( "\"" ) << list[ii].m_Footprint->GetFPID().GetLibItemName().wx_str();
+-            wxLine << wxT( "\"" ) << csv_sep;
++            wxLine = csvQuote( list[ii].m_Reference ) + csv_sep;
++            wxLine << csvQuote( list[ii].m_Value ) << csv_sep;
++            wxLine << csvQuote( list[ii].m_Footprint->GetFPID().GetLibItemName().wx_str() ) << csv_sep;
+ 
+             wxLine << wxString::Format( wxT( "%f%c%f%c%f" ),
+                                         footprint_pos.x * conv_unit,
