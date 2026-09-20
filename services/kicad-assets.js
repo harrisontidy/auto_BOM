@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { importEasyEda, parseSexpr } from "./easyeda.js";
+import { importDigiKeyCad } from './digikey-cad.js';
 import { assessSchematicPins } from './specification-checks.js';
 import { planPinRemap, remapExternalFootprint } from './footprint-remap.js';
 
@@ -46,6 +47,10 @@ async function resolveAssets(component, candidate, environment = process.env) {
     ...(component.bomContext?.length ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
   };
   if (localAssets.placeable) return localAssets;
+  if (candidate?.supplier === 'digikey') {
+    try { return await importDigiKeyCad(candidate, environment); }
+    catch (error) { localAssets.importError = `DigiKey CAD: ${error.message}`; }
+  }
   if (candidate?.supplier === "lcsc" && candidate.lcscPartNumber && environment.EASYEDA_DOWNLOADS !== "false") {
     try { return await importEasyEda(candidate, environment); }
     catch (error) { localAssets.importError = `EasyEDA import unavailable: ${error.message}`; }

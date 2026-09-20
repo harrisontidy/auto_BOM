@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {categoryCatalog,matchSupplierCategory,interpretCategoryRequest,supplierCategoryIntent} from './services/supplier-categories.js';
-import {createComponentSearch} from './services/component-search.js';
-import {buildSearchQueries} from './services/digikey.js';
+import {categoryCatalog,matchSupplierCategory,interpretCategoryRequest,supplierCategoryIntent} from '../services/supplier-categories.js';
+import {createComponentSearch} from '../services/component-search.js';
+import {buildSearchQueries} from '../services/digikey.js';
 test('DigiKey uses the bounded alternate query plan without overriding explicit part numbers',()=>{
   assert.deepEqual(buildSearchQueries({searchQueries:['photodiode','photodetector','optical detector','ignored']}),['photodiode','photodetector','optical detector']);
   assert.deepEqual(buildSearchQueries({supplierPartNumber:'EXACT',searchQueries:['other']}),['EXACT']);

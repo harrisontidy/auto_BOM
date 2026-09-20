@@ -4,7 +4,7 @@
 
 For components already in a schematic, **BOM autofill** suggests missing manufacturer and supplier part numbers based on values, packages, and other requirements. Review the suggestions before applying them. Preferences include JLCPCB Basic parts and passive packages such as 0805 SMT.
 
-See [the project summary](PROJECT-SUMMARY.md) for the complete workflow, current validation limits, and contact information.
+See [the project summary](PROJECT-SUMMARY.md) for the complete workflow, current validation limits, and contact information. The [repository guide](docs/REPOSITORY.md) explains the folders, source files, tests, launchers, and KiCad patches.
 
 ## Current prototype
 

@@ -1,5 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const ui = {
+  mode: $('#mode'), provider: $('#ask-provider'), conversation: $('#conversation'),
   preferBasic: $("#prefer-basic"),
   supplier: $("#supplier"), supplierNote: $("#supplier-note"),
   form: $("#component-form"), query: $("#component-query"), search: $("#component-search"),
@@ -24,19 +25,61 @@ function updateSupplierNote() {
 
 let searchGeneration = 0;
 let activeJob = null;
+let conversation = [];
+let searching = false;
+let modelCatalog = null;
+let modelRequest = 0;
+const modelControl = $('#ask-model'), effortControl = $('#ask-effort');
+async function loadModels() {
+  const generation=++modelRequest;
+  modelCatalog=null;modelControl.replaceChildren(new Option('Latest available','latest'));updateEfforts();
+  try {
+    const response=await fetch(`/api/ask/models?provider=${ui.provider.value}`);
+    const data=await response.json();if(generation!==modelRequest)return;
+    if(!response.ok)throw new Error(data.error||'Model list unavailable.');
+    modelCatalog=data;
+    modelControl.replaceChildren(new Option(`Latest: ${data.latest}`,'latest'),...data.models.map(m=>new Option(m.name,m.id)));
+    updateEfforts();
+  }catch(error){if(generation===modelRequest)showMessage(error.message,true);}
+}
+function updateEfforts() {
+  const id=modelControl.value==='latest'?modelCatalog?.latest:modelControl.value;
+  const model=modelCatalog?.models.find(m=>m.id===id);
+  const labels={low:'Low — faster',medium:'Medium',high:'High',xhigh:'Extra high',max:'Maximum'};
+  effortControl.replaceChildren(new Option(model?`Auto: ${model.defaultEffort}`:'Auto reasoning','auto'),...(model?.efforts||[]).map(e=>new Option(labels[e]||e,e)));
+}
+ui.provider.addEventListener('change',()=>{loadModels();checkConfiguration();});
+modelControl.addEventListener('change',updateEfforts);
+ui.query.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!searching)ui.form.requestSubmit();}});
+document.querySelectorAll('[data-prompt]').forEach(button=>button.addEventListener('click',()=>{ui.query.value=button.dataset.prompt;ui.query.focus();}));
+function chatMessage(role,content) {const item=element('article','',`chat-message ${role}`);item.append(element('strong',role==='user'?'You':'Assistant'),element('div',content));return item;}
+ui.mode.addEventListener('change', () => {
+  $('#ask-controls').classList.toggle('hidden', ui.mode.value !== 'ask');
+  modelControl.classList.toggle('hidden',ui.mode.value!=='ask');effortControl.classList.toggle('hidden',ui.mode.value!=='ask');
+  ui.conversation.classList.toggle('hidden',ui.mode.value!=='ask');
+  ui.search.textContent = ui.mode.value === 'ask' ? 'Send' : 'Find parts';
+  ui.results.classList.add('hidden');
+  checkConfiguration();
+});
+$('#new-conversation').addEventListener('click', () => {conversation=[];ui.conversation.replaceChildren();ui.query.value='';ui.results.classList.add('hidden');ui.interpreted.classList.add('hidden');$('#welcome').classList.remove('hidden');ui.query.focus();});
 ui.form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if(searching) {++searchGeneration;if(activeJob)fetch(`/api/components/jobs/${activeJob}`,{method:'DELETE'}).catch(()=>{});activeJob=null;setSearching(false);showMessage('Stopped. Your message is preserved.');return;}
   const query = ui.query.value.trim();
   if (!query) return showMessage("Describe the component you need first.", true);
   const generation = ++searchGeneration;
   if(activeJob)fetch(`/api/components/jobs/${activeJob}`,{method:'DELETE'}).catch(()=>{});
   activeJob=null;
   setSearching(true);
+  $('#welcome').classList.add('hidden');
+  if(ui.mode.value==='ask')ui.conversation.append(chatMessage('user',query));
   ui.results.classList.add("hidden");
   ui.interpreted.classList.add("hidden");
   showMessage(`Understanding your request and checking ${ui.supplier.value === "lcsc" ? "JLCPCB" : "DigiKey"} stock…`);
   try {
-    let job = await postJson("/api/components/jobs", { query, supplier: ui.supplier.value, quantity: 1, preferBasic: ui.preferBasic.checked });
+    const asking = ui.mode.value === 'ask';
+    let job = await postJson(asking ? '/api/ask/jobs' : "/api/components/jobs", { query, supplier: ui.supplier.value, quantity: 1, preferBasic: ui.preferBasic.checked,
+      ...(asking ? {provider:ui.provider.value,history:conversation,model:modelControl.value,effort:effortControl.value} : {}) });
     if(generation!==searchGeneration){fetch(`/api/components/jobs/${job.id}`,{method:'DELETE'}).catch(()=>{});return;}
     activeJob=job.id;
     let revision=-1;
@@ -55,6 +98,14 @@ ui.form.addEventListener("submit", async (event) => {
       if(!response.ok)throw new Error(job.error||'Search unavailable.');
     }
     const result=job.result;
+    if (result.assistant) {
+      const assistant = result.assistant;
+      conversation.push({role:'user',content:query},{role:'assistant',content:`${assistant.answer}\nSearch context: ${assistant.context || assistant.query}`});
+      ui.conversation.append(chatMessage('assistant',assistant.answer));
+      showMessage(`${assistant.model} · ${assistant.effort} reasoning`);
+      ui.query.value='';
+    }
+    if (result.conversationOnly) {ui.interpreted.classList.add('hidden');ui.results.classList.add('hidden');return;}
     showMessage(result.candidates.length
       ? `Found ${result.candidates.length} in-stock options. The best overall match is first.`
       : "No in-stock match was found. Try describing the part with fewer restrictions.", !result.candidates.length);
@@ -65,9 +116,10 @@ ui.form.addEventListener("submit", async (event) => {
   }
 });
 
-function renderResults({ component, candidates, review }) {
+function renderResults({ component, candidates, review, assistant }) {
   const details = [...component.requirements, ...component.assumptions.map((item) => `Assumption: ${item}`)];
   ui.interpreted.replaceChildren(element("strong", component.summary), element("p", details.join(" · ")));
+  if (assistant) ui.interpreted.prepend(element('p',assistant.answer));
   ui.interpreted.classList.remove("hidden");
   const ordered = [...candidates].sort((a, b) => Number(isRecommended(b, review)) - Number(isRecommended(a, review))
     || Number(Boolean(b.kicadAssets?.placeable)) - Number(Boolean(a.kicadAssets?.placeable)));
@@ -141,6 +193,12 @@ function isRecommended(candidate, review) {
 
 async function checkConfiguration() {
   try {
+    if(ui.mode.value==='ask' && ui.provider.value==='codex') {
+      const response=await fetch('/api/ask/account');const account=await response.json();
+      ui.apiStatus.textContent=response.ok&&account.connected?'Codex account connected':'Codex sign-in needed';
+      ui.apiStatus.className=`api-status ${response.ok&&account.connected?'ready':'partial'}`;
+      return;
+    }
     const configuration = await (await fetch("/api/status")).json();
     const available = ui.supplier.value === "lcsc" || configuration.digikey;
     const enabled = [configuration.openai && "AI", available && (ui.supplier.value === "lcsc" ? "JLCPCB / LCSC" : "DigiKey")].filter(Boolean);
@@ -153,11 +211,18 @@ async function checkConfiguration() {
 }
 
 function setSearching(searching) {
+  setSearchState(searching);
+  ui.mode.disabled = searching;
+  ui.provider.disabled = searching;
+  $('#new-conversation').disabled = searching;
   ui.preferBasic.disabled = searching;
   ui.search.disabled = false;
   ui.supplier.disabled = searching;
   ui.search.textContent = searching ? "Search again" : "Find parts";
+  ui.query.disabled=searching;modelControl.disabled=searching;effortControl.disabled=searching;
+  ui.search.disabled=false;ui.search.textContent=searching?'Stop':ui.mode.value==='ask'?'Send':'Find parts';
 }
+function setSearchState(value) {searching=value;}
 
 async function postJson(url, body) {
   const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -169,3 +234,4 @@ async function postJson(url, body) {
 function fact(label, value) { const item = element("div"); item.append(element("span", label), element("strong", value)); return item; }
 function element(name, text = "", className = "") { const item = document.createElement(name); item.textContent = text; item.className = className; return item; }
 function showMessage(text, error = false) { ui.message.textContent = text; ui.message.className = `message${error ? " error" : ""}`; }
+loadModels();

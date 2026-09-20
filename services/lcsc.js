@@ -30,7 +30,7 @@ export async function searchJlcpcb(component, environment = process.env, fetchIm
     ? component.discoveryRetry ? supplierCategoryIntent({...component,originalQuery:''})
       : discoveryIntent(component) || supplierCategoryIntent(component) : null;
   const planned = Array.isArray(component.searchQueries) ? component.searchQueries.filter(q => typeof q === 'string' && q.trim()).slice(0, 3) : [];
-  let queries = explicit ? [explicit] : intent ? [...new Set([...intent.queries,...planned])]
+  let queries = explicit ? [explicit] : intent ? [...new Set([...planned,...intent.queries])]
     : catalogQueries(component, [...new Set([...planned, passiveQuery(component), ...buildSearchQueries(component)].filter(Boolean))]);
   const queryKey=JSON.stringify(queries), remembered=successfulQueries.get(queryKey);
   if(remembered?.expires>Date.now() && queries.includes(remembered.query))queries=[remembered.query,...queries.filter(q=>q!==remembered.query)];
@@ -70,8 +70,8 @@ export async function searchJlcpcb(component, environment = process.env, fetchIm
         if (!explicit && !matchesRelayRequirements(component, candidate)) continue;
         if (!explicit && !matchesCatalogRules(component, candidate)) continue;
         const specifications=assessSpecifications(component,candidate);
-        if (specifications.mismatches.length) {
-          for(const note of specifications.mismatches)if(rejectedSpecifications.size<4)rejectedSpecifications.add(note);
+        if (specifications.mismatches.length || specifications.requiredEvidenceMissing?.length) {
+          for(const note of [...specifications.mismatches,...(specifications.requiredEvidenceMissing || []).map(s=>`Required evidence missing: ${s}`)])if(rejectedSpecifications.size<4)rejectedSpecifications.add(note);
           continue;
         }
         if (intent && !intent.category.test(candidate.description || '')) continue;

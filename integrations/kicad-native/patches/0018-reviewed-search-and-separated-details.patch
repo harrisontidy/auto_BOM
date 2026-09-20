@@ -1,0 +1,118 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -754,7 +754,8 @@
+     if( !m_busy && m_revealTimer.IsRunning() ) updateSendButton();
+     m_resultsWindow->Scroll( scrollX, followLatest ? m_resultsWindow->GetVirtualSize().y : scrollY );
+     if( result.value( "pending", false ) )
+-        setStatus( _( "Parts found. Review and CAD preparation are updating..." ) );
++        setStatus( parsed.value( "stage", std::string() ) == "refining"
++                   ? _( "Refining the search..." ) : _( "Checking matches..." ) );
+ }
+ 
+ 
+@@ -829,8 +830,7 @@
+     {
+         wxStaticText* empty = makeLabel(
+                 m_resultsWindow,
+-                _( "No in-stock match was found. Try fewer restrictions or include a package "
+-                   "name." ) );
++                _( "No verified match found for your requirements." ) );
+         empty->Wrap( FromDIP( 280 ) );
+         m_resultsSizer->Add( empty, 0, wxEXPAND | wxALL, FromDIP( 12 ) );
+         setStatus( _( "No matching in-stock parts found." ), true );
+@@ -843,12 +843,13 @@
+         for( size_t i = 0; i < m_candidateJson.size(); ++i )
+         {
+             const nlohmann::json candidate = nlohmann::json::parse( m_candidateJson[i] );
+-            const bool recommended =
++            const bool recommended = review.value( "confidence", 0.0 ) >= 0.7
++                    && !review.value( "fallback", false ) && (
+                     ( !selectedDigiKey.IsEmpty()
+                       && jsonText( candidate, "supplierPartNumber" ) == selectedDigiKey )
+                     || ( !selectedManufacturer.IsEmpty()
+                          && jsonText( candidate, "manufacturerPartNumber" )
+-                                    == selectedManufacturer );
++                                    == selectedManufacturer ) );
+             addCandidateCard( i, recommended, recommended ? recommendation : wxString(),
+                               recommended ? concerns : wxString() );
+         }
+@@ -954,27 +955,30 @@
+         addFact( detailFacts, detailsPane, _( "Review notes" ), aConcerns );
+     if( !aRecommendation.IsEmpty() )
+         addFact( detailFacts, detailsPane, _( "Selection notes" ), aRecommendation );
+-    addFact( detailFacts, detailsPane, _( "KiCad symbol" ), jsonText( assets, "symbolId" ) );
+-    addFact( detailFacts, detailsPane, _( "Footprint" ), jsonText( assets, "footprintId" ) );
+-    addFact( detailFacts, detailsPane, _( "Library source" ), jsonText( assets, "symbolSource" ) );
+-    if( !jsonText( assets, "importError" ).IsEmpty() )
+-        addFact( detailFacts, detailsPane, _( "Download status" ), jsonText( assets, "importError" ) );
+-    addFact( detailFacts, detailsPane, _( "3D model" ),
+-             assets.value( "modelExpected", false )
+-                     ? _( "Available in installed KiCad library" )
+-                     : _( "Not found in installed KiCad library" ) );
+     detailsPane->SetSizer( detailFacts );
+     cardSizer->Add( details, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     details->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this, card]( wxCollapsiblePaneEvent& ) {
+         card->Layout(); m_resultsWindow->FitInside(); Layout();
+     } );
+ 
+-    if( !aRecommendation.IsEmpty() )
+-    {
+-        wxStaticText* recommendation = makeLabel( card, _( "Why this part: " ) + compactPartText( aRecommendation, 150 ) );
+-        recommendation->Wrap( FromDIP( 260 ) );
+-        cardSizer->Add( recommendation, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+-    }
++    auto* cadDetails = new wxCollapsiblePane( card, wxID_ANY, _( "CAD details" ), wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
++    auto* cadPane = cadDetails->GetPane();
++    auto* cadFacts = new wxFlexGridSizer( 2, FromDIP( 5 ), FromDIP( 10 ) );
++    cadFacts->AddGrowableCol( 1, 1 );
++    addFact( cadFacts, cadPane, _( "KiCad symbol" ), jsonText( assets, "symbolId" ) );
++    addFact( cadFacts, cadPane, _( "Footprint" ), jsonText( assets, "footprintId" ) );
++    addFact( cadFacts, cadPane, _( "Library source" ), jsonText( assets, "symbolSource" ) );
++    if( !jsonText( assets, "importError" ).IsEmpty() )
++        addFact( cadFacts, cadPane, _( "Download status" ), jsonText( assets, "importError" ) );
++    addFact( cadFacts, cadPane, _( "3D model" ),
++             assets.value( "modelExpected", false )
++                     ? _( "Available in installed KiCad library" )
++                     : _( "Not found in installed KiCad library" ) );
++    cadPane->SetSizer( cadFacts );
++    cardSizer->Add( cadDetails, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    cadDetails->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this, card]( wxCollapsiblePaneEvent& ) {
++        card->Layout(); m_resultsWindow->FitInside(); Layout();
++    } );
+ 
+     if( !aConcerns.IsEmpty() )
+     {
+@@ -998,24 +1002,19 @@
+     }
+ 
+     wxBoxSizer* actionSizer = new wxBoxSizer( wxHORIZONTAL );
+-    for( const auto& audit : { candidate.value( "verification", nlohmann::json::object() ),
+-                              assets.value( "validation", nlohmann::json::object() ) } )
+-    {
+-        for( const char* section : { "checked", "unknown" } )
++    for( bool cadAudit : { false, true } )
++    {
++        const auto audit = cadAudit ? assets.value( "validation", nlohmann::json::object() )
++                                    : candidate.value( "verification", nlohmann::json::object() );
++        if( !audit.is_object() ) continue;
++        for( const char* section : { "checked", "unknown", "mismatches" } )
+         {
+             wxString text;
+             for( const auto& note : audit.value( section, nlohmann::json::array() ) )
+-                text += wxString::FromUTF8( note.get<std::string>() ) + wxS( "\n" );
++                if( note.is_string() ) text += fromUtf8( note.get<std::string>() ) + wxS( "\n" );
+             if( text.IsEmpty() ) continue;
+-            if( std::string( section ) == "checked" ) {
+-                addFact( detailFacts, detailsPane, _( "Verified" ), text );
+-                continue;
+-            }
+-            text.Prepend( std::string( section ) == "checked" ? _( "Verified:\n" ) : _( "Check manually:\n" ) );
+-            addFact( detailFacts, detailsPane, _( "Manual checks" ), text );
+-            auto* label = makeLabel( card, compactPartText( text, 120 ) );
+-            label->Wrap( FromDIP( 280 ) );
+-            cardSizer->Add( label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++            addFact( cadAudit ? cadFacts : detailFacts, cadAudit ? cadPane : detailsPane,
++                     std::string( section ) == "checked" ? _( "Verified" ) : _( "Checks" ), text );
+         }
+     }
+     if( candidate.value( "reviewPending", false ) )

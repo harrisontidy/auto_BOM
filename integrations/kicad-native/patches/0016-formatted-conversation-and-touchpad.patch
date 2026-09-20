@@ -1,0 +1,271 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -47,6 +47,7 @@
+ 
+ #include <widgets/panel_auto_bom_assistant.h>
+ #include <widgets/ui_common.h>
++#include <string_utils.h>
+ 
+ 
+ namespace
+@@ -54,6 +55,35 @@
+ const int ID_AUTO_BOM_SEARCH_RESULT = wxWindow::NewControlId();
+ const int ID_AUTO_BOM_MODELS = wxWindow::NewControlId();
+ 
++
++// Model content is text, never a source of embedded browser resources.
++class ASSISTANT_HTML_WINDOW : public wxHtmlWindow
++{
++public:
++    explicit ASSISTANT_HTML_WINDOW( wxWindow* aParent ) :
++            wxHtmlWindow( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
++                          wxHW_SCROLLBAR_NEVER | wxBORDER_NONE ) {}
++
++    wxHtmlOpeningStatus OnOpeningURL( wxHtmlURLType, const wxString&, wxString* ) const override
++    {
++        return wxHTML_BLOCK;
++    }
++};
++
++wxString formatAssistantText( wxString aText )
++{
++    // Escape raw HTML before Markdown conversion; only renderer-created markup is allowed.
++    aText.Replace( wxS( "&" ), wxS( "&amp;" ) );
++    aText.Replace( wxS( "<" ), wxS( "&lt;" ) );
++    aText.Replace( wxS( ">" ), wxS( "&gt;" ) );
++    wxString html;
++    ConvertMarkdown2Html( aText, html );
++    for( const auto* tag : { "h1", "h2" } ) {
++        html.Replace( wxS( "<" ) + wxString( tag ) + wxS( ">" ), wxS( "<h3>" ) );
++        html.Replace( wxS( "</" ) + wxString( tag ) + wxS( ">" ), wxS( "</h3>" ) );
++    }
++    return html;
++}
+ 
+ std::string toUtf8( const wxString& aText )
+ {
+@@ -196,9 +226,9 @@
+     // A single scroll surface keeps the answer and its suggested parts together.
+     m_resultsWindow = new wxScrolledWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxBORDER_NONE );
+     m_resultsWindow->SetMinSize( FromDIP( wxSize( 0, 100 ) ) );
+-    m_resultsWindow->SetScrollRate( 0, FromDIP( 10 ) );
++    m_resultsWindow->SetScrollRate( 0, 1 );
+     auto* stream = new wxBoxSizer( wxVERTICAL );
+-    m_chatCtrl = new wxHtmlWindow( m_resultsWindow, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_NEVER | wxBORDER_NONE );
++    m_chatCtrl = new ASSISTANT_HTML_WINDOW( m_resultsWindow );
+     m_chatCtrl->SetStandardFonts( std::max( 11, GetFont().GetPointSize() + 1 ), GetFont().GetFaceName() );
+     stream->Add( m_chatCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
+     m_resultHeading = makeLabel( m_resultsWindow, _( "Suggested parts" ), true );
+@@ -208,6 +238,26 @@
+     stream->Add( m_resultsSizer, 0, wxEXPAND );
+     m_resultsWindow->SetSizer( stream );
+     mainSizer->Add( m_resultsWindow, 1, wxEXPAND );
++    bindConversationWheel( m_resultsWindow );
++    m_chatCtrl->Bind( wxEVT_HTML_LINK_CLICKED, []( wxHtmlLinkEvent& event ) {
++        const wxString url = event.GetLinkInfo().GetHref();
++        if( url.StartsWith( wxS( "https://" ) ) || url.StartsWith( wxS( "http://" ) ) )
++            wxLaunchDefaultBrowser( url );
++    } );
++    m_revealTimer.SetOwner( this );
++    Bind( wxEVT_TIMER, [this]( wxTimerEvent& ) {
++        const bool follow = isFollowingConversation();
++        int x = 0, y = 0;
++        m_resultsWindow->GetViewStart( &x, &y );
++        const size_t step = std::max( size_t( 8 ), m_revealAnswer.length() / 200 );
++        m_revealChars = std::min( m_revealChars + step, m_revealAnswer.length() );
++        if( m_revealChars == m_revealAnswer.length() ) {
++            m_revealTimer.Stop();
++            if( !m_busy ) m_searchButton->SetLabel( _( "Send" ) );
++        }
++        renderConversation();
++        m_resultsWindow->Scroll( x, follow ? m_resultsWindow->GetVirtualSize().y : y );
++    }, m_revealTimer.GetId() );
+     renderConversation();
+     m_chatCtrl->Bind( wxEVT_SIZE, [this]( wxSizeEvent& event ) {
+         event.Skip();
+@@ -282,6 +332,8 @@
+     SetSizer( mainSizer );
+ 
+     m_newChatButton->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) {
++        m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear();
++        m_searchButton->SetLabel( _( "Send" ) );
+         m_historyJson = "[]"; renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
+     } );
+     m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { loadModels(); } );
+@@ -314,6 +366,7 @@
+ 
+ PANEL_AUTO_BOM_ASSISTANT::~PANEL_AUTO_BOM_ASSISTANT()
+ {
++    m_revealTimer.Stop();
+     ++m_searchGeneration;
+     if( m_modelThread.joinable() ) { m_modelThread.request_stop(); m_modelThread.join(); }
+ 
+@@ -351,18 +404,52 @@
+         wxString content = jsonText( message, "content" );
+         const int context = content.Find( wxS( "\nSearch context:" ) );
+         if( context != wxNOT_FOUND ) content = content.Left( context );
+-        html += wxS( "<p><b>" ) + ( message.value( "role", std::string() ) == "user" ? _( "You" ) : _( "Assistant" ) )
+-             + wxS( "</b><br>" ) + escape( content ) + wxS( "</p><br>" );
+-    }
+-    if( m_busy && !m_pendingQuestion.empty() )
+-        html += wxS( "<p><b>" ) + _( "You" ) + wxS( "</b><br>" ) + escape( fromUtf8( m_pendingQuestion ) )
+-             + wxS( "</p><p><i>" ) + _( "Working on your request..." ) + wxS( "</i></p>" );
++        const bool assistant = message.value( "role", std::string() ) == "assistant";
++        if( assistant && &message == &history.back() && !m_busy && !m_revealAnswer.empty() )
++            content = m_revealAnswer.Left( m_revealChars );
++        html += wxS( "<p><b>" ) + ( assistant ? _( "Assistant" ) : _( "You" ) ) + wxS( "</b></p>" );
++        html += assistant ? formatAssistantText( content ) : wxS( "<p>" ) + escape( content ) + wxS( "</p>" );
++        html += wxS( "<br>" );
++    }
++    if( m_busy && !m_pendingQuestion.empty() ) {
++        html += wxS( "<p><b>" ) + _( "You" ) + wxS( "</b><br>" ) + escape( fromUtf8( m_pendingQuestion ) ) + wxS( "</p>" );
++        if( !m_revealAnswer.empty() )
++            html += wxS( "<p><b>" ) + _( "Assistant" ) + wxS( "</b></p>" ) + formatAssistantText( m_revealAnswer.Left( m_revealChars ) );
++        else
++            html += wxS( "<p><i>" ) + _( "Thinking..." ) + wxS( "</i></p>" );
++    }
+     html += wxS( "</body></html>" );
+     m_chatCtrl->SetPage( html );
+     if( m_chatCtrl->GetInternalRepresentation() )
+         m_chatCtrl->SetMinSize( wxSize( 0, m_chatCtrl->GetInternalRepresentation()->GetHeight() + FromDIP( 20 ) ) );
+     m_resultsWindow->Layout();
+     m_resultsWindow->FitInside();
++}
++
++bool PANEL_AUTO_BOM_ASSISTANT::isFollowingConversation() const
++{
++    int x = 0, y = 0;
++    m_resultsWindow->GetViewStart( &x, &y );
++    return y + m_resultsWindow->GetClientSize().y >= m_resultsWindow->GetVirtualSize().y - FromDIP( 30 );
++}
++
++void PANEL_AUTO_BOM_ASSISTANT::bindConversationWheel( wxWindow* aWindow )
++{
++    aWindow->Bind( wxEVT_MOUSEWHEEL, [this]( wxMouseEvent& event ) {
++        if( event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL || !event.GetWheelDelta() ) {
++            event.Skip(); return;
++        }
++        const double distance = event.IsPageScroll() ? m_resultsWindow->GetClientSize().y
++                : std::max( 1, event.GetLinesPerAction() ) * FromDIP( 18 );
++        m_wheelRemainder -= double( event.GetWheelRotation() ) / event.GetWheelDelta() * distance;
++        const int pixels = static_cast<int>( m_wheelRemainder );
++        m_wheelRemainder -= pixels;
++        int x = 0, y = 0;
++        m_resultsWindow->GetViewStart( &x, &y );
++        m_resultsWindow->Scroll( x, std::max( 0, y + pixels ) );
++        // Do not let the non-scrolling HTML child consume or repeat the gesture.
++    } );
++    for( wxWindow* child : aWindow->GetChildren() ) bindConversationWheel( child );
+ }
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::updateEfforts()
+@@ -423,7 +510,11 @@
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::onSearch( wxCommandEvent& aEvent )
+ {
+-    if( m_busy ) { ++m_searchGeneration; m_searchThread.request_stop(); setBusy( false ); setStatus( _( "Stopped. Your message is preserved." ) ); return; }
++    if( !m_busy && m_revealTimer.IsRunning() ) {
++        m_revealTimer.Stop(); m_revealChars = m_revealAnswer.length();
++        renderConversation(); m_searchButton->SetLabel( _( "Send" ) ); return;
++    }
++    if( m_busy ) { m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear(); ++m_searchGeneration; m_searchThread.request_stop(); setBusy( false ); setStatus( _( "Stopped. Your message is preserved." ) ); return; }
+     beginSearch( m_queryCtrl->GetValue() );
+ }
+ 
+@@ -446,6 +537,7 @@
+         m_searchThread.join();
+     }
+ 
++    m_revealTimer.Stop(); m_revealAnswer.clear(); m_revealChars = 0;
+     clearResults();
+     setBusy( true );
+     setStatus( _( "Thinking..." ) );
+@@ -626,11 +718,16 @@
+ 
+     int scrollX = 0, scrollY = 0;
+     m_resultsWindow->GetViewStart( &scrollX, &scrollY );
+-    const bool followLatest = scrollY * FromDIP( 10 ) + m_resultsWindow->GetClientSize().y
+-            >= m_resultsWindow->GetVirtualSize().y - FromDIP( 30 );
++    const bool followLatest = isFollowingConversation();
++    const auto parsed = nlohmann::json::parse( body, nullptr, false );
++    if( parsed.is_object() && parsed.contains( "assistant" ) ) {
++        const wxString answer = jsonText( parsed["assistant"], "answer" );
++        if( !answer.StartsWith( m_revealAnswer ) ) m_revealChars = 0;
++        m_revealAnswer = answer;
++        if( m_revealChars < m_revealAnswer.length() ) m_revealTimer.Start( 35 );
++    }
+     clearResults();
+     renderResponse( body );
+-    const auto parsed = nlohmann::json::parse( body, nullptr, false );
+     if( !result.value( "pending", false ) && parsed.is_object() && parsed.contains( "assistant" ) )
+     {
+         const auto& assistant = parsed["assistant"];
+@@ -644,6 +741,7 @@
+         renderConversation();
+         m_queryCtrl->Clear();
+     }
++    if( !m_busy && m_revealTimer.IsRunning() ) m_searchButton->SetLabel( _( "Show all" ) );
+     m_resultsWindow->Scroll( scrollX, followLatest ? m_resultsWindow->GetVirtualSize().y : scrollY );
+     if( result.value( "pending", false ) )
+         setStatus( _( "Parts found. Review and CAD preparation are updating..." ) );
+@@ -712,13 +810,6 @@
+     m_resultHeading->SetLabel( summary.IsEmpty() ? _( "Suggestions" ) : summary );
+     m_resultHeading->Wrap( FromDIP( 300 ) );
+     m_resultHeading->Show( !candidates.empty() );
+-
+-    if( response.contains( "assistant" ) && response.value( "pending", false ) )
+-    {
+-        wxStaticText* answer = makeLabel( m_resultsWindow, jsonText( response["assistant"], "answer" ) );
+-        answer->Wrap( FromDIP( 280 ) );
+-        m_resultsSizer->Add( answer, 0, wxEXPAND | wxALL, FromDIP( 12 ) );
+-    }
+ 
+     if( response.value( "conversationOnly", false ) || response.value( "stage", std::string() ) == "planning" )
+     {
+@@ -936,6 +1027,7 @@
+ 
+     cardSizer->Add( actionSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     card->SetSizer( cardSizer );
++    bindConversationWheel( card );
+     m_resultsSizer->Add( card, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP( 10 ) );
+ }
+ 
+@@ -1018,7 +1110,7 @@
+     {
+         m_activity->Stop();
+         m_activity->Hide();
+-        m_searchButton->SetLabel( !m_bomSelection ? _( "Send" ) : _( "Find Parts" ) );
++        m_searchButton->SetLabel( m_revealTimer.IsRunning() ? _( "Show all" ) : !m_bomSelection ? _( "Send" ) : _( "Find Parts" ) );
+     }
+ 
+     Layout();
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -29,6 +29,7 @@
+ 
+ #include <wx/panel.h>
+ #include <wx/string.h>
++#include <wx/timer.h>
+ 
+ 
+ class wxActivityIndicator;
+@@ -83,6 +84,8 @@
+     void loadModels();
+     void updateEfforts();
+     void renderConversation();
++    void bindConversationWheel( wxWindow* aWindow );
++    bool isFollowingConversation() const;
+ 
+ private:
+     PLACEMENT_CALLBACK        m_placementCallback;
+@@ -97,6 +100,10 @@
+     std::jthread              m_modelThread;
+     std::atomic<uint64_t>     m_modelGeneration{ 0 };
+     bool                      m_busy = false;
++    wxTimer                   m_revealTimer;
++    wxString                  m_revealAnswer;
++    size_t                    m_revealChars = 0;
++    double                    m_wheelRemainder = 0;
+     wxButton*                 m_newChatButton;
+     std::string               m_historyJson = "[]";
+     std::string               m_pendingQuestion;

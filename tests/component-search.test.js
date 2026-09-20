@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { interpretSimpleRequest, matchesRelayRequirements, catalogQueries } from './services/component-request.js';
-import { createComponentSearch } from './services/component-search.js';
-import { searchJlcpcb } from './services/lcsc.js';
+import { interpretSimpleRequest, matchesRelayRequirements, catalogQueries } from '../services/component-request.js';
+import { createComponentSearch } from '../services/component-search.js';
+import { searchJlcpcb } from '../services/lcsc.js';
 
 const relay = (parameters = {}) => ({ description: 'DIP Power Relays ROHS',
   parameters: { 'Switching Current(Max)': '10A', 'Coil Voltage': '5V', 'Contact Form': 'SPDT', ...parameters } });

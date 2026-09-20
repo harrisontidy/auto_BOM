@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {completeSchematicBom, applyPassiveDefaults} from './services/bom-completion.js';
-import {assessSpecifications} from './services/specification-checks.js';
+import {completeSchematicBom, applyPassiveDefaults} from '../services/bom-completion.js';
+import {assessSpecifications} from '../services/specification-checks.js';
 
 test('missing packages use configurable SMT defaults without assigning an unverified footprint', async () => {
   for (const size of ['0805','0603']) {

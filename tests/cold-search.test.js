@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {interpretSimpleRequest} from './services/component-request.js';
-import {createComponentSearch} from './services/component-search.js';
-import {searchJlcpcb} from './services/lcsc.js';
+import {interpretSimpleRequest} from '../services/component-request.js';
+import {createComponentSearch} from '../services/component-search.js';
+import {searchJlcpcb} from '../services/lcsc.js';
 
 test('passive word order bypasses AI on the first request and preserves extra constraints', async () => {
   for(const query of ['resistor 0805 100k','0805 resistor 100k','find me a 100k resistor in 0805',

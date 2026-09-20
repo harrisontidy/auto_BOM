@@ -5,6 +5,7 @@ import { interpretSimpleRequest, relayRequirements } from './component-request.j
 import { discoveryIntent } from './search-intent.js';
 import { assessSpecifications, assessSchematicPins } from './specification-checks.js';
 import { inferComponentType } from '../parser.js';
+import { typicalApplication } from './application-circuits.js';
 
 export function createComponentSearch(dependencies = {}) {
   const interpret = dependencies.interpret || interpretComponentRequest;
@@ -22,7 +23,7 @@ export function createComponentSearch(dependencies = {}) {
     const env = { ...environment, SOURCING_SUPPLIER: supplier, PREFER_BASIC: String(preferBasic), SEARCH_SIGNAL: options.signal };
     const checkCancelled = () => options.signal?.throwIfAborted();
     checkCancelled();
-    let interpreted = interpretSimpleRequest(query, supplier);
+    let interpreted = options.interpreted || interpretSimpleRequest(query, supplier);
     if (!interpreted) {
       // Only cache language interpretation, never stock, price or final recommendations.
       const key = JSON.stringify([query.trim(), quantity, supplier, env.OPENAI_MODEL]);
@@ -62,7 +63,7 @@ export function createComponentSearch(dependencies = {}) {
           entry.promise.catch(()=>retryPlans.delete(key));
         }
         const alternative=await entry.promise;
-        const retryComponent={...component,...alternative,originalQuery:query,supplier,preferBasic,quantity:component.quantity,
+        const retryComponent={...component,...alternative,componentType:component.componentType,originalQuery:query,supplier,preferBasic,quantity:component.quantity,
           requirements:[...new Set([query,...(component.requirements||[]),...(alternative.requirements||[])])],
           normalizedValue:alternative.value,footprint:alternative.package,aiSearchTerms:alternative.searchTerms,
           fastPath:undefined,supplierCategoryId:undefined,manufacturerFamily:undefined,catalogKey:undefined,catalogConstraints:undefined,
@@ -77,9 +78,9 @@ export function createComponentSearch(dependencies = {}) {
     }
     timings.catalogMs = Math.round(performance.now() - searchStart);
     const audited=result.candidates.map(candidate=>({...candidate,verification:assessSpecifications(component,candidate)}));
-    result.candidates = audited.filter(candidate=>!candidate.verification.mismatches.length);
+    result.candidates = audited.filter(candidate=>!candidate.verification.mismatches.length && !candidate.verification.requiredEvidenceMissing?.length);
     if(audited.length && !result.candidates.length)result.searchNotes=[
-      'The returned candidates conflict with the original requirements.',...audited.flatMap(candidate=>candidate.verification.mismatches).slice(0,4)];
+      'The returned candidates conflict with the original requirements.',...audited.flatMap(candidate=>[...candidate.verification.mismatches,...(candidate.verification.requiredEvidenceMissing || []).map(s=>`Required evidence missing: ${s}`)]).slice(0,4)];
     checkCancelled();
     const prepared = new Map();
     let currentReview = { pending: true };
@@ -124,8 +125,8 @@ export function createComponentSearch(dependencies = {}) {
         checkCancelled();
         if (component.fastPath) return directReview(component, shortlist[0]);
         try {
-          const answer = await review(component, shortlist, env);
-          if (!shortlist.some(c => candidatePartNumber(c) === answer.selectedSupplierPartNumber)) throw new Error('AI selected a part outside the shortlist.');
+          const answer = await (options.review || review)(component, shortlist, env);
+          if (answer.selectedSupplierPartNumber !== '' && !shortlist.some(c => candidatePartNumber(c) === answer.selectedSupplierPartNumber)) throw new Error('AI selected a part outside the shortlist.');
           return answer;
         } catch {
           return { ...directReview(component, shortlist[0]), confidence: 0,
@@ -149,8 +150,8 @@ export function createComponentSearch(dependencies = {}) {
       }
       if (!component.fastPath && candidates.length > shortlist.length) {
         try {
-          const answer = await review(component, candidates, env);
-          if (!candidates.some(c => candidatePartNumber(c) === answer.selectedSupplierPartNumber)) throw new Error('Unknown candidate');
+          const answer = await (options.review || review)(component, candidates, env);
+          if (answer.selectedSupplierPartNumber !== '' && !candidates.some(c => candidatePartNumber(c) === answer.selectedSupplierPartNumber)) throw new Error('Unknown candidate');
           recommendation = answer;
         } catch { /* Keep the initial review; new alternatives are not silently endorsed. */ }
       }
@@ -170,6 +171,7 @@ export function createComponentSearch(dependencies = {}) {
     timings.assetsAndReviewMs = Math.round(performance.now() - workStart);
     timings.totalMs = Math.round(performance.now() - started);
     checkCancelled();
+    candidates = candidates.map(candidate => ({...candidate, typicalApplication:typicalApplication(candidate)}));
     return { component, supplier, query: result.query, candidates, review: recommendation, timings,
       checkedAt: result.checkedAt, totalCandidates: result.candidates.length };
   };

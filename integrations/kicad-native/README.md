@@ -27,7 +27,7 @@ Install KiCad's documented MSYS2/UCRT64 build dependencies, then run:
 git clone --depth 1 --branch 10.0.6 https://github.com/KiCad/kicad-source-mirror.git "$env:USERPROFILE\source\auto-bom-kicad"
 git -C "$env:USERPROFILE\source\auto-bom-kicad" switch -c codex/component-finder-assistant
 Get-ChildItem "C:\path\to\auto_BOM\integrations\kicad-native\patches\*.patch" | Sort-Object Name | ForEach-Object {
-  if ($_.Name -match '^(000[789]|001[01])-') {
+  if ($_.Name -match '^(000[789]|001[0-9])-') {
     git -C "$env:USERPROFILE\source\auto-bom-kicad" apply $_.FullName
   } else {
     git -C "$env:USERPROFILE\source\auto-bom-kicad" am $_.FullName
@@ -79,6 +79,7 @@ In the Schematic Editor:
 
 - Press **Ctrl+Alt+A**, click the Component Finder toolbar button, or use **View → Panels → Component Finder** to show or hide the finder.
 - Enter a component description and press Enter or click **Find Parts**. The panel keeps the request visible, shows progress, and displays native candidate cards with data from the selected supplier. JLCPCB / LCSC is the default and requires no sourcing key.
+- Choose **Chat** in the **Design Assistant** for a conversation. Connection settings select **Codex account** or separately billed **OpenAI API** access. The model and reasoning controls default to **Latest available** and **Auto**. **New chat** clears temporary history. **Find parts** retains its existing AI configuration.
 - Click **Place in Schematic** when the result has a safe installed KiCad symbol and footprint. The symbol attaches to the cursor with supplier fields already populated.
 - Open **Tools → Generate Bill of Materials...** for final sourcing. Use **Fill Missing Parts**, optionally clear **Use AI when filling missing part numbers**, review the updated rows, and export with KiCad's normal controls.
 
@@ -92,9 +93,13 @@ LCSC results now automatically import EasyEDA symbols and footprints. Run `Setup
 
 Both native workflows default to **Prefer JLCPCB Basic parts**. Exact assigned part numbers are preserved even when they are Extended parts.
 
-The custom editor now runs on this machine after the user disabled Smart App Control. Native tests verified automatic BOM completion, EasyEDA footprint assignment, newly imported symbol placement, and copy/paste with supplier metadata preserved. See `../../SOURCING-TEST-REPORT.md` for results and remaining limitations.
+The custom editor now runs on this machine after the user disabled Smart App Control. Native tests verified automatic BOM completion, EasyEDA footprint assignment, newly imported symbol placement, and copy/paste with supplier metadata preserved. See `../../docs/testing/SOURCING-TEST-REPORT.md` for results and remaining limitations.
 
 The KiCad source patch is distributed under KiCad's GPL terms.
+
+Patch 0013 adds the conversation workflow, provider selection, and temporary conversation history. Apply with `git apply` after 0012 and rebuild `eeschema`. Ask uses the same progressive search jobs and candidate placement callback as Search. It can discuss requirements and prepare candidates; it does not autonomously edit the schematic or apply BOM changes. See [Ask architecture and limits](../../docs/ASK.md).
+
+Patch 0014 renames the dock to **Design Assistant** and defaults to **Chat**. It adds a formatted conversation, bottom multiline composer, Enter/Shift+Enter behavior, Stop, collapsible connection/sourcing settings, and live model/reasoning selectors. Apply after 0013. **Latest available** chooses the newest available GPT generation (preferring the full model within that generation); **Auto** uses its recommended reasoning level. Explicit choices are validated against connection metadata. Controls affect planning and candidate review; standalone Find parts retains its existing configuration. Native visual testing is pending; the C++ build and backend checks pass.
 
 Patch 0006 adds supplier selection, LCSC field mapping, JLCPCB stock checks, and automatic EasyEDA imports. The finder places one component at a time without a quantity control; BOM completion counts the schematic's actual references. Apply it after 0005 and rebuild the Schematic Editor. The BOM dialog has its own supplier selector and saves LCSC numbers in the LCSC Part # field.
 
@@ -102,8 +107,18 @@ Patch 0007 adds per-line BOM review, cancellation and explicit loading of instal
 
 Patch 0008 adds progressive Component Finder results. Supplier matches appear before CAD and review finish, with pending labels and placement disabled until that candidate has CAD and the review has returned. Search again supersedes the old job; result events are checked against the current search generation. Apply this plain diff after 0007. The original synchronous search endpoint remains available for scripts.
 
-Patch 0009 adds alternative selection inside BOM review, verified/unknown specification details, original schematic pin metadata, and combined stock-demand checks before applying selected lines. Apply this plain diff after 0008. Select a review row and choose **Find alternatives for selected line** to search without rerunning the whole BOM. Original electrical values and packages remain constraints. Existing assigned part numbers must be cleared in the BOM table before replacement; assigned footprints are preserved. See `../../BOM-ALTERNATIVES-REPORT.md` for validation and pending interface tests.
+Patch 0009 adds alternative selection inside BOM review, verified/unknown specification details, original schematic pin metadata, and combined stock-demand checks before applying selected lines. Apply this plain diff after 0008. Select a review row and choose **Find alternatives for selected line** to search without rerunning the whole BOM. Original electrical values and packages remain constraints. Existing assigned part numbers must be cleared in the BOM table before replacement; assigned footprints are preserved. See `../../docs/testing/BOM-ALTERNATIVES-REPORT.md` for validation and pending interface tests.
 
 Patch 0010 handles null CAD/verification data in unresolved review rows and adds passive mounting/size defaults. Apply with `git apply` after 0009. Unspecified resistors and generic capacitors default to 0805 SMT; capacitors require ceramic catalog evidence. Choose SMT, through-hole, or no default, and select the SMT size separately. Explicit footprints, part numbers and polarized/other specified capacitor technologies take priority. Through-hole parts still require footprint geometry verification. Current selections reset to SMT/0805 when the dialog is recreated.
 
 Patch 0011 changes PCB Editor **Fabrication Outputs → Bill of Materials** to JLCPCB comma-separated CSV with Comment, Designator, Footprint and LCSC Part #. It reads saved footprint sourcing fields and groups only parts with matching value, footprint, MPN and supplier ID. DNP/BOM exclusions follow the active variant. **Component Placement** CSV uses JLCPCB headers and millimetres with proper string escaping; the interactive dialog defaults to combined CSV, excludes DNP/BOM-excluded parts, and does not mirror bottom X. Gerber/ASCII placement output remains available. Rebuild `pcbnew` after applying the plain patch. Updating PCB fields from the schematic before export is still required if sourcing changed. Import acceptance and part rotations must be checked in the assembly preview.
+
+Patch 0015 replaces the Chat/Find parts selector with one **Ask for parts** conversation. Answers use larger text and share a single scroll surface with suggestions. Connection, supplier, model and reasoning controls live in the header Settings dialog; CAD diagnostics are collapsed on each card. Chat returns one confidently reviewed recommendation or at most three options, and answers ordinary questions without searching. Rebuild `eeschema` after applying this patch.
+
+Patch 0016 renders assistant Markdown using KiCad's bundled Markdown renderer (paragraphs, headings, emphasis, lists and code), escapes raw HTML and blocks embedded resources. Wheel events from chat and card descendants scroll the outer conversation with accumulated high-resolution deltas. Answers reveal progressively after arriving from the service, with a Show all button; scrolling up suspends automatic following. Apply after 0015 and rebuild `eeschema`.
+
+Patch 0017 puts the send arrow / stop square inside the composer and removes the permanent status/footer rows. Errors remain visible in the conversation. Part descriptions and recommendation reasons use short previews; complete text and verified checks remain under Part details. Apply after 0016 and rebuild `eeschema`.
+
+Patch 0018 separates Part details from CAD details and removes repeated CAD check text from the card. Low-confidence/fallback selections have no Best match badge. The service prioritizes planned keywords, checks required color/technology evidence, permits no suitable selection, and makes one AI-guided refinement when results are weak. Final search replies summarize actual results rather than repeating the initial plan.
+
+Patch 0019 enables DigiKey/SnapMagic library registration, adds the SnapMagic connection link in Settings, and adds reviewed typical application circuit placement (initially MCP1700 SOT-23). It preserves passive sourcing requirements for later BOM completion. Apply after 0018 and rebuild eeschema. See docs/ASK.md for supported scope and validation limits.

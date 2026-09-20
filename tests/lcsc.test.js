@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeJlcpcbProduct, searchJlcpcb } from "./services/lcsc.js";
-import { completeSchematicBom } from "./services/bom-completion.js";
-import { sourcingSupplier } from "./services/sourcing.js";
+import { normalizeJlcpcbProduct, searchJlcpcb } from "../services/lcsc.js";
+import { completeSchematicBom } from "../services/bom-completion.js";
+import { sourcingSupplier } from "../services/sourcing.js";
 
 const raw = (changes = {}) => ({
   componentCode: "C123", componentModelEn: "R-10K", componentBrandEn: "Example",

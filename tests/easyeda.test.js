@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSexpr, validateConvertedAssets, importEasyEda } from './services/easyeda.js';
-import { resolveKiCadAssets } from './services/kicad-assets.js';
+import { parseSexpr, validateConvertedAssets, importEasyEda } from '../services/easyeda.js';
+import { resolveKiCadAssets } from '../services/kicad-assets.js';
 
 const candidate = { supplier:'lcsc',lcscPartNumber:'C123',manufacturerPartNumber:'R-10K' };
 const symbol = `(kicad_symbol_lib (symbol "R-10K" (property "MPN" "R-10K") (property "LCSC Part" "C123")

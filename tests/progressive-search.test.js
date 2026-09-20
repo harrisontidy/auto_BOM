@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createComponentSearch} from './services/component-search.js';
-import {createSearchJobs} from './services/search-jobs.js';
+import {createComponentSearch} from '../services/component-search.js';
+import {createSearchJobs} from '../services/search-jobs.js';
 
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};

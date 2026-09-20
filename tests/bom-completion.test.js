@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completeSchematicBom } from "./services/bom-completion.js";
+import { completeSchematicBom } from "../services/bom-completion.js";
 
 const environment = { SOURCING_SUPPLIER: "digikey", OPENAI_API_KEY: "test", DIGIKEY_CLIENT_ID: "test", DIGIKEY_CLIENT_SECRET: "test" };
 

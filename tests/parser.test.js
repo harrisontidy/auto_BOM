@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyAiInterpretation, inferPackage, normalizeValue, parseCsv } from "./parser.js";
+import { applyAiInterpretation, inferPackage, normalizeValue, parseCsv } from "../parser.js";
 
 test("normalizes common resistor notation", () => {
   assert.equal(normalizeValue("4k7"), "4.7 kΩ");

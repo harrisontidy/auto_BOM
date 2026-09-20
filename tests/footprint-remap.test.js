@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {planPinRemap,remapExternalFootprint} from './services/footprint-remap.js';
-import {parseSexpr} from './services/easyeda.js';
+import {planPinRemap,remapExternalFootprint} from '../services/footprint-remap.js';
+import {parseSexpr} from '../services/easyeda.js';
 const context=[{pins:[{number:'1',name:'K'},{number:'2',name:'A'}]}];
 test('remaps unique functions only, rejecting polarity uncertainty and ambiguous groups',()=>{
  assert.deepEqual(planPinRemap(context,{'1':'Anode','2':'Cathode'}),{'1':'2','2':'1'});

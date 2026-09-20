@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { interpretCatalogRequest as parse, matchesCatalogRules as matches, scalar, familyMatches, categoryQueries } from './services/catalog-rules.js';
+import { interpretCatalogRequest as parse, matchesCatalogRules as matches, scalar, familyMatches, categoryQueries } from '../services/catalog-rules.js';
 
 const cases = [
   ['1A 40V Schottky','Schottky Diodes',{'Current - Rectified':'1A','Voltage - DC Reverse(Vr)':'40V'}, {'Current - Rectified':'250mA','Surge Current':'1A'}],

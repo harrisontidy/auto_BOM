@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {completeSchematicBom} from './services/bom-completion.js';
+import {completeSchematicBom} from '../services/bom-completion.js';
 const env={SOURCING_SUPPLIER:'lcsc',OPENAI_API_KEY:'test'};
 const R={value:'10k',footprint:'Resistor_SMD:R_0603_1608Metric'};
 const part={supplier:'lcsc',supplierPartNumber:'C123',lcscPartNumber:'C123',manufacturerPartNumber:'R10K',quantityAvailable:1000,minimumOrderQuantity:1,description:'10kOhm 0603 resistor',parameters:{Resistance:'10kOhm','Package / Case':'0603'},libraryType:'Basic'};

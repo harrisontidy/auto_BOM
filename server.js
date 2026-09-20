@@ -10,27 +10,63 @@ import { completeSchematicBom, validateSymbols } from "./services/bom-completion
 import { searchComponents } from "./services/component-search.js";
 import { createHttpLibrary } from "./services/http-library.js";
 import { createSearchJobs } from './services/search-jobs.js';
+import {createAsk, validateAsk} from './services/ask.js';
+import {codexAccount} from './services/codex-provider.js';
+import {askModels} from './services/ask-models.js';
 import { applyAiInterpretation } from "./parser.js";
+import {snapMagic} from './services/snapmagic.js';
+import {importDigiKeyCad} from './services/digikey-cad.js';
 
 const port = Number(process.env.PORT || 4173);
 const root = process.cwd();
 const httpLibrary = createHttpLibrary(join(root, '.runtime', 'http-library.json'));
 const searchJobs = createSearchJobs(async (...args) => {
-  const result=await searchComponents(...args);
+  const result=await (args[0].mode === 'ask' ? askComponents : searchComponents)(...args);
   try {await httpLibrary.record(result);} catch(error) {console.error('HTTP library update failed:',error.message);}
   return result;
 });
+const askComponents = createAsk();
 const serverStartedAt = Date.now();
 const protocolVersion = 3;
 const publicFiles = new Map([
-  ["/", ["index.html", "text/html; charset=utf-8"]],
-  ["/index.html", ["index.html", "text/html; charset=utf-8"]],
-  ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
-  ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
+  ['/snapmagic', ['public/snapmagic.html', 'text/html; charset=utf-8']],
+  ['/snapmagic.js', ['public/snapmagic.js', 'text/javascript; charset=utf-8']],
+  ["/", ["public/index.html", "text/html; charset=utf-8"]],
+  ["/index.html", ["public/index.html", "text/html; charset=utf-8"]],
+  ["/app.js", ["public/app.js", "text/javascript; charset=utf-8"]],
+  ["/styles.css", ["public/styles.css", "text/css; charset=utf-8"]],
 ]);
 
 createServer(async (request, response) => {
   try {
+    if (request.url.startsWith('/api/snapmagic/')) {
+      const origins = [`http://localhost:${port}`, `http://127.0.0.1:${port}`];
+      if (!origins.includes(`http://${request.headers.host}`)) return sendJson(response,403,{error:'Local app host required.'});
+      if (request.method === 'GET' && request.url === '/api/snapmagic/status') return sendJson(response,200,await snapMagic.status());
+      if (request.method !== 'POST' || !origins.includes(request.headers.origin) || !request.headers['content-type']?.startsWith('application/json')) return sendJson(response,403,{error:'Use the local SnapMagic connection page.'});
+      if (request.url === '/api/snapmagic/logout') {await snapMagic.logout(); return sendJson(response,200,{connected:false});}
+      if (request.url === '/api/snapmagic/login') {
+        const {username,password} = await readBody(request);
+        return sendJson(response,200,await snapMagic.login(username,password));
+      }
+      if (request.url === '/api/snapmagic/download') {
+        const {candidate} = await readBody(request);
+        if (!candidate || typeof candidate.manufacturerPartNumber !== 'string' || !candidate.manufacturerPartNumber.trim() || candidate.manufacturerPartNumber.length > 200 || typeof candidate.manufacturer !== 'string' || candidate.manufacturer.length > 200) return sendJson(response,400,{error:'A selected part number and manufacturer are required.'});
+        return sendJson(response,200,await importDigiKeyCad({...candidate,supplier:'digikey'},{...process.env,SNAPMAGIC_REFRESH:'true'}));
+      }
+      return sendJson(response,404,{error:'Not found.'});
+    }
+    if (request.method === 'GET' && request.url.startsWith('/api/ask/models?')) return sendJson(response,200,await askModels(new URL(request.url,'http://localhost').searchParams.get('provider')));
+    if (request.method === 'GET' && request.url === '/api/ask/account')
+      return sendJson(response,200,await codexAccount());
+    if (request.method === 'POST' && request.url === '/api/ask/jobs') {
+      if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response,415,{error:'JSON request required.'});
+      if (request.headers.origin && ![`http://localhost:${port}`,`http://127.0.0.1:${port}`].includes(request.headers.origin)) return sendJson(response,403,{error:'Local app origin required.'});
+      const input = await readBody(request);
+      try {validateAsk(input); if (input.bomContext !== undefined) validateSymbols(input.bomContext);}
+      catch (error) {return sendJson(response,400,{error:error.message});}
+      return sendJson(response,202,searchJobs.start({...input,mode:'ask'}));
+    }
     const jobRoute = request.url.match(/^\/api\/components\/jobs\/([a-f0-9-]{36})$/);
     const cancelRoute = request.url.match(/^\/api\/components\/jobs\/([a-f0-9-]{36})\/cancel$/);
     if(cancelRoute && request.method==='POST') {

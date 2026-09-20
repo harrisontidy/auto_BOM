@@ -1,0 +1,263 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -26,7 +26,6 @@
+ 
+ #include <nlohmann/json.hpp>
+ 
+-#include <wx/activityindicator.h>
+ #include <wx/button.h>
+ #include <wx/choice.h>
+ #include <wx/collpane.h>
+@@ -70,6 +69,18 @@
+     }
+ };
+ 
++wxString compactPartText( wxString aText, size_t aLimit )
++{
++    aText.Replace( wxS( "\n" ), wxS( " " ) );
++    aText.Replace( wxS( "\r" ), wxS( " " ) );
++    aText.Trim( true ).Trim( false );
++    if( aText.length() <= aLimit ) return aText;
++    wxString shortened = aText.Left( aLimit );
++    const int space = shortened.Find( ' ', true );
++    if( space > static_cast<int>( aLimit / 2 ) ) shortened = shortened.Left( space );
++    return shortened + wxS( "\u2026" );
++}
++
+ wxString formatAssistantText( wxString aText )
+ {
+     // Escape raw HTML before Markdown conversion; only renderer-created markup is allowed.
+@@ -202,8 +213,6 @@
+         m_placementCallback( std::move( aPlacementCallback ) ),
+         m_queryCtrl( nullptr ),
+         m_searchButton( nullptr ),
+-        m_activity( nullptr ),
+-        m_statusLabel( nullptr ),
+         m_resultHeading( nullptr ),
+         m_resultsWindow( nullptr ),
+         m_resultsSizer( nullptr ),
+@@ -253,7 +262,7 @@
+         m_revealChars = std::min( m_revealChars + step, m_revealAnswer.length() );
+         if( m_revealChars == m_revealAnswer.length() ) {
+             m_revealTimer.Stop();
+-            if( !m_busy ) m_searchButton->SetLabel( _( "Send" ) );
++            if( !m_busy ) updateSendButton();
+         }
+         renderConversation();
+         m_resultsWindow->Scroll( x, follow ? m_resultsWindow->GetVirtualSize().y : y );
+@@ -292,12 +301,14 @@
+     m_preferBasicCtrl = new wxCheckBox( settingsPane, wxID_ANY, _( "Prefer JLCPCB Basic parts" ) );
+     m_preferBasicCtrl->SetValue( true );
+     settingsSizer->Add( m_preferBasicCtrl, 0 );
+-    m_queryCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+-        FromDIP( wxSize( -1, 90 ) ), wxTE_MULTILINE );
++    auto* composer = new wxPanel( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE );
++    composer->SetBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOW ) );
++    auto* composerSizer = new wxBoxSizer( wxHORIZONTAL );
++    m_queryCtrl = new wxTextCtrl( composer, wxID_ANY, wxEmptyString, wxDefaultPosition,
++        FromDIP( wxSize( -1, 80 ) ), wxTE_MULTILINE | wxBORDER_NONE );
+     m_queryCtrl->SetHint( _( "Ask a question or describe a part..." ) );
+     m_queryCtrl->SetToolTip( _( "Enter to send. Shift+Enter for a new line." ) );
+-    mainSizer->Add( m_queryCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
+-    auto* controls = new wxBoxSizer( wxHORIZONTAL );
++    composerSizer->Add( m_queryCtrl, 1, wxEXPAND | wxALL, FromDIP( 8 ) );
+     m_modelCtrl = new wxChoice( settingsPane, wxID_ANY );
+     m_modelCtrl->Append( _( "Latest available" ) ); m_modelCtrl->SetSelection( 0 );
+     m_modelIds = { "latest" };
+@@ -316,24 +327,21 @@
+     auto* settingsOuter = new wxBoxSizer( wxVERTICAL );
+     settingsOuter->Add( settingsSizer, 1, wxEXPAND | wxALL, margin );
+     settings->SetSizerAndFit( settingsOuter );
+-    controls->Add( makeLabel( this, _( "Enter to send" ) ), 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP( 6 ) );
+-    m_searchButton = new wxButton( this, wxID_ANY, _( "Send" ), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT );
+-    controls->Add( m_searchButton, 0 );
+-    mainSizer->Add( controls, 0, wxEXPAND | wxALL, margin );
+-
+-    auto* statusSizer = new wxBoxSizer( wxHORIZONTAL );
+-    m_activity = new wxActivityIndicator( this ); m_activity->Hide();
+-    statusSizer->Add( m_activity, 0, wxRIGHT, FromDIP( 6 ) );
+-    m_statusLabel = makeLabel( this, _( "Ready" ) );
+-    m_statusLabel->Hide();
+-    m_statusLabel->Wrap( FromDIP( 300 ) );
+-    statusSizer->Add( m_statusLabel, 1 );
+-    mainSizer->Add( statusSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    m_searchButton = new wxButton( composer, wxID_ANY, wxS( "\u2191" ), wxDefaultPosition,
++                                   FromDIP( wxSize( 32, 32 ) ), wxBU_EXACTFIT | wxBORDER_NONE );
++    wxFont actionFont = GetFont();
++    actionFont.SetPointSize( 16 );
++    actionFont.MakeBold();
++    m_searchButton->SetFont( actionFont );
++    updateSendButton();
++    composerSizer->Add( m_searchButton, 0, wxALIGN_BOTTOM | wxRIGHT | wxBOTTOM, FromDIP( 8 ) );
++    composer->SetSizer( composerSizer );
++    mainSizer->Add( composer, 0, wxEXPAND | wxALL, margin );
+     SetSizer( mainSizer );
+ 
+     m_newChatButton->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) {
+-        m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear();
+-        m_searchButton->SetLabel( _( "Send" ) );
++        m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear(); m_statusError.clear();
++        updateSendButton();
+         m_historyJson = "[]"; renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
+     } );
+     m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { loadModels(); } );
+@@ -418,6 +426,8 @@
+         else
+             html += wxS( "<p><i>" ) + _( "Thinking..." ) + wxS( "</i></p>" );
+     }
++    if( !m_statusError.empty() )
++        html += wxS( "<p><b>" ) + _( "Notice" ) + wxS( "</b><br>" ) + escape( m_statusError ) + wxS( "</p>" );
+     html += wxS( "</body></html>" );
+     m_chatCtrl->SetPage( html );
+     if( m_chatCtrl->GetInternalRepresentation() )
+@@ -512,7 +522,7 @@
+ {
+     if( !m_busy && m_revealTimer.IsRunning() ) {
+         m_revealTimer.Stop(); m_revealChars = m_revealAnswer.length();
+-        renderConversation(); m_searchButton->SetLabel( _( "Send" ) ); return;
++        renderConversation(); updateSendButton(); return;
+     }
+     if( m_busy ) { m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear(); ++m_searchGeneration; m_searchThread.request_stop(); setBusy( false ); setStatus( _( "Stopped. Your message is preserved." ) ); return; }
+     beginSearch( m_queryCtrl->GetValue() );
+@@ -741,7 +751,7 @@
+         renderConversation();
+         m_queryCtrl->Clear();
+     }
+-    if( !m_busy && m_revealTimer.IsRunning() ) m_searchButton->SetLabel( _( "Show all" ) );
++    if( !m_busy && m_revealTimer.IsRunning() ) updateSendButton();
+     m_resultsWindow->Scroll( scrollX, followLatest ? m_resultsWindow->GetVirtualSize().y : scrollY );
+     if( result.value( "pending", false ) )
+         setStatus( _( "Parts found. Review and CAD preparation are updating..." ) );
+@@ -910,7 +920,7 @@
+     identity->Wrap( FromDIP( 260 ) );
+     cardSizer->Add( identity, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+ 
+-    wxStaticText* description = makeLabel( card, jsonText( candidate, "description" ) );
++    wxStaticText* description = makeLabel( card, compactPartText( jsonText( candidate, "description" ), 110 ) );
+     description->Wrap( FromDIP( 260 ) );
+     cardSizer->Add( description, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+ 
+@@ -935,10 +945,15 @@
+     }
+     cardSizer->Add( facts, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+ 
+-    auto* details = new wxCollapsiblePane( card, wxID_ANY, _( "Symbol and footprint details" ), wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
++    auto* details = new wxCollapsiblePane( card, wxID_ANY, _( "Part details" ), wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
+     auto* detailsPane = details->GetPane();
+     auto* detailFacts = new wxFlexGridSizer( 2, FromDIP( 5 ), FromDIP( 10 ) );
+     detailFacts->AddGrowableCol( 1, 1 );
++    addFact( detailFacts, detailsPane, _( "Description" ), jsonText( candidate, "description" ) );
++    if( !aConcerns.IsEmpty() )
++        addFact( detailFacts, detailsPane, _( "Review notes" ), aConcerns );
++    if( !aRecommendation.IsEmpty() )
++        addFact( detailFacts, detailsPane, _( "Selection notes" ), aRecommendation );
+     addFact( detailFacts, detailsPane, _( "KiCad symbol" ), jsonText( assets, "symbolId" ) );
+     addFact( detailFacts, detailsPane, _( "Footprint" ), jsonText( assets, "footprintId" ) );
+     addFact( detailFacts, detailsPane, _( "Library source" ), jsonText( assets, "symbolSource" ) );
+@@ -956,7 +971,7 @@
+ 
+     if( !aRecommendation.IsEmpty() )
+     {
+-        wxStaticText* recommendation = makeLabel( card, _( "Why this part: " ) + aRecommendation );
++        wxStaticText* recommendation = makeLabel( card, _( "Why this part: " ) + compactPartText( aRecommendation, 150 ) );
+         recommendation->Wrap( FromDIP( 260 ) );
+         cardSizer->Add( recommendation, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     }
+@@ -967,7 +982,7 @@
+         cardSizer->Add( concernsHeading, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
+                         margin );
+ 
+-        wxStaticText* concerns = makeLabel( card, aConcerns );
++        wxStaticText* concerns = makeLabel( card, compactPartText( aConcerns, 200 ) + _( " (Full review in Part details.)" ) );
+         concerns->Wrap( FromDIP( 260 ) );
+         cardSizer->Add( concerns, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     }
+@@ -992,8 +1007,13 @@
+             for( const auto& note : audit.value( section, nlohmann::json::array() ) )
+                 text += wxString::FromUTF8( note.get<std::string>() ) + wxS( "\n" );
+             if( text.IsEmpty() ) continue;
++            if( std::string( section ) == "checked" ) {
++                addFact( detailFacts, detailsPane, _( "Verified" ), text );
++                continue;
++            }
+             text.Prepend( std::string( section ) == "checked" ? _( "Verified:\n" ) : _( "Check manually:\n" ) );
+-            auto* label = makeLabel( card, text );
++            addFact( detailFacts, detailsPane, _( "Manual checks" ), text );
++            auto* label = makeLabel( card, compactPartText( text, 120 ) );
+             label->Wrap( FromDIP( 280 ) );
+             cardSizer->Add( label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+         }
+@@ -1100,29 +1120,28 @@
+     m_searchButton->Enable( true );
+     if( !m_bomSelection ) m_queryCtrl->Enable( !aBusy );
+ 
+-    if( aBusy )
+-    {
+-        m_activity->Show();
+-        m_activity->Start();
+-        m_searchButton->SetLabel( _( "Stop" ) );
+-    }
+-    else
+-    {
+-        m_activity->Stop();
+-        m_activity->Hide();
+-        m_searchButton->SetLabel( m_revealTimer.IsRunning() ? _( "Show all" ) : !m_bomSelection ? _( "Send" ) : _( "Find Parts" ) );
+-    }
++    updateSendButton();
+ 
+     Layout();
+ }
+ 
+ 
++void PANEL_AUTO_BOM_ASSISTANT::updateSendButton()
++{
++    const bool active = m_busy || m_revealTimer.IsRunning();
++    m_searchButton->SetLabel( active ? wxS( "\u25A0" ) : wxS( "\u2191" ) );
++    const wxString action = m_busy ? _( "Stop response" ) : m_revealTimer.IsRunning()
++            ? _( "Show full reply" ) : _( "Send message" );
++    m_searchButton->SetName( action );
++    m_searchButton->SetToolTip( action );
++}
++
+ void PANEL_AUTO_BOM_ASSISTANT::setStatus( const wxString& aMessage, bool aError )
+ {
+-    m_statusLabel->Show( aMessage != _( "Ready" ) );
+-    m_statusLabel->SetLabel( aMessage );
+-    m_statusLabel->SetForegroundColour( wxSystemSettings::GetColour(
+-            aError ? wxSYS_COLOUR_HOTLIGHT : wxSYS_COLOUR_WINDOWTEXT ) );
+-    m_statusLabel->Wrap( FromDIP( 290 ) );
++    // Routine state belongs to the conversation/button, not another footer row.
++    // Keep actionable errors visible in the chat instead of silently dropping them.
++    m_statusError = aError ? aMessage : wxString();
++    m_queryCtrl->SetToolTip( aError ? aMessage : _( "Enter to send. Shift+Enter for a new line." ) );
++    renderConversation();
+     Layout();
+ }
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -32,7 +32,6 @@
+ #include <wx/timer.h>
+ 
+ 
+-class wxActivityIndicator;
+ class wxBoxSizer;
+ class wxButton;
+ class wxChoice;
+@@ -80,6 +79,7 @@
+                            const wxString& aRecommendation, const wxString& aConcerns );
+     void placeCandidate( size_t aCandidateIndex );
+     void setBusy( bool aBusy );
++    void updateSendButton();
+     void setStatus( const wxString& aMessage, bool aError = false );
+     void loadModels();
+     void updateEfforts();
+@@ -110,8 +110,7 @@
+     wxCheckBox*               m_preferBasicCtrl;
+     wxTextCtrl*               m_queryCtrl;
+     wxButton*                 m_searchButton;
+-    wxActivityIndicator*      m_activity;
+-    wxStaticText*             m_statusLabel;
++    wxString                  m_statusError;
+     wxStaticText*             m_resultHeading;
+     wxScrolledWindow*         m_resultsWindow;
+     wxBoxSizer*               m_resultsSizer;

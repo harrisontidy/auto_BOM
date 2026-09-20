@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { buildFallbackQuery, buildSearchQueries, buildSearchQuery, buildSpecializedQuery, candidateCanFulfill, isCompatibleCandidate, isExactPartNumberMatch, normalizeProduct } from "./services/digikey.js";
-import { footprintFor, genericSymbol, resolveKiCadAssets } from "./services/kicad-assets.js";
+import { buildFallbackQuery, buildSearchQueries, buildSearchQuery, buildSpecializedQuery, candidateCanFulfill, isCompatibleCandidate, isExactPartNumberMatch, normalizeProduct } from "../services/digikey.js";
+import { footprintFor, genericSymbol, resolveKiCadAssets } from "../services/kicad-assets.js";
 
 test("builds a DigiKey query from normalized value and KiCad footprint", () => {
   assert.equal(buildSearchQuery({ value: "4k7", normalizedValue: "4.7 kΩ", footprint: "Resistor_SMD:R_0603_1608Metric" }), "4.7 kohm 0603");
