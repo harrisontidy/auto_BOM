@@ -27,7 +27,7 @@ Install KiCad's documented MSYS2/UCRT64 build dependencies, then run:
 git clone --depth 1 --branch 10.0.6 https://github.com/KiCad/kicad-source-mirror.git "$env:USERPROFILE\source\auto-bom-kicad"
 git -C "$env:USERPROFILE\source\auto-bom-kicad" switch -c codex/component-finder-assistant
 Get-ChildItem "C:\path\to\auto_BOM\integrations\kicad-native\patches\*.patch" | Sort-Object Name | ForEach-Object {
-  if ($_.Name -match '^(000[789]|001[0-9])-') {
+  if ($_.Name -match '^(000[789]|001[0-9]|002[0-2])-') {
     git -C "$env:USERPROFILE\source\auto-bom-kicad" apply $_.FullName
   } else {
     git -C "$env:USERPROFILE\source\auto-bom-kicad" am $_.FullName
@@ -122,3 +122,11 @@ Patch 0017 puts the send arrow / stop square inside the composer and removes the
 Patch 0018 separates Part details from CAD details and removes repeated CAD check text from the card. Low-confidence/fallback selections have no Best match badge. The service prioritizes planned keywords, checks required color/technology evidence, permits no suitable selection, and makes one AI-guided refinement when results are weak. Final search replies summarize actual results rather than repeating the initial plan.
 
 Patch 0019 enables DigiKey/SnapMagic library registration, adds the SnapMagic connection link in Settings, and adds reviewed typical application circuit placement (initially MCP1700 SOT-23). It preserves passive sourcing requirements for later BOM completion. Apply after 0018 and rebuild eeschema. See docs/ASK.md for supported scope and validation limits.
+
+Patch 0020 explicitly attaches Assistant settings to the schematic window at opening time, restores editor focus, and removes duplicate/misleading out-of-stock notices for rejected search results. Apply after 0019 and rebuild eeschema.
+
+Patch 0021 adds a compact Codex allowance indicator inside the composer, refreshed once per minute. Only allowance remaining and reset details are shown; there is no 24-hour tracker. Apply after 0020.
+
+Patch 0022 adds on-demand typical application generation for every part, preserves cards during follow-up chat, and supports generated net-labeled circuits plus the XL1509 reference circuit. Apply after 0021. The service requires npm install for PDF text/image extraction.
+
+Patch 0023 accepts compact routed application circuits, validates pin geometry before placement, avoids adding label stubs to already routed wires, and shortens instance identifiers. Apply after 0022 and rebuild eeschema. Save and reopen the editor to load it.

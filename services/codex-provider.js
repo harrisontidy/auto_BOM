@@ -14,7 +14,7 @@ export function codexExecutable(environment = process.env) {
 }
 
 // Documented JSON-RPC transport: Codex owns sign-in and refresh. Never read or copy auth tokens.
-export function openCodex(environment = process.env, {signal, spawnProcess = spawn} = {}) {
+export function openCodex(environment = process.env, {signal, spawnProcess = spawn,timeoutMs=90000} = {}) {
   const cwd = resolve('.runtime/ask-codex');
   mkdirSync(cwd, {recursive: true});
   const child = spawnProcess(codexExecutable(environment), ['app-server'], {
@@ -62,7 +62,7 @@ export function openCodex(environment = process.env, {signal, spawnProcess = spa
     lines.close(); child.stdin.end(); child.kill();
   };
   const abort = () => {fail(new Error('Codex request cancelled.'));close();};
-  const timer = setTimeout(() => {fail(new Error('Codex request timed out.'));close();}, 90_000);
+  const timer = setTimeout(() => {fail(new Error('Codex request timed out.'));close();}, Math.min(180000,Math.max(1000,timeoutMs)));
   signal?.addEventListener('abort', abort, {once:true});
   const ready = async () => {
     await rpc('initialize',{clientInfo:{name:'auto_bom',title:'KiCad Auto BOM',version:'0.1.0'},capabilities:{experimentalApi:true}});
@@ -80,8 +80,8 @@ export async function codexAccount(environment = process.env) {
   } finally {client.close();}
 }
 
-export async function codexStructuredResponse({prompt,instructions,schema,model,effort='low',signal}, environment = process.env) {
-  const client = openCodex(environment,{signal});
+export async function codexStructuredResponse({prompt,instructions,schema,model,effort='low',signal,images=[],webSearch=false,timeoutMs=90000}, environment = process.env) {
+  const client = openCodex(environment,{signal,timeoutMs});
   try {
     await client.ready();
     const account = await client.rpc('account/read',{refreshToken:false});
@@ -89,7 +89,7 @@ export async function codexStructuredResponse({prompt,instructions,schema,model,
     const {thread} = await client.rpc('thread/start', {model, ephemeral:true, cwd:client.cwd,
       environments:[], sandbox:'read-only', approvalPolicy:'never',
       baseInstructions:instructions, developerInstructions:instructions,
-      config:{web_search:'disabled'}, serviceName:'auto_bom_ask'});
+      config:{web_search:webSearch?'live':'disabled',service_tier:'fast','features.fast_mode':true}, serviceName:'auto_bom_ask'});
     let text = '';
     // Subscribe before turn/start: fast completions can precede its response.
     let unsubscribe;
@@ -108,7 +108,7 @@ export async function codexStructuredResponse({prompt,instructions,schema,model,
     // Attach a handler immediately so a connection failure during turn/start is not unhandled.
     answer.catch(() => {});
     try {
-      await client.rpc('turn/start',{threadId:thread.id,input:[{type:'text',text:prompt}],model,effort,outputSchema:schema});
+      await client.rpc('turn/start',{threadId:thread.id,input:[{type:'text',text:prompt},...images.map(path=>({type:'localImage',path}))],model,effort,outputSchema:schema});
       return await answer;
     } finally {unsubscribe?.();}
   } finally {client.close();}

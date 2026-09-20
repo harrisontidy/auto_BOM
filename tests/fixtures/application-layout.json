@@ -1,0 +1,725 @@
+[
+  {
+    "name": "buck",
+    "circuit": {
+      "id": "datasheet-application-v1",
+      "parts": [
+        {
+          "ref": "u",
+          "symbolId": "Regulator_Switching:TPS5430DDA",
+          "primary": true
+        },
+        {
+          "ref": "C1",
+          "symbolId": "Device:C",
+          "primary": false
+        },
+        {
+          "ref": "C2",
+          "symbolId": "Device:C",
+          "primary": false
+        },
+        {
+          "ref": "L1",
+          "symbolId": "Device:L",
+          "primary": false
+        },
+        {
+          "ref": "D1",
+          "symbolId": "Device:D_Schottky",
+          "primary": false
+        },
+        {
+          "ref": "C3",
+          "symbolId": "Device:C_Polarized",
+          "primary": false
+        },
+        {
+          "ref": "R1",
+          "symbolId": "Device:R",
+          "primary": false
+        },
+        {
+          "ref": "R2",
+          "symbolId": "Device:R",
+          "primary": false
+        }
+      ],
+      "labels": [
+        {
+          "at": {
+            "ref": "u",
+            "pin": "7"
+          },
+          "name": "VIN"
+        },
+        {
+          "at": {
+            "ref": "C1",
+            "pin": "1"
+          },
+          "name": "VIN"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "6"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "9"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "C1",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "D1",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "C3",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "R2",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "1"
+          },
+          "name": "BOOT"
+        },
+        {
+          "at": {
+            "ref": "C2",
+            "pin": "1"
+          },
+          "name": "BOOT"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "8"
+          },
+          "name": "PH"
+        },
+        {
+          "at": {
+            "ref": "C2",
+            "pin": "2"
+          },
+          "name": "PH"
+        },
+        {
+          "at": {
+            "ref": "D1",
+            "pin": "1"
+          },
+          "name": "PH"
+        },
+        {
+          "at": {
+            "ref": "L1",
+            "pin": "1"
+          },
+          "name": "PH"
+        },
+        {
+          "at": {
+            "ref": "L1",
+            "pin": "2"
+          },
+          "name": "VOUT"
+        },
+        {
+          "at": {
+            "ref": "C3",
+            "pin": "1"
+          },
+          "name": "VOUT"
+        },
+        {
+          "at": {
+            "ref": "R1",
+            "pin": "1"
+          },
+          "name": "VOUT"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "4"
+          },
+          "name": "VSENSE"
+        },
+        {
+          "at": {
+            "ref": "R1",
+            "pin": "2"
+          },
+          "name": "VSENSE"
+        },
+        {
+          "at": {
+            "ref": "R2",
+            "pin": "1"
+          },
+          "name": "VSENSE"
+        }
+      ],
+      "noConnect": [
+        {
+          "ref": "u",
+          "pin": "2"
+        },
+        {
+          "ref": "u",
+          "pin": "3"
+        },
+        {
+          "ref": "u",
+          "pin": "5"
+        }
+      ]
+    },
+    "geometry": {
+      "u": {
+        "1": {
+          "x": 500,
+          "y": -200,
+          "dx": 1,
+          "dy": 0,
+          "name": "BOOT"
+        },
+        "2": {
+          "x": -400,
+          "y": -100,
+          "dx": -1,
+          "dy": 0,
+          "name": "NC"
+        },
+        "3": {
+          "x": -400,
+          "y": 100,
+          "dx": -1,
+          "dy": 0,
+          "name": "NC"
+        },
+        "4": {
+          "x": 500,
+          "y": 200,
+          "dx": 1,
+          "dy": 0,
+          "name": "VSENSE"
+        },
+        "5": {
+          "x": -500,
+          "y": 200,
+          "dx": -1,
+          "dy": 0,
+          "name": "EN"
+        },
+        "6": {
+          "x": -100,
+          "y": 400,
+          "dx": 0,
+          "dy": 1,
+          "name": "GND"
+        },
+        "7": {
+          "x": -500,
+          "y": -200,
+          "dx": -1,
+          "dy": 0,
+          "name": "VIN"
+        },
+        "8": {
+          "x": 500,
+          "y": 0,
+          "dx": 1,
+          "dy": 0,
+          "name": "PH"
+        },
+        "9": {
+          "x": 0,
+          "y": 400,
+          "dx": 0,
+          "dy": 1,
+          "name": "GNDPAD"
+        }
+      },
+      "C1": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "C2": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "L1": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": "1"
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": "2"
+        }
+      },
+      "D1": {
+        "1": {
+          "x": -150,
+          "y": 0,
+          "dx": -1,
+          "dy": 0,
+          "name": "K"
+        },
+        "2": {
+          "x": 150,
+          "y": 0,
+          "dx": 1,
+          "dy": 0,
+          "name": "A"
+        }
+      },
+      "C3": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "R1": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "R2": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      }
+    }
+  },
+  {
+    "name": "timer",
+    "circuit": {
+      "id": "datasheet-application-v1",
+      "parts": [
+        {
+          "ref": "u",
+          "symbolId": "Timer:NE555P",
+          "primary": true
+        },
+        {
+          "ref": "RA",
+          "symbolId": "Device:R",
+          "primary": false
+        },
+        {
+          "ref": "RB",
+          "symbolId": "Device:R",
+          "primary": false
+        },
+        {
+          "ref": "RL",
+          "symbolId": "Device:R",
+          "primary": false
+        },
+        {
+          "ref": "C1",
+          "symbolId": "Device:C",
+          "primary": false
+        },
+        {
+          "ref": "C2",
+          "symbolId": "Device:C",
+          "primary": false
+        },
+        {
+          "ref": "C3",
+          "symbolId": "Device:C",
+          "primary": false
+        }
+      ],
+      "labels": [
+        {
+          "at": {
+            "ref": "u",
+            "pin": "8"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "4"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "RA",
+            "pin": "1"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "RL",
+            "pin": "1"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "C2",
+            "pin": "1"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "C3",
+            "pin": "1"
+          },
+          "name": "VCC"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "1"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "C1",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "C2",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "C3",
+            "pin": "2"
+          },
+          "name": "GND"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "7"
+          },
+          "name": "DISCH"
+        },
+        {
+          "at": {
+            "ref": "RA",
+            "pin": "2"
+          },
+          "name": "DISCH"
+        },
+        {
+          "at": {
+            "ref": "RB",
+            "pin": "1"
+          },
+          "name": "DISCH"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "2"
+          },
+          "name": "TIMING"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "6"
+          },
+          "name": "TIMING"
+        },
+        {
+          "at": {
+            "ref": "RB",
+            "pin": "2"
+          },
+          "name": "TIMING"
+        },
+        {
+          "at": {
+            "ref": "C1",
+            "pin": "1"
+          },
+          "name": "TIMING"
+        },
+        {
+          "at": {
+            "ref": "u",
+            "pin": "3"
+          },
+          "name": "OUT"
+        },
+        {
+          "at": {
+            "ref": "RL",
+            "pin": "2"
+          },
+          "name": "OUT"
+        }
+      ],
+      "noConnect": [
+        {
+          "ref": "u",
+          "pin": "5"
+        }
+      ]
+    },
+    "geometry": {
+      "u": {
+        "1": {
+          "x": 0,
+          "y": 400,
+          "dx": 0,
+          "dy": 1,
+          "name": "GND"
+        },
+        "2": {
+          "x": -400,
+          "y": 200,
+          "dx": -1,
+          "dy": 0,
+          "name": "TRIG"
+        },
+        "3": {
+          "x": 400,
+          "y": 0,
+          "dx": 1,
+          "dy": 0,
+          "name": "OUT"
+        },
+        "4": {
+          "x": -400,
+          "y": -200,
+          "dx": -1,
+          "dy": 0,
+          "name": "~{RST}"
+        },
+        "5": {
+          "x": 0,
+          "y": -400,
+          "dx": 0,
+          "dy": -1,
+          "name": "CONT"
+        },
+        "6": {
+          "x": -400,
+          "y": 100,
+          "dx": -1,
+          "dy": 0,
+          "name": "THRES"
+        },
+        "7": {
+          "x": -400,
+          "y": -100,
+          "dx": -1,
+          "dy": 0,
+          "name": "DISCH"
+        },
+        "8": {
+          "x": 100,
+          "y": -400,
+          "dx": 0,
+          "dy": -1,
+          "name": "VCC"
+        }
+      },
+      "RA": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "RB": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "RL": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "C1": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "C2": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      },
+      "C3": {
+        "1": {
+          "x": 0,
+          "y": -150,
+          "dx": 0,
+          "dy": -1,
+          "name": ""
+        },
+        "2": {
+          "x": 0,
+          "y": 150,
+          "dx": 0,
+          "dy": 1,
+          "name": ""
+        }
+      }
+    }
+  }
+]

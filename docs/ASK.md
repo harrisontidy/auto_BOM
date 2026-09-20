@@ -42,7 +42,7 @@ Existing KiCad V6+ ZIPs in Downloads remain a fallback. Filenames must match the
 
 The native result card offers a collapsible **Typical application circuit** section when a reviewed template exists. The initial template covers Microchip MCP1700 SOT-23 (`/TT`) fixed-output variants for either JLCPCB/LCSC or DigiKey. It places the regulator, input/output 1 µF ceramic capacitors, wiring, a ground junction, and uniquely named local supply labels as a movable block. Placement is undoable; Escape cancels. Parts are annotated to avoid duplicate references. The main part keeps supplier identity; passive part numbers remain blank. Passive sourcing requirements are carried into later AutoBOM selection.
 
-The topology and pin mapping come from Microchip DS20001826F Table 3-1, Figure 6-1 and Sections 5.1–5.2. The 16 V X7R 0805 passive choice is a starting sourcing constraint, not a manufacturer-mandated package. Verify effective capacitance under DC bias, input/dropout/current/thermal limits, and physical capacitor placement for your design. There is no automatic arbitrary-datasheet extraction: unsupported parts/packages do not receive a guessed circuit.
+The topology and pin mapping come from Microchip DS20001826F Table 3-1, Figure 6-1 and Sections 5.1–5.2. The 16 V X7R 0805 passive choice is a starting sourcing constraint, not a manufacturer-mandated package. Verify effective capacitance under DC bias, input/dropout/current/thermal limits, and physical capacitor placement for your design. Other parts use the general datasheet-based generator described below; unsupported topology or package cases return a specific limitation.
 
 Native compilation and backend topology/identity/requirements tests pass. Interactive circuit placement and undo remain to be visually checked: the native automation helper failed with “foreground window did not report a process id.” Restart an already-open editor to load the rebuilt module.
 
@@ -55,3 +55,34 @@ Native replies render Markdown headings, emphasis, lists and code using KiCad's 
 ## Search quality and concise cards
 
 Planned supplier queries run before broad categories. Full-color display requests reject documented single-color displays and withhold listings without color evidence. AI review can decline every candidate; the native panel does not badge low-confidence or fallback choices as Best match. Weak/empty searches receive at most one extra planning pass using prior result evidence, preserving the original query and requirements. Final replies summarize the selected part and the review reasoning. Part details contain catalog specifications and electrical review; CAD details contain symbols, footprints, pin validation, import status and 3D information. Generic CAD cautions no longer repeat outside the disclosure.
+
+
+## Allowance and practical selection
+
+The native composer shows account-wide Codex allowance percentages and actual quota-window lengths, refreshing every minute. Hover for reset times. API mode hides the indicator. No 24-hour estimate or usage history is collected.
+
+Only user-stated constraints are hard requirements. The original user messages are preserved separately from generated search wording. Plausible regulators can be offered with concise design checks without claiming a validated application circuit. Actual rating conflicts and unverified defining capabilities still reject candidates. Reviewed circuit-template availability is separate from IC suitability.
+
+
+## Generate typical application circuit
+
+Every recommended part has a Generate typical application circuit action. It is an explicit, on-demand request using the selected Codex or API connection. The resulting card shows a component list, datasheet link, expandable design notes, and Place application circuit. Ordinary follow-up chat preserves the last part cards and directs circuit requests to this action instead of drawing ASCII circuits.
+
+The general path resolves an exact single-unit KiCad symbol and pin map, downloads a public HTTPS PDF, asks the selected model to identify relevant pages, and supplies both text and rendered circuit/pinout pages for extraction. The compiled plan requires source-page evidence, valid pin numbers, one net per pin, and complete connected/no-connect coverage. Native placement rejects conflicting nets on stacked physical pins. Source documents cannot authorize tool actions. CAD library registration follows the existing validated import path.
+
+Generated drafts now use compact placement based on real symbol pin geometry and orthogonal wires for signal connections. Ground and external ports use a small number of local labels, with per-placement unique names. They are not PCB layouts. Supporting R/C/L, polarized capacitors, diodes, LEDs, crystals and 2–4-pin connectors are supported without supplier part numbers. Support footprints stay blank for subsequent selection. Multiple-unit primary symbols, additional active ICs/transistors, unreadable drawings or unspecified required component values can produce a specific unsupported/missing-information response. This is broad component-driven extraction, not a guarantee that every datasheet has an automatically placeable circuit. Review AI-extracted drafts against their source.
+
+The previously reviewed MCP1700 SOT-23 reference and XL1509-5.0E1 12 V to 5 V / 2 A reference are fast paths. The general path was live-tested separately on TI NE555P astable operation: seven symbols with the documented timing/load values and NC control pin. KiCad CLI exported netlists for both NE555P and XL1509 reference fixtures and their pins/nets were checked. Native interactive placement/undo was not exercised during this update because the user requested background-only work.
+
+### Adapting a reference design
+
+Generation can adapt the documented topology using datasheet equations rather than requiring an exact worked-example operating point. It selects practical component values and recalculates achieved output, timing or gain. Equations carry page citations, SI-valued inputs and their provenance. A bounded arithmetic parser independently checks numeric results without executing model code; one correction pass can repair a calculation mismatch. This checks arithmetic, not the correctness of the model's equation selection or physical assumptions.
+
+Routine missing preferences use documented defaults or explicitly stated reference operating assumptions. Only an essential unresolved input or an actual operating conflict should block a draft. Calculations and assumptions are in expandable design notes; ordinary replies omit repetitive heat/ripple/layout review boilerplate unless asked. Actual known conflicts are still reported. Requests with operating requirements bypass fixed reference fast paths so the general generator checks those requirements. Both suppliers share this logic.
+
+
+### Compact routing and Fast mode
+
+The service recognizes buck topology from its connections and places input bypass, bootstrap, catch diode, inductor, output capacitor and divider in a compact arrangement. Other single-unit circuits place supporting parts near the primary pins they serve. A bounded 25 mil orthogonal router avoids symbol bodies, NC pins and unrelated nets; it preserves T junctions and collapses straight segments. Routing failures stop placement rather than returning disconnected components. Native patch 0023 checks the actual loaded symbol pin positions against the routing geometry before adding items. Save and reopen the editor after installing the patch. Backend tests check full connectivity including unintended joins and NCs; KiCad CLI netlists for TPS5430 and NE555 matched their source circuits. Interactive placement was not exercised because the user requested background-only work.
+
+Codex assistant requests enable service_tier=fast and features.fast_mode. The installed app server confirmed the selected service tier as priority for GPT-6 Astra. This preserves the selected model and reasoning effort, uses the higher Fast-mode credit rate, and does not alter the user's global Codex configuration. There is no separate extra-fast tier implemented.

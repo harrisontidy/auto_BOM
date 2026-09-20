@@ -1,0 +1,50 @@
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -341,10 +341,11 @@ static bool placeAutoBomCircuit( SCH_EDIT_FRAME* aFrame, const nlohmann::json& a
+     const bool linear = circuitId == "mcp1700-sot23";
+     const bool buck = circuitId == "xl1509-5v-so8";
+     const bool generated = circuitId == "datasheet-application-v1";
++    const bool routed = generated && circuit.value( "routed", false );
+     if( ( !linear && !buck && !generated )
+         || ( !generated && circuit.at( "parts" ).size() != ( buck ? 6 : 3 ) )
+         || circuit.at( "parts" ).empty() || circuit.at( "parts" ).size() > 17
+-        || circuit.at( "wires" ).size() > 30 || circuit.at( "labels" ).size() > 500 )
++        || circuit.at( "wires" ).size() > 512 || circuit.at( "labels" ).size() > 500 )
+         throw std::runtime_error( "Unsupported application circuit" );
+ 
+     if( generated && !registerAutoBomAssets( aMessage.value( "kicadAssets", nlohmann::json::object() ), aError ) )
+@@ -447,6 +448,16 @@ static bool placeAutoBomCircuit( SCH_EDIT_FRAME* aFrame, const nlohmann::json& a
+         line->SetEndPoint( b );
+         items.push_back( std::move( line ) );
+     };
++    if( routed )
++    {
++        for( const auto& pin : circuit.at( "pinPositions" ) )
++        {
++            const auto actual = endpoint( pin );
++            const auto expected = coordinate( pin );
++            if( ( actual - expected ).EuclideanNorm() > schIUScale.MilsToIU( 1 ) )
++                throw std::runtime_error( "Symbol geometry changed; regenerate the circuit before placing" );
++        }
++    }
+     for( const auto& route : circuit.at( "wires" ) )
+     {
+         const auto a = endpoint( route.at( "a" ) );
+@@ -457,7 +468,7 @@ static bool placeAutoBomCircuit( SCH_EDIT_FRAME* aFrame, const nlohmann::json& a
+     }
+     for( const auto& point : circuit.at( "junctions" ) )
+         items.push_back( std::make_unique<SCH_JUNCTION>( coordinate( point ) ) );
+-    const wxString prefix = wxS( "APP_" ) + wxString::FromUTF8( KIID().AsString().c_str() ).Left( 8 ) + wxS( "_" );
++    const wxString prefix = wxS( "A" ) + wxString::FromUTF8( KIID().AsString().c_str() ).Left( 4 ) + wxS( "_" );
+     std::map<std::pair<int,int>, std::string> physicalNets;
+     for( const auto& label : circuit.at( "labels" ) )
+     {
+@@ -472,7 +483,7 @@ static bool placeAutoBomCircuit( SCH_EDIT_FRAME* aFrame, const nlohmann::json& a
+         }
+         physicalNets[key] = name;
+         auto location = point;
+-        if( generated )
++        if( generated && !routed )
+         {
+             const auto& at = label.at( "at" );
+             auto* pin = symbols.at( at.at( "ref" ).get<std::string>() )->GetPin( jsonString( at, "pin" ) );

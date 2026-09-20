@@ -44,7 +44,7 @@ async function resolveAssets(component, candidate, environment = process.env) {
     modelExpected,
     placeable: Boolean(symbolId && footprintId),
     importError,
-    ...(component.bomContext?.length ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
+    ...((component.bomContext?.length || component.applicationCircuit) ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
   };
   if (localAssets.placeable) return localAssets;
   if (candidate?.supplier === 'digikey') {

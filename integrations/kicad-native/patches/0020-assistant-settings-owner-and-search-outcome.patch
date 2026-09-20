@@ -1,0 +1,52 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -279,12 +279,22 @@
+         }
+     } );
+ 
+-    auto* settings = new wxDialog( this, wxID_ANY, _( "Assistant settings" ), wxDefaultPosition,
++    auto* settings = new wxDialog( wxGetTopLevelParent( this ), wxID_ANY, _( "Assistant settings" ), wxDefaultPosition,
+                                   FromDIP( wxSize( 420, 360 ) ), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER );
+     wxWindow* settingsPane = settings;
+     auto* settingsButton = new wxButton( this, wxID_ANY, _( "Settings" ), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT );
+     header->Add( settingsButton, 0, wxLEFT, FromDIP( 6 ) );
+-    settingsButton->Bind( wxEVT_BUTTON, [settings]( wxCommandEvent& ) { settings->CentreOnParent(); settings->ShowModal(); } );
++    settingsButton->Bind( wxEVT_BUTTON, [this, settings]( wxCommandEvent& )
++    {
++        // Resolve the owner at click time, after the editor has finished construction.
++        wxWindow* editor = wxGetTopLevelParent( this );
++        settings->Reparent( editor );
++        editor->Raise();
++        settings->CentreOnParent();
++        settings->ShowModal();
++        editor->Raise();
++        m_queryCtrl->SetFocus();
++    } );
+     auto* settingsSizer = new wxBoxSizer( wxVERTICAL );
+     m_providerCtrl = new wxChoice( settingsPane, wxID_ANY );
+     m_providerCtrl->Append( _( "Codex account - Codex allowance" ) );
+@@ -298,7 +308,7 @@
+     m_supplierCtrl->SetSelection( 0 );
+     settingsSizer->Add( makeLabel( settingsPane, _( "Parts supplier" ), true ), 0, wxTOP | wxBOTTOM, FromDIP( 6 ) );
+     settingsSizer->Add( m_supplierCtrl, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
+-    auto* snapMagicButton = new wxButton( settingsPane, wxID_ANY, _( "Connect SnapMagic for DigiKey CAD" ) );
++    auto* snapMagicButton = new wxButton( settingsPane, wxID_ANY, _( "Manage SnapMagic connection..." ) );
+     snapMagicButton->Bind( wxEVT_BUTTON, []( wxCommandEvent& )
+     {
+         wxLaunchDefaultBrowser( wxS( "http://localhost:4173/snapmagic" ) );
+@@ -834,12 +844,9 @@
+     }
+     else if( m_candidateJson.empty() )
+     {
+-        wxStaticText* empty = makeLabel(
+-                m_resultsWindow,
+-                _( "No verified match found for your requirements." ) );
+-        empty->Wrap( FromDIP( 280 ) );
+-        m_resultsSizer->Add( empty, 0, wxEXPAND | wxALL, FromDIP( 12 ) );
+-        setStatus( _( "No matching in-stock parts found." ), true );
++        // The assistant already explains the outcome; rejection is not a stock check.
++        if( !response.contains( "assistant" ) )
++            setStatus( _( "No suitable candidate confirmed in this search." ), true );
+     }
+     else
+     {

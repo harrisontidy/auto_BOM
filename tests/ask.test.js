@@ -100,3 +100,19 @@ test('refinement cancellation propagates and never produces a late recommendatio
   const ask=createAsk({plan:async req=>{if(req.searchFeedback){controller.abort();throw new Error('cancelled');}return plan;},search:async()=>({candidates:[]})});
   await assert.rejects(ask(input,{}, {signal:controller.signal}),/cancelled/);
 });
+
+test('review receives verbatim user requests separately from planner-expanded requirements',async()=>{
+ const history=[{role:'user',content:'12 V to 1.2 V'},{role:'assistant',content:'Check minimum on-time and thermal performance.'}];
+ const ask=createAsk({plan:async()=>({...plan,query:'12 V to 1.2 V buck 2 A, verify thermal performance'}),search:async(req,env,options)=>{
+  assert.deepEqual(options.interpreted.userRequests,['12 V to 1.2 V','yes buck, up to 2 A']);
+  return {candidates:[choices[0]],review:{selectedSupplierPartNumber:'C0',confidence:0.8,concerns:['Thermal performance needs checking.']}};
+ }});
+ const result=await ask({...input,query:'yes buck, up to 2 A',history});
+ assert.equal(result.candidates.length,1);
+});
+
+test('ordinary design caveats do not pad a strong recommendation with near-duplicates',()=>{
+ const result=shortlistAskResult({candidates:choices,review:{selectedSupplierPartNumber:'C0',confidence:0.82,concerns:['Check minimum on-time and thermal performance.']}});
+ assert.deepEqual(result.candidates,[choices[0]]);
+ assert.equal(result.review.concerns.length,1);
+});

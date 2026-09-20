@@ -1,0 +1,283 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -366,7 +366,7 @@
+     m_newChatButton->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) {
+         m_revealTimer.Stop(); m_revealAnswer.clear(); m_pendingQuestion.clear(); m_statusError.clear();
+         updateSendButton();
+-        m_historyJson = "[]"; renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
++        m_historyJson = "[]"; m_lastPartsResponse.clear(); renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
+     } );
+     m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) {
+         loadModels();
+@@ -660,7 +660,8 @@
+     try
+     {
+         KICAD_CURL_EASY request;
+-        const bool ask = nlohmann::json::parse( aRequestBody ).value( "mode", std::string() ) == "ask";
++        const std::string mode = nlohmann::json::parse( aRequestBody ).value( "mode", std::string() );
++        const bool ask = mode == "ask" || mode == "application";
+         request.SetURL( ask ? "http://127.0.0.1:4173/api/ask/jobs"
+                             : "http://127.0.0.1:4173/api/components/jobs" );
+         request.SetHeader( "Accept", "application/json" );
+@@ -805,8 +806,20 @@
+         m_revealAnswer = answer;
+         if( m_revealChars < m_revealAnswer.length() ) m_revealTimer.Start( 35 );
+     }
++    std::string displayBody = body;
++    if( parsed.is_object() && parsed.value( "conversationOnly", false ) && !m_lastPartsResponse.empty() )
++    {
++        auto display = parsed;
++        const auto previous = nlohmann::json::parse( m_lastPartsResponse );
++        for( const char* key : { "component", "candidates", "review" } )
++            if( previous.contains( key ) ) display[key] = previous[key];
++        displayBody = display.dump();
++    }
++    else if( parsed.is_object() && !result.value( "pending", false )
++             && parsed.contains( "candidates" ) && !parsed["candidates"].empty() )
++        m_lastPartsResponse = body;
+     clearResults();
+-    renderResponse( body );
++    renderResponse( displayBody );
+     if( !result.value( "pending", false ) && parsed.is_object() && parsed.contains( "assistant" ) )
+     {
+         const auto& assistant = parsed["assistant"];
+@@ -891,7 +904,8 @@
+     m_resultHeading->Wrap( FromDIP( 300 ) );
+     m_resultHeading->Show( !candidates.empty() );
+ 
+-    if( response.value( "conversationOnly", false ) || response.value( "stage", std::string() ) == "planning" )
++    if( ( response.value( "conversationOnly", false ) && candidates.empty() )
++        || response.value( "stage", std::string() ) == "planning" )
+     {
+         setStatus( response.value( "conversationOnly", false ) ? _( "Ready for your reply." ) : _( "Checking supplier candidates..." ) );
+     }
+@@ -1097,16 +1111,45 @@
+                        } );
+     actionSizer->Add( placeButton, 1, wxEXPAND );
+ 
+-    if( !m_bomSelection && candidate.contains( "typicalApplication" )
+-        && candidate["typicalApplication"].is_object() )
++    if( !m_bomSelection )
++    {
++        auto* generate = new wxButton( card, wxID_ANY, _( "Generate typical application circuit" ) );
++        generate->Enable( !m_busy && !candidate.value( "reviewPending", false ) );
++        generate->Bind( wxEVT_BUTTON, [this, aCandidateIndex]( wxCommandEvent& )
++        { generateApplication( aCandidateIndex ); } );
++        cardSizer->Add( generate, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++    }
++    if( !m_bomSelection && candidate.value( "applicationGenerated", false )
++        && candidate.contains( "typicalApplication" ) && candidate["typicalApplication"].is_object() )
+     {
+         const auto circuit = candidate["typicalApplication"];
+-        auto* details = new wxCollapsiblePane( card, wxID_ANY, _( "Typical application circuit" ),
++        auto* circuitDetails = new wxCollapsiblePane( card, wxID_ANY, _( "Generated application circuit" ),
+                 wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
+-        auto* pane = details->GetPane();
++        auto* pane = circuitDetails->GetPane();
+         auto* layout = new wxBoxSizer( wxVERTICAL );
+-        layout->Add( makeLabel( pane, jsonText( circuit, "description" ) ), 0, wxEXPAND | wxBOTTOM, margin );
+-        layout->Add( makeLabel( pane, jsonText( circuit, "notes" ) ), 0, wxEXPAND | wxBOTTOM, margin );
++        for( const char* key : { "description" } )
++        {
++            auto* text = makeLabel( pane, jsonText( circuit, key ) );
++            text->Wrap( FromDIP( 310 ) );
++            layout->Add( text, 0, wxEXPAND | wxBOTTOM, margin );
++        }
++        wxString values;
++        for( const auto& part : circuit["parts"] )
++            values += jsonText( part, "ref" ) + wxS( ": " ) + jsonText( part, "value" ) + wxS( "\n" );
++        auto* partList = makeLabel( pane, values );
++        partList->Wrap( FromDIP( 310 ) );
++        layout->Add( partList, 0, wxEXPAND | wxBOTTOM, margin );
++        auto* notesPane = new wxCollapsiblePane( pane, wxID_ANY, _( "Source and design notes" ),
++                wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
++        auto* notesLayout = new wxBoxSizer( wxVERTICAL );
++        auto* notes = makeLabel( notesPane->GetPane(), jsonText( circuit, "sourceSection" )
++                                + wxS( "\n" ) + jsonText( circuit, "notes" ) );
++        notes->Wrap( FromDIP( 300 ) );
++        notesLayout->Add( notes, 0, wxEXPAND | wxALL, margin );
++        notesPane->GetPane()->SetSizer( notesLayout );
++        notesPane->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this]( wxCollapsiblePaneEvent& )
++        { m_resultsWindow->Layout(); m_resultsWindow->FitInside(); } );
++        layout->Add( notesPane, 0, wxEXPAND | wxBOTTOM, margin );
+         auto* source = new wxButton( pane, wxID_ANY, _( "View datasheet circuit" ) );
+         source->Bind( wxEVT_BUTTON, [circuit]( wxCommandEvent& ) { wxLaunchDefaultBrowser( jsonText( circuit, "source" ) ); } );
+         layout->Add( source, 0, wxBOTTOM, margin );
+@@ -1121,9 +1164,10 @@
+         } );
+         layout->Add( placeCircuit, 0, wxEXPAND );
+         pane->SetSizer( layout );
+-        details->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this]( wxCollapsiblePaneEvent& )
++        circuitDetails->Collapse( false );
++        circuitDetails->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this]( wxCollapsiblePaneEvent& )
+         { m_resultsWindow->Layout(); m_resultsWindow->FitInside(); } );
+-        cardSizer->Add( details, 0, wxEXPAND | wxALL, margin );
++        cardSizer->Add( circuitDetails, 0, wxEXPAND | wxALL, margin );
+     }
+ 
+     const wxString productUrl = jsonText( candidate, "productUrl" );
+@@ -1143,6 +1187,25 @@
+     card->SetSizer( cardSizer );
+     bindConversationWheel( card );
+     m_resultsSizer->Add( card, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP( 10 ) );
++}
++
++
++void PANEL_AUTO_BOM_ASSISTANT::generateApplication( size_t aCandidateIndex )
++{
++    if( m_busy || aCandidateIndex >= m_candidateJson.size() ) return;
++    const auto candidate = nlohmann::json::parse( m_candidateJson[aCandidateIndex] );
++    const auto component = nlohmann::json::parse( m_componentJson );
++    nlohmann::json request = { { "mode", "application" }, { "candidate", candidate }, { "component", component },
++        { "provider", m_providerCtrl->GetSelection() == 0 ? "codex" : "api" },
++        { "model", m_modelIds.at( m_modelCtrl->GetSelection() ) },
++        { "effort", m_effortIds.at( m_effortCtrl->GetSelection() ) } };
++    if( m_searchThread.joinable() ) { m_searchThread.request_stop(); m_searchThread.join(); }
++    m_pendingQuestion = "Generate typical application circuit for " + candidate.value( "manufacturerPartNumber", std::string() );
++    m_revealTimer.Stop(); m_revealAnswer.clear(); m_revealChars = 0;
++    setBusy( true ); renderConversation();
++    const uint64_t generation = ++m_searchGeneration;
++    m_searchThread = std::jthread( [this, generation, requestBody=request.dump()]( std::stop_token stop )
++    { runSearch( stop, generation, requestBody ); } );
+ }
+ 
+ 
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -78,6 +78,7 @@
+     void addCandidateCard( size_t aCandidateIndex, bool aRecommended,
+                            const wxString& aRecommendation, const wxString& aConcerns );
+     void placeCandidate( size_t aCandidateIndex );
++    void generateApplication( size_t aCandidateIndex );
+     void setBusy( bool aBusy );
+     void updateSendButton();
+     void setStatus( const wxString& aMessage, bool aError = false );
+@@ -122,6 +123,7 @@
+     std::jthread              m_searchThread;
+     std::atomic<uint64_t>     m_searchGeneration;
+     std::string               m_componentJson;
++    std::string               m_lastPartsResponse;
+     std::vector<std::string>  m_candidateJson;
+     std::string               m_bomContext;
+     int                       m_bomQuantity = 1;
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -68,6 +68,7 @@
+ #include <sch_line.h>
+ #include <sch_label.h>
+ #include <sch_junction.h>
++#include <sch_no_connect.h>
+ #include <sch_pin.h>
+ #include <sch_reference_list.h>
+ #include <sch_sheet_pin.h>
+@@ -336,10 +337,18 @@
+                                  wxString& aError )
+ {
+     const auto& circuit = aMessage.at( "typicalApplication" );
+-    if( circuit.value( "id", std::string() ) != "mcp1700-sot23"
+-        || circuit.at( "parts" ).size() != 3 || circuit.at( "wires" ).size() > 30 )
++    const std::string circuitId = circuit.value( "id", std::string() );
++    const bool linear = circuitId == "mcp1700-sot23";
++    const bool buck = circuitId == "xl1509-5v-so8";
++    const bool generated = circuitId == "datasheet-application-v1";
++    if( ( !linear && !buck && !generated )
++        || ( !generated && circuit.at( "parts" ).size() != ( buck ? 6 : 3 ) )
++        || circuit.at( "parts" ).empty() || circuit.at( "parts" ).size() > 17
++        || circuit.at( "wires" ).size() > 30 || circuit.at( "labels" ).size() > 500 )
+         throw std::runtime_error( "Unsupported application circuit" );
+ 
++    if( generated && !registerAutoBomAssets( aMessage.value( "kicadAssets", nlohmann::json::object() ), aError ) )
++        return false;
+     auto* manager = aFrame->GetToolManager();
+     if( !manager )
+         throw std::runtime_error( "Placement tool unavailable" );
+@@ -358,7 +367,20 @@
+     for( const auto& part : circuit.at( "parts" ) )
+     {
+         const wxString text = jsonString( part, "symbolId" );
+-        if( text != wxS( "Device:C" ) && text != wxS( "Regulator_Linear:MCP1700x-300xxTT" ) )
++        const bool generatedPrimary = generated && part.value( "primary", false )
++                && text == jsonString( aMessage.at( "kicadAssets" ), "symbolId" );
++        const bool generatedSupport = generated && ( text == wxS( "Device:R" )
++                || text == wxS( "Device:C_Polarized" ) || text == wxS( "Device:L" )
++                || text == wxS( "Device:D" ) || text == wxS( "Device:D_Schottky" )
++                || text == wxS( "Device:LED" ) || text == wxS( "Device:Crystal" )
++                || text == wxS( "Connector_Generic:Conn_01x02" )
++                || text == wxS( "Connector_Generic:Conn_01x03" )
++                || text == wxS( "Connector_Generic:Conn_01x04" ) );
++        if( !generatedPrimary && !generatedSupport && text != wxS( "Device:C" )
++            && !( linear && text == wxS( "Regulator_Linear:MCP1700x-300xxTT" ) )
++            && !( buck && ( text == wxS( "Regulator_Switching:XL1509-5.0" )
++                           || text == wxS( "Device:C_Polarized" ) || text == wxS( "Device:L" )
++                           || text == wxS( "Device:D_Schottky" ) ) ) )
+             throw std::runtime_error( "Unsupported circuit symbol" );
+         const int separator = text.Find( ':' );
+         const LIB_ID id( text.Left( separator ), text.Mid( separator + 1 ) );
+@@ -369,8 +391,19 @@
+         LIB_SYMBOL* definition = aFrame->GetLibSymbol( id );
+         if( !definition )
+             throw std::runtime_error( "Application circuit symbol is missing" );
++        if( generated && definition->GetUnitCount() != 1 )
++            throw std::runtime_error( "Multi-unit symbols need a reviewed circuit before placement" );
+         auto symbol = std::make_unique<SCH_SYMBOL>( *definition, id, &aFrame->GetCurrentSheet(), 1 );
+         symbol->SetParent( aFrame->GetScreen() );
++        const int rotation = part.value( "rotation", 0 );
++        switch( rotation )
++        {
++        case 0: break;
++        case 90: symbol->SetOrientation( SYM_ORIENT_90 ); break;
++        case 180: symbol->SetOrientation( SYM_ORIENT_180 ); break;
++        case 270: symbol->SetOrientation( SYM_ORIENT_270 ); break;
++        default: throw std::runtime_error( "Unsupported circuit rotation" );
++        }
+         symbol->SetPosition( coordinate( part ) );
+         symbol->SetValueFieldText( jsonString( part, "value" ) );
+         symbol->SetFootprintFieldText( jsonString( part, "footprintId" ) );
+@@ -425,8 +458,46 @@
+     for( const auto& point : circuit.at( "junctions" ) )
+         items.push_back( std::make_unique<SCH_JUNCTION>( coordinate( point ) ) );
+     const wxString prefix = wxS( "APP_" ) + wxString::FromUTF8( KIID().AsString().c_str() ).Left( 8 ) + wxS( "_" );
++    std::map<std::pair<int,int>, std::string> physicalNets;
+     for( const auto& label : circuit.at( "labels" ) )
+-        items.push_back( std::make_unique<SCH_LABEL>( endpoint( label.at( "at" ) ), prefix + jsonString( label, "name" ) ) );
++    {
++        const auto point = endpoint( label.at( "at" ) );
++        const auto name = label.at( "name" ).get<std::string>();
++        const auto key = std::make_pair( point.x, point.y );
++        if( physicalNets.count( key ) )
++        {
++            if( physicalNets.at( key ) != name )
++                throw std::runtime_error( "Stacked symbol pins have conflicting circuit nets" );
++            continue;
++        }
++        physicalNets[key] = name;
++        auto location = point;
++        if( generated )
++        {
++            const auto& at = label.at( "at" );
++            auto* pin = symbols.at( at.at( "ref" ).get<std::string>() )->GetPin( jsonString( at, "pin" ) );
++            const int stub = schIUScale.MilsToIU( 150 );
++            switch( pin->GetOrientation() )
++            {
++            case PIN_ORIENTATION::PIN_RIGHT: location.x -= stub; break;
++            case PIN_ORIENTATION::PIN_LEFT: location.x += stub; break;
++            case PIN_ORIENTATION::PIN_UP: location.y += stub; break;
++            case PIN_ORIENTATION::PIN_DOWN: location.y -= stub; break;
++            default: break;
++            }
++            wire( point, location );
++        }
++        auto labelItem = std::make_unique<SCH_LABEL>( location, prefix + wxString::FromUTF8( name.c_str() ) );
++        if( location.x < point.x ) labelItem->SetSpinStyle( SPIN_STYLE::LEFT );
++        items.push_back( std::move( labelItem ) );
++    }
++    for( const auto& at : circuit.value( "noConnect", nlohmann::json::array() ) )
++    {
++        const auto point = endpoint( at );
++        if( physicalNets.count( std::make_pair( point.x, point.y ) ) )
++            throw std::runtime_error( "A no-connect marker conflicts with a connected pin" );
++        items.push_back( std::make_unique<SCH_NO_CONNECT>( point ) );
++    }
+ 
+     manager->RunAction( ACTIONS::selectionClear );
+     SCH_COMMIT commit( manager );

@@ -1,3 +1,5 @@
+import {generateApplication,validateApplicationInput} from './services/application-generator.js';
+import {codexUsage} from './services/codex-usage.js';
 import "./config.js";
 import { createReadStream } from "node:fs";
 import { createServer } from "node:http";
@@ -21,7 +23,7 @@ const port = Number(process.env.PORT || 4173);
 const root = process.cwd();
 const httpLibrary = createHttpLibrary(join(root, '.runtime', 'http-library.json'));
 const searchJobs = createSearchJobs(async (...args) => {
-  const result=await (args[0].mode === 'ask' ? askComponents : searchComponents)(...args);
+  const result=await (args[0].mode === 'application' ? generateApplication : args[0].mode === 'ask' ? askComponents : searchComponents)(...args);
   try {await httpLibrary.record(result);} catch(error) {console.error('HTTP library update failed:',error.message);}
   return result;
 });
@@ -57,15 +59,17 @@ createServer(async (request, response) => {
       return sendJson(response,404,{error:'Not found.'});
     }
     if (request.method === 'GET' && request.url.startsWith('/api/ask/models?')) return sendJson(response,200,await askModels(new URL(request.url,'http://localhost').searchParams.get('provider')));
+    if (request.method === 'GET' && request.url === '/api/ask/usage')
+      return sendJson(response,200,await codexUsage());
     if (request.method === 'GET' && request.url === '/api/ask/account')
       return sendJson(response,200,await codexAccount());
     if (request.method === 'POST' && request.url === '/api/ask/jobs') {
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response,415,{error:'JSON request required.'});
       if (request.headers.origin && ![`http://localhost:${port}`,`http://127.0.0.1:${port}`].includes(request.headers.origin)) return sendJson(response,403,{error:'Local app origin required.'});
       const input = await readBody(request);
-      try {validateAsk(input); if (input.bomContext !== undefined) validateSymbols(input.bomContext);}
+      try {if(input.mode==='application')validateApplicationInput(input);else validateAsk(input); if (input.bomContext !== undefined) validateSymbols(input.bomContext);}
       catch (error) {return sendJson(response,400,{error:error.message});}
-      return sendJson(response,202,searchJobs.start({...input,mode:'ask'}));
+      return sendJson(response,202,searchJobs.start({...input,mode:input.mode==='application'?'application':'ask'}));
     }
     const jobRoute = request.url.match(/^\/api\/components\/jobs\/([a-f0-9-]{36})$/);
     const cancelRoute = request.url.match(/^\/api\/components\/jobs\/([a-f0-9-]{36})\/cancel$/);
