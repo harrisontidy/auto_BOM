@@ -15,6 +15,22 @@ export function publicAddress(address) {
   return isIP(address)===6 && /^[23][0-9a-f]{3}:/i.test(address);
 }
 export function extractPdfLinks(html,base) {
+  const page=new URL(base);
+  // Product pages include certificates and related-part PDFs. Only follow the
+  // selected product's datasheet, never the first arbitrary PDF in the footer.
+  if(/(^|\.)lcsc\.com$/.test(page.hostname) && /\/product-detail\//.test(page.pathname)) {
+    const code=page.pathname.match(/(C\d+)(?:\.html)?$/i)?.[1];
+    if(!code)return [];
+    const links=[...html.matchAll(/https:\/\/datasheet\.lcsc\.com\/datasheet\/pdf\/[^"<>\s\\]+/g)]
+      .map(m=>m[0].replace(/&amp;/g,'&'))
+      .filter(url=>{try{return new URL(url).searchParams.get('productCode')?.toUpperCase()===code.toUpperCase();}catch{return false;}});
+    return [...new Set(links)].slice(0,3);
+  }
+  if(/(^|\.)jlcpcb\.com$/.test(page.hostname) && /\/partdetail\//i.test(page.pathname)) {
+    const decoded=html.replace(/\\"/g,'"').replace(/\\u0026/g,'&').replace(/\\\//g,'/');
+    const links=[...decoded.matchAll(/"dataManualOfficialLink"\s*:\s*"([^"<>]+)"/g)].map(m=>m[1]);
+    return [...new Set(links)].flatMap(link=>{try{const url=new URL(link);if(url.protocol==='http:')url.protocol='https:';return url.protocol==='https:'?[url.href]:[];}catch{return [];}}).slice(0,3);
+  }
   const decoded=html.replace(/\\\//g,'/').replace(/&amp;|&#38;/gi,'&').replace(/&#x2f;/gi,'/');
   const links=[];
   for(const match of decoded.matchAll(/(?:href|src|data|pdfUrl|downloadUrl|pdfPath)["']?\s*[=:]\s*["']([^"'<>]+)["']/gi)) {
@@ -47,7 +63,7 @@ export async function fetchDatasheet(url,{signal,redirects=0}={}) {
   const host=target.hostname.replace(/^\[|\]$/g,'');
   if(isIP(host) && !publicAddress(host))throw Error('Private network datasheet URLs are not allowed.');
   return new Promise((resolveResult,reject)=>{
-    const req=https.get(target,{signal,timeout:20000,lookup:(host,options,callback)=>lookup(host,{all:true},(error,addresses)=>{
+    const req=https.get(target,{signal,timeout:20000,headers:{'User-Agent':'AutoBOM/1.0 (KiCad datasheet downloader)'},lookup:(host,options,callback)=>lookup(host,{all:true},(error,addresses)=>{
       if(error)return callback(error);
       if(!addresses.length||addresses.some(a=>!publicAddress(a.address)))return callback(Error('Private network datasheet URLs are not allowed.'));
       if(options?.all)callback(null,addresses);else callback(null,addresses[0].address,addresses[0].family);
@@ -87,6 +103,12 @@ export async function resolveCandidateDatasheet(candidate,{signal,findAlternativ
     }
   };
   if(initial) {try {const result=await tryUrl(initial);if(result)return result;}catch(error){if(signal?.aborted)throw error;lastError=error;}}
+  const lcscCode=String(candidate.lcscPartNumber || (candidate.supplier==='lcsc'?candidate.supplierPartNumber:'') || '').toUpperCase();
+  if(/^C\d+$/.test(lcscCode)) {
+    for(const page of [`https://jlcpcb.com/partdetail/${lcscCode}`,`https://www.lcsc.com/product-detail/${lcscCode}.html`]) {
+      const result=await tryUrl(page);if(result)return result;
+    }
+  }
   onFallback?.(lastError);
   const alternatives=await findAlternatives({failedUrls:[...attempted],excludedHosts:[...excludedHosts],reason:lastError?.message||'Missing datasheet link'});
   for(const url of alternatives.slice(0,3)) {
@@ -95,7 +117,7 @@ export async function resolveCandidateDatasheet(candidate,{signal,findAlternativ
   throw Error(`No accessible datasheet PDF was found for ${candidate.manufacturerPartNumber}. ${lastError?.message||'No alternate source was found.'}`);
 }
 
-export async function readApplicationDocument(url,{signal,selectPages,downloaded:provided}={}) {
+export async function readApplicationDocument(url,{signal,selectPages,downloaded:provided,renderImages=true}={}) {
   const downloaded=provided || await fetchDatasheet(url,{signal});
   globalThis.DOMMatrix ||= DOMMatrix;globalThis.ImageData ||= ImageData;globalThis.Path2D ||= Path2D;
   const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -120,13 +142,13 @@ export async function readApplicationDocument(url,{signal,selectPages,downloaded
     }
     if(!selected.length)throw Error('No application-circuit or pin-description pages found in this PDF.');
     const images=[];
-    for(const selectedPage of selected) {
+    for(const selectedPage of renderImages?selected:[]) {
       signal?.throwIfAborted();const page=await pdf.getPage(selectedPage.number);const base=page.getViewport({scale:1});
       const viewport=page.getViewport({scale:Math.min(1.6,1600/Math.max(base.width,base.height))});
       const canvas=createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));
       await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
       const path=join(directory,`page-${selectedPage.number}.png`);await writeFile(path,canvas.toBuffer('image/png'));images.push(path);page.cleanup();
     }
-    return {source:downloaded.url,pageCount:pdf.numPages,images,imagePages:selected.map(p=>p.number),text:pages.map(p=>`PAGE ${p.number}\n${p.text}`).join('\n\n').slice(0,220000)};
+    return {source:downloaded.url,pageCount:pdf.numPages,images,imagePages:renderImages?selected.map(p=>p.number):[],selectedText:selected.map(p=>`PAGE ${p.number}\n${p.text}`).join('\n\n').slice(0,70000),text:pages.map(p=>`PAGE ${p.number}\n${p.text}`).join('\n\n').slice(0,220000)};
   } finally {await task.destroy();}
 }

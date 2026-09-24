@@ -1,0 +1,474 @@
+[
+  {
+    "part": "TPS5430DDAR",
+    "adapter": {
+      "family": "buck",
+      "summary": "TPS5430DDAR buck regulator for 12 V input, nominal 5.1 V output, up to 2 A.",
+      "page": 12,
+      "evidence": "Figure 7-1 reference buck circuit; component requirements on pages 13–16 and feedback equation 12 on page 16.",
+      "roles": [
+        {
+          "role": "vin",
+          "pins": [
+            "7"
+          ]
+        },
+        {
+          "role": "gnd",
+          "pins": [
+            "6",
+            "9"
+          ]
+        },
+        {
+          "role": "sw",
+          "pins": [
+            "8"
+          ]
+        },
+        {
+          "role": "fb",
+          "pins": [
+            "4"
+          ]
+        },
+        {
+          "role": "boot",
+          "pins": [
+            "1"
+          ]
+        }
+      ],
+      "omit": [],
+      "parts": [
+        {
+          "ref": "cin",
+          "value": "10 uF",
+          "rating": "25 V, low-ESR X5R/X7R ceramic; ripple-current capacity >3 A"
+        },
+        {
+          "ref": "cout",
+          "value": "220 uF",
+          "rating": "10 V Sanyo POSCAP 10TPB220M, polarized polymer; ESR maximum 40 milliohm; 3 A ripple rating; positive terminal to VOUT"
+        },
+        {
+          "ref": "l",
+          "value": "15 uH",
+          "rating": "Sumida CDRH104R-150; saturation 3.4 A, RMS 3.6 A"
+        },
+        {
+          "ref": "rt",
+          "value": "10 kohm",
+          "rating": "1%, 0.1 W"
+        },
+        {
+          "ref": "rb",
+          "value": "@Rbottom",
+          "rating": "1%, 0.1 W"
+        },
+        {
+          "ref": "cb",
+          "value": "0.01 uF",
+          "rating": "At least 10 V, low-ESR X5R/X7R ceramic"
+        },
+        {
+          "ref": "d",
+          "value": "B340A",
+          "rating": "Schottky, 40 V, 3 A; anode to GND, cathode to SW"
+        }
+      ],
+      "extra": [],
+      "connections": [],
+      "joins": [],
+      "nc": [
+        "2",
+        "3",
+        "5"
+      ],
+      "inputs": [
+        {
+          "name": "Vtarget",
+          "value": 5.1,
+          "source": "Request"
+        },
+        {
+          "name": "Vref",
+          "value": 1.221,
+          "source": "PDF page 16, equation 12"
+        },
+        {
+          "name": "Rtop",
+          "value": 10000,
+          "source": "PDF page 16, reference divider"
+        }
+      ],
+      "equations": [
+        {
+          "name": "Rbottom",
+          "expression": "Rtop * Vref / (Vtarget - Vref)",
+          "unit": "ohm",
+          "target": "rb",
+          "round": "E96",
+          "page": 16
+        },
+        {
+          "name": "Vout",
+          "expression": "Vref * (1 + Rtop / Rbottom)",
+          "unit": "V",
+          "target": "",
+          "round": "none",
+          "page": 16
+        }
+      ],
+      "assumptions": [
+        "EN pin 5 floats for automatic enable, as permitted on page 3; input source is within 2 inches.",
+        "Solder pad 9 to the ground plane; place cin within 1 mm of VIN and GND pins and follow page 23 switching-loop layout."
+      ],
+      "limits": []
+    },
+    "assets": {
+      "exactSymbol": true,
+      "symbolId": "Regulator_Switching:TPS5430DDA",
+      "footprintId": "Package_SO:TI_SO-PowerPAD-8_ThermalVias",
+      "pinMap": {
+        "1": "BOOT",
+        "2": "NC",
+        "3": "NC",
+        "4": "VSENSE",
+        "5": "EN",
+        "6": "GND",
+        "7": "VIN",
+        "8": "PH",
+        "9": "GNDPAD"
+      }
+    },
+    "document": {
+      "source": "https://www.ti.com/lit/ds/symlink/tps5430.pdf",
+      "pageCount": 41
+    },
+    "expectedParts": 8,
+    "expectedCalculations": [
+      {
+        "name": "Rbottom",
+        "result": 3147.7184841453986
+      },
+      {
+        "name": "Rbottom selected E96",
+        "result": 3160
+      },
+      {
+        "name": "Vout",
+        "result": 5.084924050632912
+      }
+    ]
+  },
+  {
+    "part": "NE555P",
+    "adapter": {
+      "family": "timer_astable",
+      "summary": "5 V NE555P astable timer targeting approximately 1 Hz, with unloaded output.",
+      "page": 12,
+      "evidence": "Figure 6-5 and equation (4): astable wiring and frequency; page 18 recommends 100 nF ceramic supply bypass.",
+      "roles": [
+        {
+          "role": "vcc",
+          "pins": [
+            "8"
+          ]
+        },
+        {
+          "role": "gnd",
+          "pins": [
+            "1"
+          ]
+        },
+        {
+          "role": "reset",
+          "pins": [
+            "4"
+          ]
+        },
+        {
+          "role": "discharge",
+          "pins": [
+            "7"
+          ]
+        },
+        {
+          "role": "threshold",
+          "pins": [
+            "6"
+          ]
+        },
+        {
+          "role": "trigger",
+          "pins": [
+            "2"
+          ]
+        },
+        {
+          "role": "out",
+          "pins": [
+            "3"
+          ]
+        },
+        {
+          "role": "control",
+          "pins": [
+            "5"
+          ]
+        }
+      ],
+      "omit": [],
+      "parts": [
+        {
+          "ref": "ra",
+          "value": "5 kohm",
+          "rating": "0.25 W"
+        },
+        {
+          "ref": "rb",
+          "value": "@Rb",
+          "rating": "0.25 W"
+        },
+        {
+          "ref": "ct",
+          "value": "10 uF",
+          "rating": "16 V, nonpolar film"
+        },
+        {
+          "ref": "cb",
+          "value": "100 nF",
+          "rating": "16 V, ceramic; place near pins 8 and 1"
+        },
+        {
+          "ref": "cc",
+          "value": "10 nF",
+          "rating": "16 V, ceramic"
+        }
+      ],
+      "extra": [],
+      "connections": [],
+      "joins": [],
+      "nc": [],
+      "inputs": [
+        {
+          "name": "Vcc",
+          "value": 5,
+          "source": "Request"
+        },
+        {
+          "name": "Ftarget",
+          "value": 1,
+          "source": "Request"
+        },
+        {
+          "name": "Ra",
+          "value": 5000,
+          "source": "Page 12, Figure 6-6"
+        },
+        {
+          "name": "Ct",
+          "value": 0.00001,
+          "source": "Selected timing capacitance; 10 uF also used on page 17"
+        }
+      ],
+      "equations": [
+        {
+          "name": "Rb",
+          "expression": "(1.44 / (Ftarget * Ct) - Ra) / 2",
+          "unit": "ohm",
+          "target": "rb",
+          "round": "E24",
+          "page": 12
+        },
+        {
+          "name": "Fout",
+          "expression": "1.44 / ((Ra + 2 * Rb) * Ct)",
+          "unit": "Hz",
+          "target": "",
+          "round": "none",
+          "page": 12
+        }
+      ],
+      "assumptions": [
+        "Duty cycle is unspecified; retain the reference 5 kohm RA and select CT and RB for the requested frequency."
+      ],
+      "limits": []
+    },
+    "assets": {
+      "exactSymbol": true,
+      "symbolId": "Timer:NE555P",
+      "footprintId": "Package_DIP:DIP-8_W7.62mm",
+      "pinMap": {
+        "1": "GND",
+        "2": "TRIG",
+        "3": "OUT",
+        "4": "~{RST}",
+        "5": "CONT",
+        "6": "THRES",
+        "7": "DISCH",
+        "8": "VCC"
+      }
+    },
+    "document": {
+      "source": "https://www.ti.com/lit/ds/symlink/ne555.pdf",
+      "pageCount": 39
+    },
+    "expectedParts": 6,
+    "expectedCalculations": [
+      {
+        "name": "Rb",
+        "result": 69499.99999999999
+      },
+      {
+        "name": "Rb selected E24",
+        "result": 68000
+      },
+      {
+        "name": "Fout",
+        "result": 1.0212765957446808
+      }
+    ]
+  },
+  {
+    "part": "OPA1655DBV",
+    "adapter": {
+      "family": "opamp_noninverting",
+      "summary": "Ground-referenced non-inverting amplifier on ±12 V supplies with a 10 kΩ gain resistor.",
+      "page": 19,
+      "evidence": "Figure 8-1(A): non-inverting gain configuration; page 3 identifies DBV pin 1 as OUT; page 27 specifies 0.1 µF low-ESR ceramic supply bypass capacitors.",
+      "roles": [
+        {
+          "role": "plus",
+          "pins": [
+            "3"
+          ]
+        },
+        {
+          "role": "minus",
+          "pins": [
+            "4"
+          ]
+        },
+        {
+          "role": "out",
+          "pins": [
+            "1"
+          ]
+        },
+        {
+          "role": "vpos",
+          "pins": [
+            "5"
+          ]
+        },
+        {
+          "role": "vneg",
+          "pins": [
+            "2"
+          ]
+        }
+      ],
+      "omit": [],
+      "parts": [
+        {
+          "ref": "rf",
+          "value": "@Rf",
+          "rating": "1%, 0.125 W"
+        },
+        {
+          "ref": "rg",
+          "value": "10 kΩ",
+          "rating": "1%, 0.125 W"
+        },
+        {
+          "ref": "cp",
+          "value": "0.1 µF",
+          "rating": "25 V, low-ESR ceramic"
+        },
+        {
+          "ref": "cn",
+          "value": "0.1 µF",
+          "rating": "25 V, low-ESR ceramic"
+        }
+      ],
+      "extra": [],
+      "connections": [],
+      "joins": [],
+      "nc": [],
+      "inputs": [
+        {
+          "name": "Gain",
+          "value": 11,
+          "source": "Request"
+        },
+        {
+          "name": "Rg",
+          "value": 10000,
+          "source": "Request, ohms"
+        },
+        {
+          "name": "Vpos",
+          "value": 12,
+          "source": "Request, VPOS supply in volts"
+        },
+        {
+          "name": "Vneg",
+          "value": -12,
+          "source": "Request, VNEG supply in volts"
+        }
+      ],
+      "equations": [
+        {
+          "name": "Rf",
+          "expression": "(Gain-1)*Rg",
+          "unit": "ohm",
+          "target": "rf",
+          "round": "E24",
+          "page": 19
+        },
+        {
+          "name": "AchievedGain",
+          "expression": "1+Rf/Rg",
+          "unit": "ratio",
+          "target": "",
+          "round": "none",
+          "page": 19
+        }
+      ],
+      "assumptions": [
+        "Place both bypass capacitors close to their supply pins; input source provides a DC path to ground.",
+        "Input amplitude and output loading remain within the datasheet's linear operating range."
+      ],
+      "limits": []
+    },
+    "assets": {
+      "exactSymbol": true,
+      "symbolId": "Amplifier_Operational:OPA1655DBV",
+      "footprintId": "Package_TO_SOT_SMD:SOT-23-5",
+      "pinMap": {
+        "1": "",
+        "2": "V-",
+        "3": "+",
+        "4": "-",
+        "5": "V+"
+      }
+    },
+    "document": {
+      "source": "https://www.ti.com/lit/ds/symlink/opa1655.pdf",
+      "pageCount": 42
+    },
+    "expectedParts": 5,
+    "expectedCalculations": [
+      {
+        "name": "Rf",
+        "result": 100000
+      },
+      {
+        "name": "AchievedGain",
+        "result": 11
+      }
+    ]
+  }
+]

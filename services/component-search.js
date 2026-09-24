@@ -52,7 +52,7 @@ export function createComponentSearch(dependencies = {}) {
       aiSearchTerms: interpreted.searchTerms, quantity: Number(quantity) || 1 };
     const searchStart = performance.now();
     let result = await search(component, env);
-    if (!result.candidates.length && !component.supplierPartNumber && (env.OPENAI_API_KEY || dependencies.broaden)) {
+    if (!result.candidates.length && !result.availabilityReason && !component.supplierPartNumber && (env.OPENAI_API_KEY || dependencies.broaden)) {
       const key=JSON.stringify([query,supplier,env.OPENAI_MODEL]);
       try {
         let entry=retryPlans.get(key);
@@ -172,7 +172,7 @@ export function createComponentSearch(dependencies = {}) {
     timings.totalMs = Math.round(performance.now() - started);
     checkCancelled();
     candidates = candidates.map(candidate => ({...candidate, typicalApplication:typicalApplication(candidate)}));
-    return { component, supplier, query: result.query, candidates, review: recommendation, timings,
+    return { component, supplier, query: result.query, availabilityReason:result.availabilityReason, candidates, review: recommendation, timings,
       checkedAt: result.checkedAt, totalCandidates: result.candidates.length };
   };
 }

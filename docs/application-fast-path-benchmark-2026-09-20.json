@@ -1,0 +1,137 @@
+[
+  {
+    "part": "TPS5430DDAR",
+    "request": "Generate a 12 V input to 5.1 V output buck regulator circuit, up to 2 A.",
+    "beforeMs": 78602.9249,
+    "coldMs": 44066.2989,
+    "warmMs": 625.8947000000001,
+    "coldStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 424.76789999999994
+      },
+      {
+        "stage": "Model/session setup",
+        "ms": 139.50519999999995
+      },
+      {
+        "stage": "Datasheet retrieval",
+        "ms": 5594.2357
+      },
+      {
+        "stage": "Fast PDF preparation",
+        "ms": 620.6216999999997
+      },
+      {
+        "stage": "AI blueprint adaptation",
+        "ms": 37031.4337
+      },
+      {
+        "stage": "Blueprint calculations + wiring",
+        "ms": 247.82250000000204
+      }
+    ],
+    "warmStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 461.7441
+      },
+      {
+        "stage": "Saved blueprint + wiring",
+        "ms": 160.865
+      }
+    ],
+    "path": "blueprint",
+    "model": "gpt-6-astra"
+  },
+  {
+    "part": "NE555P",
+    "request": "Generate a 5 V astable timer circuit with approximately 1 Hz output. No LED or output load needed.",
+    "beforeMs": 55480.8797,
+    "coldMs": 17581.468500000003,
+    "warmMs": 540.8078,
+    "coldStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 389.70820000000003
+      },
+      {
+        "stage": "Model/session setup",
+        "ms": 157.0038
+      },
+      {
+        "stage": "Datasheet retrieval",
+        "ms": 1008.461
+      },
+      {
+        "stage": "Fast PDF preparation",
+        "ms": 915.2087000000001
+      },
+      {
+        "stage": "AI blueprint adaptation",
+        "ms": 14899.7136
+      },
+      {
+        "stage": "Blueprint calculations + wiring",
+        "ms": 203.6769000000022
+      }
+    ],
+    "warmStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 368.2428
+      },
+      {
+        "stage": "Saved blueprint + wiring",
+        "ms": 168.52130000000005
+      }
+    ],
+    "path": "blueprint",
+    "model": "gpt-6-astra"
+  },
+  {
+    "part": "OPA1655DBV",
+    "request": "Generate a non-inverting amplifier with gain 11, plus and minus 12 V supplies, and a 10 kilohm gain resistor to ground. Input signal is centered on ground.",
+    "beforeMs": 54158.907400000004,
+    "coldMs": 13272.034199999998,
+    "warmMs": 577.0996,
+    "coldStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 472.58639999999997
+      },
+      {
+        "stage": "Model/session setup",
+        "ms": 157.96259999999995
+      },
+      {
+        "stage": "Datasheet retrieval",
+        "ms": 645.7266999999999
+      },
+      {
+        "stage": "Fast PDF preparation",
+        "ms": 853.6700000000001
+      },
+      {
+        "stage": "AI blueprint adaptation",
+        "ms": 10924.1085
+      },
+      {
+        "stage": "Blueprint calculations + wiring",
+        "ms": 210.240600000001
+      }
+    ],
+    "warmStages": [
+      {
+        "stage": "CAD lookup",
+        "ms": 403.722
+      },
+      {
+        "stage": "Saved blueprint + wiring",
+        "ms": 170.3408
+      }
+    ],
+    "path": "blueprint",
+    "model": "gpt-6-astra"
+  }
+]

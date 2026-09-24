@@ -106,7 +106,7 @@ export function createAsk({plan = planAsk, search = searchComponents} = {}) {
       },environment)} : {}),
       onProgress: result => options.onProgress?.(decorate(result))});
     let result = await runSearch(component);
-    if (!shortlistAskResult(result).candidates.length || result.review?.fallback || result.review?.confidence < 0.65) {
+    if (!result.availabilityReason && (!shortlistAskResult(result).candidates.length || result.review?.fallback || result.review?.confidence < 0.65)) {
       options.signal?.throwIfAborted();
       options.onProgress?.(decorate({component,candidates:[],review:{},pending:true,stage:'refining'}));
       try {
@@ -127,7 +127,7 @@ export function createAsk({plan = planAsk, search = searchComponents} = {}) {
         ? `${selected.manufacturerPartNumber || selected.supplierPartNumber}: ${result.review.reasoning}`
         : `I found ${result.candidates.length === 1 ? 'one option' : `${result.candidates.length} options`} for your request. See the part details below.`;
     }
-    if (!result.candidates.length) assistant.answer = `I couldn't verify a match for your requirements in this supplier search. ${result.review?.reasoning || 'I tried refining the search without relaxing your requirements.'} This does not mean the part does not exist.`;
+    if (!result.candidates.length) assistant.answer = result.availabilityReason || `I couldn't verify a match for your requirements in this supplier search. ${result.review?.reasoning || 'I tried refining the search without relaxing your requirements.'} This does not mean the part does not exist.`;
     assistant.context = JSON.stringify({query:response.query,requirements:response.requirements,assumptions:response.assumptions,
       candidates:shortlistAskResult(result).candidates.map(c=>({part:c.manufacturerPartNumber,supplierPart:c.supplierPartNumber,
         verification:c.verification,package:c.packageType})),review:result.review}).slice(0,6000);

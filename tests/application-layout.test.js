@@ -4,9 +4,10 @@ import {readFileSync} from 'node:fs';
 import {routeApplication} from '../services/application-layout.js';
 const fixtures=JSON.parse(readFileSync(new URL('./fixtures/application-layout.json',import.meta.url)));
 const key=p=>p.x+','+p.y;
-for(const {name,circuit,geometry} of fixtures)test(`${name}: compact routed circuit preserves every net and NC pin`,()=>{
+for(const {name,circuit,geometry,requiresFallback} of fixtures)test(`${name}: compact routed circuit preserves every net and NC pin`,()=>{
  const result=routeApplication(circuit,geometry);
  assert.ok(result.wires.length>0);assert.ok(result.labels.length<circuit.labels.length);
+ if(requiresFallback){assert.ok(result.layoutNotes.some(n=>n.includes('VOUT_1V7')));assert.ok(result.labels.filter(l=>l.name==='VOUT_1V7').length>=2);}
  assert.ok(Math.max(...result.parts.map(p=>p.x))-Math.min(...result.parts.map(p=>p.x))<4000);
  const points=new Map([...result.pinPositions,...result.junctions,...result.wires.flatMap(w=>[w.a,w.b]),...result.labels.map(l=>l.at)].map(p=>[key(p),p]));
  const roots=new Map([...points.keys()].map(k=>[k,k]));

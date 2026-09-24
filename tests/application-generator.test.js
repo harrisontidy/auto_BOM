@@ -10,6 +10,16 @@ const compile=p=>compileApplication(p,{manufacturerPartNumber:'Example'},assets,
 test('general generator produces any exact primary symbol plus net-connected supports',()=>{
  const c=compile(plan);assert.equal(c.parts[0].symbolId,'Example:Part');assert.equal(c.parts[1].symbolId,'Device:C');assert.equal(c.labels.length,5);assert.equal(c.parts[1].manufacturerPartNumber,undefined);assert.match(c.notes,/draft/);
 });
+
+test('design-note preview omits repeated conditions while retaining full evidence',()=>{
+ const p={...plan,conditions:['5 V operating point'],assumptions:['Nominal input','Reference load','Detailed third assumption'],notes:['Use the stated input range.']};
+ const c=compile(p);
+ assert.doesNotMatch(c.notes,/5 V operating point|Detailed third assumption|Matching net labels/);
+ assert.match(c.notes,/Nominal input/);
+ assert.match(c.notes,/Use the stated input range/);
+ assert.deepEqual(c.assumptions,p.assumptions);
+ assert.deepEqual(c.evidence.conditions,p.conditions);
+});
 test('rejects missing, unknown, multiply-connected pins and invented evidence pages',()=>{
  const missing=structuredClone(plan);missing.nets.pop();assert.throws(()=>compile(missing),/omits pin/);
  const unknown=structuredClone(plan);unknown.nets[0].nodes[0].pin='99';assert.throws(()=>compile(unknown),/Unknown circuit pin/);

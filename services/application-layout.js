@@ -102,9 +102,11 @@ export function routeApplication(input,geometry) {
         best.set(nk,cost);previous.set(nk,ck);open.push({...next,cost,score:cost+heuristic(next),direction:dir});
       }
     }
-    if(!end)throw Error('Could not route net '+name+' cleanly; no disconnected draft was placed.');
+    if(!end)return null;
     const result=[];for(let k=end;k;k=previous.get(k)){const [x,y]=k.split(',').map(Number);result.push({x,y});}return result.reverse();
   };
+  const fallbackLabels=new Map(),fallbackNets=new Set();
+  const addFallback=(name,p)=>fallbackLabels.set(name+'|'+key(p),{name,at:{x:p.x,y:p.y}});
   // Route small local nets first and the shared ground last.
   for(const [name,nodes] of [...nets].sort((a,b)=>(a[0]===gndNet?1:b[0]===gndNet?-1:a[1].length-b[1].length))){
     const ends=[];
@@ -113,7 +115,23 @@ export function routeApplication(input,geometry) {
     }
     if(name===gndNet)continue; // Conventional local ground labels avoid a wire around every component.
     const tree=new Set([key(ends[0])]);
-    for(const start of ends.slice(1)){const route=path(start,tree,name);for(let i=1;i<route.length;i++)edge(route[i-1],route[i],name);for(const p of route)tree.add(key(p));}
+    for(const start of ends.slice(1)){
+      let route=path(start,tree,name);
+      if(!route){
+        // Try more room around the drawing before using a label for this branch.
+        bounds.x1-=400;bounds.x2+=400;bounds.y1-=400;bounds.y2+=400;
+        try {route=path(start,tree,name);}
+        finally {bounds.x1+=400;bounds.x2-=400;bounds.y1+=400;bounds.y2-=400;}
+      }
+      if(!route){
+        // Preserve successful wires. Matching labels join just the disconnected
+        // branch and the existing tree; never discard the entire valid circuit.
+        addFallback(name,ends[0]);addFallback(name,start);fallbackNets.add(name);
+        continue;
+      }
+      for(let i=1;i<route.length;i++)edge(route[i-1],route[i],name);
+      for(const p of route)tree.add(key(p));
+    }
   }
   // Collapse grid edges to straight wire segments, retaining explicit T junctions.
   const adjacency=new Map();
@@ -125,5 +143,7 @@ export function routeApplication(input,geometry) {
   c.wires=wires;c.junctions=junctions;c.routed=true;
   c.pinPositions=[...points].map(([id,p])=>{const dot=id.lastIndexOf('.');return {ref:id.slice(0,dot),pin:id.slice(dot+1),x:p.x,y:p.y};});
   c.labels=[...nets].filter(([name,nodes])=>name===gndNet||name===pn(vin)||/^VOUT|^OUT$/i.test(name)||nodes.length===1).flatMap(([name,nodes])=>(name===gndNet?nodes:nodes.slice(0,1)).map(n=>{const p=points.get(n.ref+'.'+n.pin);return {name,at:{x:p.x+p.dx*100,y:p.y+p.dy*100}};}));
+  c.labels=[...new Map([...c.labels,...fallbackLabels.values()].map(l=>[l.name+'|'+key(l.at),l])).values()];
+  c.layoutNotes=[...fallbackNets].map(name=>`Used matching labels for an obstructed branch of ${name}.`);
   return c;
 }

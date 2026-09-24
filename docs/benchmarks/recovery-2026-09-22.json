@@ -1,0 +1,270 @@
+{
+  "searches": [
+    {
+      "id": 4,
+      "query": "Find 0.1 ohm 1 watt current sense resistor.",
+      "supplier": "digikey",
+      "totalMs": 15622,
+      "parts": [
+        "KRL2012E-M-R100-F-T5"
+      ],
+      "answer": "KRL2012E-M-R100-F-T5: This in-stock current-sense resistor matches 0.1 Ω and 1 W and costs less than the other matching candidate."
+    },
+    {
+      "id": 5,
+      "query": "Find 10k through-hole trimmer potentiometer.",
+      "supplier": "lcsc",
+      "totalMs": 27674,
+      "parts": [
+        "3296W-103",
+        "3296W-1-103",
+        "3296W-1-103"
+      ],
+      "answer": "3296W-103: This in-stock 10 kΩ, 28-turn trimmer has a three-pin through-hole (Plugin-3P) package and the lowest listed price."
+    },
+    {
+      "id": 11,
+      "query": "Find 10uH shielded power inductor rated at least 2A.",
+      "supplier": "lcsc",
+      "totalMs": 15807,
+      "parts": [
+        "SMNR5040-100MT",
+        "SMDRH105R-100MT",
+        "SMDRH104R-100MT"
+      ],
+      "answer": "SMNR5040-100MT: C9389 is an in-stock 10 µH shielded power inductor with a 2 A current rating and 2.35 A saturation rating, meeting all requested specifications at the lowest listed price."
+    },
+    {
+      "id": 12,
+      "query": "Find 4.7uH SMD power inductor rated at least 1A.",
+      "supplier": "digikey",
+      "totalMs": 29152,
+      "parts": [
+        "MPL-SE4030-4R7"
+      ],
+      "answer": "MPL-SE4030-4R7: This in-stock 4.7 µH surface-mount inductor is rated for 2.6 A, exceeding your 1 A requirement, and has the lowest listed price."
+    },
+    {
+      "id": 15,
+      "query": "Find common mode choke for USB 2.0 data lines.",
+      "supplier": "lcsc",
+      "totalMs": 27033,
+      "parts": [
+        "DLW21SN900SQ2L",
+        "DLW21SN900SQ2L T-CND",
+        "DLW21SN121SQ2L"
+      ],
+      "answer": "DLW21SN900SQ2L: The Murata DLW21SN900SQ2L is a plausible USB data-pair choke with two lines and 90 Ω common-mode impedance at 100 MHz."
+    },
+    {
+      "id": 26,
+      "query": "Find MCP1700T-3302E/TT.",
+      "supplier": "digikey",
+      "totalMs": 7339,
+      "parts": [],
+      "answer": "MCP1700T-3302E/TT is listed by DigiKey, but no package can currently supply 1 at the requested quantity. Stock or minimum-order quantity prevents ordering."
+    },
+    {
+      "id": 32,
+      "query": "Find TPS62160DSGR.",
+      "supplier": "digikey",
+      "totalMs": 6736,
+      "parts": [],
+      "answer": "TPS62160DSGR is listed by DigiKey, but no package can currently supply 1 at the requested quantity. Stock or minimum-order quantity prevents ordering."
+    },
+    {
+      "id": 37,
+      "query": "Find LM358DR.",
+      "supplier": "lcsc",
+      "totalMs": 14679,
+      "parts": [
+        "LM358DR"
+      ],
+      "answer": "LM358DR: C5423 is the exact Texas Instruments LM358DR requested and is in stock with a minimum order of one."
+    },
+    {
+      "id": 39,
+      "query": "Find TL072CP.",
+      "supplier": "lcsc",
+      "totalMs": 11316,
+      "parts": [
+        "TL072CP"
+      ],
+      "answer": "TL072CP: C7236 is the exact Texas Instruments TL072CP dual FET-input op amp in PDIP-8, with 7,574 units listed in stock."
+    },
+    {
+      "id": 44,
+      "query": "Find SN74LVC1G125DBVR.",
+      "supplier": "digikey",
+      "totalMs": 6606,
+      "parts": [],
+      "answer": "SN74LVC1G125DBVR is listed by DigiKey, but no package can currently supply 1 at the requested quantity. Stock or minimum-order quantity prevents ordering."
+    },
+    {
+      "id": 45,
+      "query": "Find CD4017BE.",
+      "supplier": "lcsc",
+      "totalMs": 6578,
+      "parts": [],
+      "answer": "CD4017BE is listed in the JLCPCB catalog but is not currently orderable at quantity 1."
+    },
+    {
+      "id": 48,
+      "query": "Find CH340C.",
+      "supplier": "digikey",
+      "totalMs": 11084,
+      "parts": [],
+      "answer": "DigiKey did not return the exact part CH340C. Related products are not substitutes for the requested component."
+    }
+  ],
+  "cad": [
+    {
+      "id": 8,
+      "part": "860020474014",
+      "symbolId": "Device:C_Polarized",
+      "footprintId": "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm",
+      "exactSymbol": false,
+      "symbolSource": "KiCad generic symbol",
+      "footprintSource": "Matched KiCad footprint",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 14,
+      "part": "78F101J-TR-RC",
+      "libraryName": "AutoBOM_DK_36c6037bbffd5b21a571547f",
+      "symbolLibraryPath": "C:\\Users\\harri\\AppData\\Local\\autoBOM\\documented-cad\\36c6037bbffd5b21a571547f\\AutoBOM_DK_36c6037bbffd5b21a571547f.kicad_sym",
+      "footprintLibraryPath": "C:\\Users\\harri\\AppData\\Local\\autoBOM\\documented-cad\\36c6037bbffd5b21a571547f\\AutoBOM_DK_36c6037bbffd5b21a571547f.pretty",
+      "symbolId": "AutoBOM_DK_36c6037bbffd5b21a571547f:78F101J-TR-RC",
+      "footprintId": "AutoBOM_DK_36c6037bbffd5b21a571547f:L_Axial_L7.11mm_D2.79mm_P10.16mm",
+      "imported": true,
+      "placeable": true,
+      "exactSymbol": false,
+      "pinMap": {
+        "1": "~",
+        "2": "~"
+      },
+      "pinCount": 2,
+      "padCount": 2,
+      "symbolSource": "KiCad standard inductor",
+      "footprintSource": "Bourns 78F datasheet dimensions; leads formed to 10.16 mm",
+      "modelExpected": false,
+      "validation": {
+        "checked": [
+          "Bourns 78F body and lead dimensions",
+          "Two electrical pads match the standard inductor pins"
+        ],
+        "unknown": [
+          "Form axial leads to the 10.16 mm board pitch."
+        ]
+      }
+    },
+    {
+      "id": 28,
+      "part": "LM317T",
+      "symbolId": "Regulator_Linear:LM317_TO-220",
+      "footprintId": "Package_TO_SOT_THT:TO-220-3_Vertical",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Footprint from KiCad symbol library",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 38,
+      "part": "MCP6002-I/SN",
+      "symbolId": "Amplifier_Operational:MCP6002-xSN",
+      "footprintId": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Matched KiCad footprint",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 40,
+      "part": "LMV321IDBVR",
+      "symbolId": "Amplifier_Operational:LMV321",
+      "footprintId": "Package_TO_SOT_SMD:SOT-23-5",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Matched KiCad footprint",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 42,
+      "part": "SN74HC595DR",
+      "symbolId": "74xx:74HC595",
+      "footprintId": "Package_SO:SOIC-16_3.9x9.9mm_P1.27mm",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Matched KiCad footprint",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 46,
+      "part": "MAX3485ESA+",
+      "symbolId": "Interface_UART:MAX3485",
+      "footprintId": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Matched KiCad footprint",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    },
+    {
+      "id": 50,
+      "part": "MCP2515-I/SO",
+      "symbolId": "Interface_CAN_LIN:MCP2515-xSO",
+      "footprintId": "Package_SO:SOIC-18W_7.5x11.6mm_P1.27mm",
+      "exactSymbol": true,
+      "symbolSource": "Exact KiCad library match",
+      "footprintSource": "Footprint from KiCad symbol library",
+      "modelExpected": true,
+      "placeable": true,
+      "importError": ""
+    }
+  ],
+  "ldo": {
+    "totalMs": 12052,
+    "timings": [
+      {
+        "stage": "CAD lookup",
+        "ms": 444.49760000000003
+      },
+      {
+        "stage": "Model/session setup",
+        "ms": 127.2586
+      },
+      {
+        "stage": "Datasheet retrieval",
+        "ms": 431.3984999999999
+      },
+      {
+        "stage": "Fast PDF preparation",
+        "ms": 239.24630000000002
+      },
+      {
+        "stage": "AI blueprint adaptation",
+        "ms": 10497.6296
+      },
+      {
+        "stage": "Blueprint calculations + wiring",
+        "ms": 235.8122000000003
+      }
+    ],
+    "path": "blueprint"
+  },
+  "tests": {
+    "passed": 221,
+    "failed": 0
+  }
+}

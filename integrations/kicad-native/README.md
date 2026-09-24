@@ -130,3 +130,5 @@ Patch 0021 adds a compact Codex allowance indicator inside the composer, refresh
 Patch 0022 adds on-demand typical application generation for every part, preserves cards during follow-up chat, and supports generated net-labeled circuits plus the XL1509 reference circuit. Apply after 0021. The service requires npm install for PDF text/image extraction.
 
 Patch 0023 accepts compact routed application circuits, validates pin geometry before placement, avoids adding label stubs to already routed wires, and shortens instance identifiers. Apply after 0022 and rebuild eeschema. Save and reopen the editor to load it.
+
+Patch 0024 uses the already-transformed instance pin position during circuit placement, preventing duplicate rotation/translation and false geometry-change errors. Detail values wrap long identifiers at the available column width and retain their full text in tooltips. Apply after 0023 (use --ignore-space-change for mixed Windows line endings), rebuild eeschema, and save/reopen the editor. Live placement and UI resizing were not exercised because work was kept in the background.

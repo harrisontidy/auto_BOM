@@ -1,0 +1,1890 @@
+{
+  "run": {
+    "startedAt": "2026-09-23T03:30:27.341Z",
+    "searches": 50,
+    "suppliers": {
+      "lcsc": 25,
+      "digikey": 25
+    },
+    "concurrency": 3,
+    "provider": "codex",
+    "model": "gpt-6-astra",
+    "effort": "medium",
+    "preferBasic": true,
+    "freshProcessPerCase": true,
+    "circuitCache": false,
+    "scopeChange": "User reduced search count to 50 during the run. First 50 cover 10 categories. Circuit LDO switched from empty MCP1700 result to AMS1117; sensor beyond the cutoff replaced with CAN transceiver. No circuit outcomes informed these choices.",
+    "completedAt": "2026-09-23T03:38:22.818Z"
+  },
+  "overall": {
+    "attempts": 50,
+    "returned": 38,
+    "empty": 12,
+    "clarification": 0,
+    "errors": 0,
+    "anyPlaceable": 30,
+    "refined": 14,
+    "reviewFallback": 0,
+    "meanMs": 19061.18,
+    "medianMs": 15789,
+    "p90Ms": 29000,
+    "p95Ms": 33827,
+    "minMs": 11211,
+    "maxMs": 36519
+  },
+  "returnedLatency": {
+    "attempts": 38,
+    "returned": 38,
+    "empty": 0,
+    "clarification": 0,
+    "errors": 0,
+    "anyPlaceable": 30,
+    "refined": 2,
+    "reviewFallback": 0,
+    "meanMs": 16318.447368421053,
+    "medianMs": 14655,
+    "p90Ms": 26301,
+    "p95Ms": 29317,
+    "minMs": 11211,
+    "maxMs": 36519
+  },
+  "suppliers": {
+    "lcsc": {
+      "attempts": 25,
+      "returned": 19,
+      "empty": 6,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 19,
+      "refined": 8,
+      "reviewFallback": 0,
+      "meanMs": 19044.92,
+      "medianMs": 15915,
+      "p90Ms": 33827,
+      "p95Ms": 36432,
+      "minMs": 11211,
+      "maxMs": 36519
+    },
+    "digikey": {
+      "attempts": 25,
+      "returned": 19,
+      "empty": 6,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 11,
+      "refined": 6,
+      "reviewFallback": 0,
+      "meanMs": 19077.44,
+      "medianMs": 15691,
+      "p90Ms": 27908,
+      "p95Ms": 29317,
+      "minMs": 13316,
+      "maxMs": 31214
+    }
+  },
+  "categories": {
+    "resistors": {
+      "attempts": 5,
+      "returned": 3,
+      "empty": 2,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 3,
+      "refined": 2,
+      "reviewFallback": 0,
+      "meanMs": 18675.2,
+      "medianMs": 16609,
+      "p90Ms": 26653,
+      "p95Ms": 26653,
+      "minMs": 13542,
+      "maxMs": 26653
+    },
+    "capacitors": {
+      "attempts": 5,
+      "returned": 5,
+      "empty": 0,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 4,
+      "refined": 0,
+      "reviewFallback": 0,
+      "meanMs": 17251,
+      "medianMs": 14262,
+      "p90Ms": 29317,
+      "p95Ms": 29317,
+      "minMs": 12602,
+      "maxMs": 29317
+    },
+    "magnetics": {
+      "attempts": 5,
+      "returned": 2,
+      "empty": 3,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 1,
+      "refined": 3,
+      "reviewFallback": 0,
+      "meanMs": 25703,
+      "medianMs": 27765,
+      "p90Ms": 33827,
+      "p95Ms": 33827,
+      "minMs": 14851,
+      "maxMs": 33827
+    },
+    "diodes": {
+      "attempts": 5,
+      "returned": 5,
+      "empty": 0,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 5,
+      "refined": 0,
+      "reviewFallback": 0,
+      "meanMs": 14215.8,
+      "medianMs": 14385,
+      "p90Ms": 14923,
+      "p95Ms": 14923,
+      "minMs": 13414,
+      "maxMs": 14923
+    },
+    "transistors": {
+      "attempts": 5,
+      "returned": 5,
+      "empty": 0,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 5,
+      "refined": 1,
+      "reviewFallback": 0,
+      "meanMs": 17186.4,
+      "medianMs": 15953,
+      "p90Ms": 26301,
+      "p95Ms": 26301,
+      "minMs": 11211,
+      "maxMs": 26301
+    },
+    "linear_regulators": {
+      "attempts": 5,
+      "returned": 4,
+      "empty": 1,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 3,
+      "refined": 2,
+      "reviewFallback": 0,
+      "meanMs": 20839.2,
+      "medianMs": 14240,
+      "p90Ms": 36519,
+      "p95Ms": 36519,
+      "minMs": 11766,
+      "maxMs": 36519
+    },
+    "switching_regulators": {
+      "attempts": 5,
+      "returned": 4,
+      "empty": 1,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 4,
+      "refined": 1,
+      "reviewFallback": 0,
+      "meanMs": 16971.8,
+      "medianMs": 14378,
+      "p90Ms": 26667,
+      "p95Ms": 26667,
+      "minMs": 12859,
+      "maxMs": 26667
+    },
+    "opamps": {
+      "attempts": 5,
+      "returned": 3,
+      "empty": 2,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 1,
+      "refined": 2,
+      "reviewFallback": 0,
+      "meanMs": 20362.8,
+      "medianMs": 16389,
+      "p90Ms": 29000,
+      "p95Ms": 29000,
+      "minMs": 14109,
+      "maxMs": 29000
+    },
+    "logic_timers": {
+      "attempts": 5,
+      "returned": 3,
+      "empty": 2,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 2,
+      "refined": 2,
+      "reviewFallback": 0,
+      "meanMs": 21930.6,
+      "medianMs": 18523,
+      "p90Ms": 36432,
+      "p95Ms": 36432,
+      "minMs": 13102,
+      "maxMs": 36432
+    },
+    "interfaces": {
+      "attempts": 5,
+      "returned": 4,
+      "empty": 1,
+      "clarification": 0,
+      "errors": 0,
+      "anyPlaceable": 2,
+      "refined": 1,
+      "reviewFallback": 0,
+      "meanMs": 17476,
+      "medianMs": 15789,
+      "p90Ms": 26010,
+      "p95Ms": 26010,
+      "minMs": 13316,
+      "maxMs": 26010
+    }
+  },
+  "searches": [
+    {
+      "id": 1,
+      "category": "resistors",
+      "supplier": "lcsc",
+      "query": "Find 10k ohm 0603 1% resistor.",
+      "totalMs": 16609,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "0603WAF1002T5E"
+      ],
+      "supplierIds": [
+        "C25804"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 10465,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 9582,
+      "supplierMs": 594,
+      "reviewMs": 6141,
+      "cadMs": 3,
+      "cadErrors": [],
+      "answer": "0603WAF1002T5E: C25804 matches the requested 10 kΩ resistance, 0603 package, and ±1% tolerance and is in stock.",
+      "error": ""
+    },
+    {
+      "id": 2,
+      "category": "resistors",
+      "supplier": "digikey",
+      "query": "Find 100 ohm 0805 resistor.",
+      "totalMs": 14655,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "RC0805FR-07100RL"
+      ],
+      "supplierIds": [
+        "311-100CRCT-ND"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9588,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6704,
+      "supplierMs": 2598,
+      "reviewMs": 5063,
+      "cadMs": 3,
+      "cadErrors": [],
+      "answer": "RC0805FR-07100RL: This in-stock resistor matches the requested 100 Ω resistance and 0805 package.",
+      "error": ""
+    },
+    {
+      "id": 3,
+      "category": "resistors",
+      "supplier": "lcsc",
+      "query": "Find 1 megaohm 0603 resistor.",
+      "totalMs": 13542,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "0603WAF1004T5E"
+      ],
+      "supplierIds": [
+        "C22935"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8048,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7212,
+      "supplierMs": 554,
+      "reviewMs": 5491,
+      "cadMs": 3,
+      "cadErrors": [],
+      "answer": "0603WAF1004T5E: C22935 is an in-stock 1 MΩ, 0603 resistor with ±1% tolerance and Basic library status.",
+      "error": ""
+    },
+    {
+      "id": 4,
+      "category": "resistors",
+      "supplier": "digikey",
+      "query": "Find 0.1 ohm 1 watt current sense resistor.",
+      "totalMs": 26653,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 20507,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 1,
+      "planningMs": 14382,
+      "supplierMs": 6091,
+      "reviewMs": 5773,
+      "cadMs": 372,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. None of the supplied 0.1 Ω current-sense resistors meets the requested 1 W power rating. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 5,
+      "category": "resistors",
+      "supplier": "lcsc",
+      "query": "Find 10k through-hole trimmer potentiometer.",
+      "totalMs": 21917,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": null,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 16442,
+      "supplierMs": 5447,
+      "reviewMs": 0,
+      "cadMs": 0,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. No stocked matching category was found in the searched JLCPCB catalog pages. Some displays, motors and modules may need separate sourcing. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 6,
+      "category": "capacitors",
+      "supplier": "digikey",
+      "query": "Find 100nF 0603 50V X7R capacitor.",
+      "totalMs": 17226,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "CC0603KPX7R0BB104"
+      ],
+      "supplierIds": [
+        "13-CC0603KPX7R0BB104CT-ND"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9556,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.98,
+      "planningMs": 6499,
+      "supplierMs": 3026,
+      "reviewMs": 7308,
+      "cadMs": 360,
+      "cadErrors": [],
+      "answer": "CC0603KPX7R0BB104: This 100 nF X7R capacitor matches imperial 0603 and has a 100 V rating exceeding the requested 50 V.",
+      "error": ""
+    },
+    {
+      "id": 7,
+      "category": "capacitors",
+      "supplier": "lcsc",
+      "query": "Find 10uF 0805 16V ceramic capacitor.",
+      "totalMs": 12848,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "CL21A106KAYNNNE"
+      ],
+      "supplierIds": [
+        "C15850"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 7593,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.97,
+      "planningMs": 6655,
+      "supplierMs": 910,
+      "reviewMs": 4936,
+      "cadMs": 319,
+      "cadErrors": [],
+      "answer": "CL21A106KAYNNNE: Assuming 16 V is a minimum rating, this lower-cost Basic part provides 10 µF in 0805 with an X5R ceramic dielectric and a 25 V rating.",
+      "error": ""
+    },
+    {
+      "id": 8,
+      "category": "capacitors",
+      "supplier": "digikey",
+      "query": "Find 470uF 25V through-hole electrolytic capacitor.",
+      "totalMs": 29317,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "860020474014"
+      ],
+      "supplierIds": [
+        "732-8831-1-ND"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9631,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6380,
+      "supplierMs": 3224,
+      "reviewMs": 10430,
+      "cadMs": 14795,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "860020474014: This in-stock aluminum electrolytic capacitor matches 470 µF, 25 V and through-hole mounting at the lowest listed price of CAD 0.51.",
+      "error": ""
+    },
+    {
+      "id": 9,
+      "category": "capacitors",
+      "supplier": "lcsc",
+      "query": "Find 22pF 0603 C0G capacitor.",
+      "totalMs": 12602,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "CL10C220JB8NNNC"
+      ],
+      "supplierIds": [
+        "C1653"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 7418,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6178,
+      "supplierMs": 1213,
+      "reviewMs": 5182,
+      "cadMs": 2,
+      "cadErrors": [],
+      "answer": "CL10C220JB8NNNC: C1653 matches the requested 22 pF, 0603, C0G specifications and is an in-stock Basic part.",
+      "error": ""
+    },
+    {
+      "id": 10,
+      "category": "capacitors",
+      "supplier": "digikey",
+      "query": "Find 1uF 0603 10V ceramic capacitor.",
+      "totalMs": 14262,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "CL10B105KP8NNNC"
+      ],
+      "supplierIds": [
+        "1276-1946-1-ND"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9282,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6648,
+      "supplierMs": 2604,
+      "reviewMs": 4659,
+      "cadMs": 319,
+      "cadErrors": [],
+      "answer": "CL10B105KP8NNNC: This in-stock ceramic capacitor matches 1 µF, 10 V and 0603 (1608 metric), at CAD 0.15 each.",
+      "error": ""
+    },
+    {
+      "id": 11,
+      "category": "magnetics",
+      "supplier": "lcsc",
+      "query": "Find 10uH shielded power inductor rated at least 2A.",
+      "totalMs": 33827,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 10239,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 16310,
+      "supplierMs": 3845,
+      "reviewMs": 13186,
+      "cadMs": 13576,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. Neither 1.8 A part meets the current requirement, and the 2.4 A SRP0520-100K lacks supplied evidence of shielded construction. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 12,
+      "category": "magnetics",
+      "supplier": "digikey",
+      "query": "Find 4.7uH SMD power inductor rated at least 1A.",
+      "totalMs": 31214,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 11454,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 1,
+      "planningMs": 15572,
+      "supplierMs": 4694,
+      "reviewMs": 10588,
+      "cadMs": 323,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. The only candidate is rated 800 mA, below the required 1 A minimum. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 13,
+      "category": "magnetics",
+      "supplier": "lcsc",
+      "query": "Find 600 ohm at 100MHz 0603 ferrite bead.",
+      "totalMs": 14851,
+      "status": "returned",
+      "count": 2,
+      "parts": [
+        "GZ1608D601TF",
+        "BLM18PG121SN1D"
+      ],
+      "supplierIds": [
+        "C1002",
+        "C14709"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 2,
+      "exactSymbolCount": 2,
+      "firstPreviewMs": 9527,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.7,
+      "planningMs": 8600,
+      "supplierMs": 898,
+      "reviewMs": 5012,
+      "cadMs": 3803,
+      "cadErrors": [],
+      "answer": "GZ1608D601TF: C1002 matches 600 Ω at 100 MHz in a 0603 package and is listed as an in-stock Basic part.",
+      "error": ""
+    },
+    {
+      "id": 14,
+      "category": "magnetics",
+      "supplier": "digikey",
+      "query": "Find 100uH through-hole inductor.",
+      "totalMs": 27765,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "78F101J-TR-RC"
+      ],
+      "supplierIds": [
+        "118-78F101J-TR-RCCT-ND"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8884,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.97,
+      "planningMs": 6701,
+      "supplierMs": 2154,
+      "reviewMs": 12574,
+      "cadMs": 11460,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic request failed (HTTP 410)."
+      ],
+      "answer": "78F101J-TR-RC: This in-stock 100 µH ±5% through-hole inductor meets the stated requirements, with a 165 mA current rating at CAD 0.34 each.",
+      "error": ""
+    },
+    {
+      "id": 15,
+      "category": "magnetics",
+      "supplier": "lcsc",
+      "query": "Find common mode choke for USB 2.0 data lines.",
+      "totalMs": 20858,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": null,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 14961,
+      "supplierMs": 5869,
+      "reviewMs": 0,
+      "cadMs": 0,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. I tried refining the search without relaxing your requirements. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 16,
+      "category": "diodes",
+      "supplier": "digikey",
+      "query": "Find 1N4148W.",
+      "totalMs": 14385,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "1N4148W"
+      ],
+      "supplierIds": [
+        "4530-1N4148WCT-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 8987,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6024,
+      "supplierMs": 2929,
+      "reviewMs": 5094,
+      "cadMs": 303,
+      "cadErrors": [],
+      "answer": "1N4148W: This is an exact 1N4148W match in SOD-123, available individually from DigiKey for CAD 0.15.",
+      "error": ""
+    },
+    {
+      "id": 17,
+      "category": "diodes",
+      "supplier": "lcsc",
+      "query": "Find SS14 Schottky diode.",
+      "totalMs": 14923,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "SS14"
+      ],
+      "supplierIds": [
+        "C2480"
+      ],
+      "exactMatch": "not an exact-part query",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 6838,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.7,
+      "planningMs": 6310,
+      "supplierMs": 501,
+      "reviewMs": 7766,
+      "cadMs": 319,
+      "cadErrors": [],
+      "answer": "SS14: C2480 is an in-stock SS14 Schottky diode rated 1 A, 40 V in an SMA package and listed as a Basic part.",
+      "error": ""
+    },
+    {
+      "id": 18,
+      "category": "diodes",
+      "supplier": "digikey",
+      "query": "Find BAT54S.",
+      "totalMs": 13414,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "BAT54S"
+      ],
+      "supplierIds": [
+        "4786-BAT54SCT-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 8632,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6761,
+      "supplierMs": 1828,
+      "reviewMs": 4464,
+      "cadMs": 317,
+      "cadErrors": [],
+      "answer": "BAT54S: This is an exact BAT54S match, an in-stock series-connected Schottky diode pair in SOT-23 at CAD 0.19 for one.",
+      "error": ""
+    },
+    {
+      "id": 19,
+      "category": "diodes",
+      "supplier": "lcsc",
+      "query": "Find BAV99.",
+      "totalMs": 13712,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "BAV99,215"
+      ],
+      "supplierIds": [
+        "C2500"
+      ],
+      "exactMatch": "suffix variant",
+      "placeableCount": 1,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 6099,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 5578,
+      "supplierMs": 483,
+      "reviewMs": 7263,
+      "cadMs": 349,
+      "cadErrors": [],
+      "answer": "BAV99,215: Nexperia BAV99,215 is an in-stock BAV99 dual series switching diode in SOT-23, listed as a Basic part.",
+      "error": ""
+    },
+    {
+      "id": 20,
+      "category": "diodes",
+      "supplier": "digikey",
+      "query": "Find 1N4007.",
+      "totalMs": 14645,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "1N4007"
+      ],
+      "supplierIds": [
+        "4878-1N4007CT-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 9664,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7861,
+      "supplierMs": 1774,
+      "reviewMs": 4646,
+      "cadMs": 333,
+      "cadErrors": [],
+      "answer": "1N4007: This is an exact 1N4007 match, rated 1000 V and 1 A, available individually at the lowest listed price.",
+      "error": ""
+    },
+    {
+      "id": 21,
+      "category": "transistors",
+      "supplier": "lcsc",
+      "query": "Find 2N7002.",
+      "totalMs": 11211,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "2N7002"
+      ],
+      "supplierIds": [
+        "C8545"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 6350,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.7,
+      "planningMs": 5870,
+      "supplierMs": 444,
+      "reviewMs": 4542,
+      "cadMs": 318,
+      "cadErrors": [],
+      "answer": "2N7002: C8545 is an in-stock 2N7002 N-channel MOSFET in SOT-23, listed as a Basic part.",
+      "error": ""
+    },
+    {
+      "id": 22,
+      "category": "transistors",
+      "supplier": "digikey",
+      "query": "Find AO3400A.",
+      "totalMs": 15691,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "AO3400A"
+      ],
+      "supplierIds": [
+        "785-1000-1-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 9555,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7526,
+      "supplierMs": 1995,
+      "reviewMs": 5804,
+      "cadMs": 330,
+      "cadErrors": [],
+      "answer": "AO3400A: Alpha & Omega Semiconductor’s AO3400A is an exact part-number match, available from DigiKey in single-unit cut tape.",
+      "error": ""
+    },
+    {
+      "id": 23,
+      "category": "transistors",
+      "supplier": "lcsc",
+      "query": "Find MMBT3904.",
+      "totalMs": 16776,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MMBT3904(RANGE:100-300)"
+      ],
+      "supplierIds": [
+        "C20526"
+      ],
+      "exactMatch": "suffix variant",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7153,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6564,
+      "supplierMs": 563,
+      "reviewMs": 9247,
+      "cadMs": 376,
+      "cadErrors": [],
+      "answer": "MMBT3904(RANGE:100-300): This is an in-stock MMBT3904 NPN transistor in SOT-23, listed in the Basic library.",
+      "error": ""
+    },
+    {
+      "id": 24,
+      "category": "transistors",
+      "supplier": "digikey",
+      "query": "Find MMBT3906.",
+      "totalMs": 15953,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MMBT3906"
+      ],
+      "supplierIds": [
+        "5399-MMBT3906CT-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 9991,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7815,
+      "supplierMs": 2141,
+      "reviewMs": 5546,
+      "cadMs": 413,
+      "cadErrors": [],
+      "answer": "MMBT3906: This is an exact MMBT3906 match, a PNP transistor in SOT-23, available individually at the lowest listed price of CAD 0.15.",
+      "error": ""
+    },
+    {
+      "id": 25,
+      "category": "transistors",
+      "supplier": "lcsc",
+      "query": "Find IRLZ44NPBF.",
+      "totalMs": 26301,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "IRLZ44NPBF"
+      ],
+      "supplierIds": [
+        "C38774"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7629,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.7,
+      "planningMs": 13099,
+      "supplierMs": 2786,
+      "reviewMs": 9939,
+      "cadMs": 446,
+      "cadErrors": [],
+      "answer": "IRLZ44NPBF: C38774 is the exact Infineon IRLZ44NPBF requested and is in stock with a minimum order of one.",
+      "error": ""
+    },
+    {
+      "id": 26,
+      "category": "linear_regulators",
+      "supplier": "digikey",
+      "query": "Find MCP1700T-3302E/TT.",
+      "totalMs": 27908,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8845,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 15301,
+      "supplierMs": 4872,
+      "reviewMs": 7318,
+      "cadMs": 385,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. I tried refining the search without relaxing your requirements. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 27,
+      "category": "linear_regulators",
+      "supplier": "lcsc",
+      "query": "Find AMS1117-3.3.",
+      "totalMs": 11766,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "AMS1117-3.3"
+      ],
+      "supplierIds": [
+        "C6186"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 6456,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 5975,
+      "supplierMs": 448,
+      "reviewMs": 4956,
+      "cadMs": 353,
+      "cadErrors": [],
+      "answer": "AMS1117-3.3: C6186 is the exact AMS1117-3.3 requested, a fixed 3.3 V regulator listed as Basic and in stock.",
+      "error": ""
+    },
+    {
+      "id": 28,
+      "category": "linear_regulators",
+      "supplier": "digikey",
+      "query": "Find LM317T.",
+      "totalMs": 13763,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "LM317T"
+      ],
+      "supplierIds": [
+        "497-1575-5-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8075,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 5951,
+      "supplierMs": 2094,
+      "reviewMs": 4832,
+      "cadMs": 5687,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic model identity does not match the selected part."
+      ],
+      "answer": "LM317T: This is the exact STMicroelectronics LM317T adjustable linear regulator in TO-220, listed in stock on DigiKey.",
+      "error": ""
+    },
+    {
+      "id": 29,
+      "category": "linear_regulators",
+      "supplier": "lcsc",
+      "query": "Find AP2112K-3.3TRG1.",
+      "totalMs": 36519,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "AP2112K-3.3TRG1"
+      ],
+      "supplierIds": [
+        "C23380830"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 13898,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.96,
+      "planningMs": 18870,
+      "supplierMs": 2931,
+      "reviewMs": 12287,
+      "cadMs": 7029,
+      "cadErrors": [],
+      "answer": "AP2112K-3.3TRG1: C23380830 lists the exact AP2112K-3.3TRG1 part number from TECH PUBLIC and is in stock as an Extended part.",
+      "error": ""
+    },
+    {
+      "id": 30,
+      "category": "linear_regulators",
+      "supplier": "digikey",
+      "query": "Find L7805CV.",
+      "totalMs": 14240,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "L7805CV"
+      ],
+      "supplierIds": [
+        "497-1443-5-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7767,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 5881,
+      "supplierMs": 1853,
+      "reviewMs": 6143,
+      "cadMs": 6328,
+      "cadErrors": [],
+      "answer": "L7805CV: This in-stock DigiKey listing exactly matches the requested STMicroelectronics L7805CV, a 5 V linear regulator in TO-220.",
+      "error": ""
+    },
+    {
+      "id": 31,
+      "category": "switching_regulators",
+      "supplier": "lcsc",
+      "query": "Find TPS5430DDAR.",
+      "totalMs": 13932,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "TPS5430DDAR"
+      ],
+      "supplierIds": [
+        "C9864"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7738,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7253,
+      "supplierMs": 444,
+      "reviewMs": 5848,
+      "cadMs": 346,
+      "cadErrors": [],
+      "answer": "TPS5430DDAR: C9864 is the exact Texas Instruments TPS5430DDAR requested, listed on LCSC and available as a Basic part.",
+      "error": ""
+    },
+    {
+      "id": 32,
+      "category": "switching_regulators",
+      "supplier": "digikey",
+      "query": "Find TPS62160DSGR.",
+      "totalMs": 26667,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8124,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 14879,
+      "supplierMs": 4586,
+      "reviewMs": 6837,
+      "cadMs": 330,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. I tried refining the search without relaxing your requirements. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 33,
+      "category": "switching_regulators",
+      "supplier": "lcsc",
+      "query": "Find MP1584EN.",
+      "totalMs": 17023,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MP1584EN-LF-Z"
+      ],
+      "supplierIds": [
+        "C15051"
+      ],
+      "exactMatch": "suffix variant",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 8981,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 7257,
+      "supplierMs": 1680,
+      "reviewMs": 7645,
+      "cadMs": 3975,
+      "cadErrors": [],
+      "answer": "MP1584EN-LF-Z: C15051 is the in-stock Monolithic Power Systems MP1584EN-LF-Z, matching the requested MP1584EN.",
+      "error": ""
+    },
+    {
+      "id": 34,
+      "category": "switching_regulators",
+      "supplier": "digikey",
+      "query": "Find LM2596S-ADJ.",
+      "totalMs": 14378,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "LM2596S-ADJ"
+      ],
+      "supplierIds": [
+        "4518-LM2596S-ADJCT-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 8231,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6569,
+      "supplierMs": 1625,
+      "reviewMs": 5636,
+      "cadMs": 510,
+      "cadErrors": [],
+      "answer": "LM2596S-ADJ: This in-stock DigiKey listing matches LM2596S-ADJ exactly and identifies it as an adjustable buck regulator.",
+      "error": ""
+    },
+    {
+      "id": 35,
+      "category": "switching_regulators",
+      "supplier": "lcsc",
+      "query": "Find XL1509-5.0E1.",
+      "totalMs": 12859,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "XL1509-5.0E1"
+      ],
+      "supplierIds": [
+        "C61063"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7380,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6800,
+      "supplierMs": 553,
+      "reviewMs": 4972,
+      "cadMs": 506,
+      "cadErrors": [],
+      "answer": "XL1509-5.0E1: C61063 is the exact XLSEMI XL1509-5.0E1 requested, listed as Basic and in stock.",
+      "error": ""
+    },
+    {
+      "id": 36,
+      "category": "opamps",
+      "supplier": "digikey",
+      "query": "Find OPA1655DBV.",
+      "totalMs": 16389,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "OPA1655DBVR"
+      ],
+      "supplierIds": [
+        "296-OPA1655DBVRCT-ND"
+      ],
+      "exactMatch": "suffix variant",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 10827,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 8847,
+      "supplierMs": 1948,
+      "reviewMs": 5062,
+      "cadMs": 498,
+      "cadErrors": [],
+      "answer": "OPA1655DBVR: DigiKey lists the requested OPA1655DBV as OPA1655DBVR in SOT-23-5, available in cut tape with a minimum order of one.",
+      "error": ""
+    },
+    {
+      "id": 37,
+      "category": "opamps",
+      "supplier": "lcsc",
+      "query": "Find LM358DR.",
+      "totalMs": 26791,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 7402,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 14072,
+      "supplierMs": 1644,
+      "reviewMs": 10517,
+      "cadMs": 520,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. The only supplied candidate is onsemi LM358DR2G, not the requested LM358DR. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 38,
+      "category": "opamps",
+      "supplier": "digikey",
+      "query": "Find MCP6002-I/SN.",
+      "totalMs": 14109,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MCP6002-I/SN"
+      ],
+      "supplierIds": [
+        "MCP6002-I/SN-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9142,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 1,
+      "planningMs": 7584,
+      "supplierMs": 1531,
+      "reviewMs": 4526,
+      "cadMs": 2849,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "MCP6002-I/SN: This is the exact requested MCP6002-I/SN, available from DigiKey in an 8-SOIC package with stock and a minimum order of one.",
+      "error": ""
+    },
+    {
+      "id": 39,
+      "category": "opamps",
+      "supplier": "lcsc",
+      "query": "Find TL072CP.",
+      "totalMs": 29000,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 6817,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 11488,
+      "supplierMs": 3179,
+      "reviewMs": 13197,
+      "cadMs": 7202,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. The only candidate is TL072CPSR, not the requested exact part TL072CP. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 40,
+      "category": "opamps",
+      "supplier": "digikey",
+      "query": "Find LMV321IDBVR.",
+      "totalMs": 15525,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "LMV321IDBVR"
+      ],
+      "supplierIds": [
+        "296-9567-1-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 10201,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 8477,
+      "supplierMs": 1695,
+      "reviewMs": 4974,
+      "cadMs": 4655,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "LMV321IDBVR: This DigiKey listing is the exact Texas Instruments LMV321IDBVR, in stock and available in single quantities.",
+      "error": ""
+    },
+    {
+      "id": 41,
+      "category": "logic_timers",
+      "supplier": "lcsc",
+      "query": "Find NE555P.",
+      "totalMs": 13102,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "NE555P"
+      ],
+      "supplierIds": [
+        "C46749"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 8525,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 6905,
+      "supplierMs": 1591,
+      "reviewMs": 4163,
+      "cadMs": 413,
+      "cadErrors": [],
+      "answer": "NE555P: C46749 is the exact Texas Instruments NE555P requested, in DIP-8 and in stock.",
+      "error": ""
+    },
+    {
+      "id": 42,
+      "category": "logic_timers",
+      "supplier": "digikey",
+      "query": "Find SN74HC595DR.",
+      "totalMs": 18523,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "SN74HC595DR"
+      ],
+      "supplierIds": [
+        "296-14857-1-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 11408,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 10026,
+      "supplierMs": 1350,
+      "reviewMs": 6781,
+      "cadMs": 4434,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "SN74HC595DR: This DigiKey listing matches the exact Texas Instruments SN74HC595DR and is in stock with a minimum order of one.",
+      "error": ""
+    },
+    {
+      "id": 43,
+      "category": "logic_timers",
+      "supplier": "lcsc",
+      "query": "Find SN74HC14DR.",
+      "totalMs": 15915,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "SN74HC14DR"
+      ],
+      "supplierIds": [
+        "C6820"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 7127,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 5860,
+      "supplierMs": 1230,
+      "reviewMs": 8475,
+      "cadMs": 3916,
+      "cadErrors": [],
+      "answer": "SN74HC14DR: C6820 is the exact Texas Instruments SN74HC14DR requested, a hex Schmitt-trigger inverter in SOIC-14, listed in stock.",
+      "error": ""
+    },
+    {
+      "id": 44,
+      "category": "logic_timers",
+      "supplier": "digikey",
+      "query": "Find SN74LVC1G125DBVR.",
+      "totalMs": 25681,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 7891,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 13849,
+      "supplierMs": 3684,
+      "reviewMs": 7777,
+      "cadMs": 1235,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. I tried refining the search without relaxing your requirements. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 45,
+      "category": "logic_timers",
+      "supplier": "lcsc",
+      "query": "Find CD4017BE.",
+      "totalMs": 36432,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 9953,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": 0.99,
+      "planningMs": 18511,
+      "supplierMs": 3925,
+      "reviewMs": 13311,
+      "cadMs": 7184,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. The only candidate is TDSEMIC CD4017BE-TD, not the exact requested CD4017BE. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 46,
+      "category": "interfaces",
+      "supplier": "digikey",
+      "query": "Find MAX3485ESA+.",
+      "totalMs": 15247,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MAX3485ESA+"
+      ],
+      "supplierIds": [
+        "MAX3485ESA+-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8019,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 1,
+      "planningMs": 6243,
+      "supplierMs": 1749,
+      "reviewMs": 5806,
+      "cadMs": 7226,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "MAX3485ESA+: This DigiKey listing matches the exact MAX3485ESA+ manufacturer part number and has 2,721 units available.",
+      "error": ""
+    },
+    {
+      "id": 47,
+      "category": "interfaces",
+      "supplier": "lcsc",
+      "query": "Find SN65HVD230DR.",
+      "totalMs": 17018,
+      "status": "returned",
+      "count": 2,
+      "parts": [
+        "SN65HVD230DR",
+        "SN65HVD230DR-JSM"
+      ],
+      "supplierIds": [
+        "C12084",
+        "C46596299"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 2,
+      "exactSymbolCount": 2,
+      "firstPreviewMs": 8494,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.7,
+      "planningMs": 7434,
+      "supplierMs": 1027,
+      "reviewMs": 8197,
+      "cadMs": 3933,
+      "cadErrors": [],
+      "answer": "SN65HVD230DR: C12084 is the exact Texas Instruments SN65HVD230DR requested and is listed in stock.",
+      "error": ""
+    },
+    {
+      "id": 48,
+      "category": "interfaces",
+      "supplier": "digikey",
+      "query": "Find CH340C.",
+      "totalMs": 26010,
+      "status": "no verified match",
+      "count": 0,
+      "parts": [],
+      "supplierIds": [],
+      "exactMatch": "none",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 8384,
+      "refined": true,
+      "reviewFallback": false,
+      "confidence": null,
+      "planningMs": 13606,
+      "supplierMs": 3551,
+      "reviewMs": 5810,
+      "cadMs": 8824,
+      "cadErrors": [],
+      "answer": "I couldn't verify a match for your requirements in this supplier search. I tried refining the search without relaxing your requirements. This does not mean the part does not exist.",
+      "error": ""
+    },
+    {
+      "id": 49,
+      "category": "interfaces",
+      "supplier": "lcsc",
+      "query": "Find CP2102N-A02-GQFN28.",
+      "totalMs": 15789,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "CP2102N-A02-GQFN28R"
+      ],
+      "supplierIds": [
+        "C964632"
+      ],
+      "exactMatch": "suffix variant",
+      "placeableCount": 1,
+      "exactSymbolCount": 1,
+      "firstPreviewMs": 9004,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 0.97,
+      "planningMs": 7774,
+      "supplierMs": 1196,
+      "reviewMs": 6455,
+      "cadMs": 329,
+      "cadErrors": [],
+      "answer": "CP2102N-A02-GQFN28R: C964632 lists the requested CP2102N-A02-GQFN28 with the R ordering suffix in QFN-28, with 44,500 available.",
+      "error": ""
+    },
+    {
+      "id": 50,
+      "category": "interfaces",
+      "supplier": "digikey",
+      "query": "Find MCP2515-I/SO.",
+      "totalMs": 13316,
+      "status": "returned",
+      "count": 1,
+      "parts": [
+        "MCP2515-I/SO"
+      ],
+      "supplierIds": [
+        "MCP2515-I/SO-ND"
+      ],
+      "exactMatch": "exact",
+      "placeableCount": 0,
+      "exactSymbolCount": 0,
+      "firstPreviewMs": 7389,
+      "refined": false,
+      "reviewFallback": false,
+      "confidence": 1,
+      "planningMs": 6077,
+      "supplierMs": 1283,
+      "reviewMs": 5598,
+      "cadMs": 2400,
+      "cadErrors": [
+        "DigiKey CAD: SnapMagic did not provide a KiCad ZIP. Your login may have expired or this model may be unavailable."
+      ],
+      "answer": "MCP2515-I/SO: This is the exact Microchip MCP2515-I/SO requested, in an 18-SOIC package and available from DigiKey.",
+      "error": ""
+    }
+  ],
+  "circuits": [
+    {
+      "kind": "linear regulator",
+      "searchId": 27,
+      "request": "Generate a 5 V input to 3.3 V output regulator circuit at 100 mA.",
+      "part": "AMS1117-3.3",
+      "totalMs": 50791,
+      "generated": true,
+      "path": "full-datasheet",
+      "parts": 2,
+      "calculations": 4,
+      "source": "https://datasheet.lcsc.com/datasheet/pdf/e6935943fc6b1bbf350a1a0f3e90dc4a.pdf?productCode=C6186",
+      "answer": "Generated a datasheet-based draft for AMS1117-3.3. Click Place application circuit to add it. Source and key assumptions are in the design notes.",
+      "error": "",
+      "timings": [
+        {
+          "stage": "CAD lookup",
+          "ms": 482.53340000000003
+        },
+        {
+          "stage": "Model/session setup",
+          "ms": 113.6549
+        },
+        {
+          "stage": "Datasheet retrieval",
+          "ms": 381.66830000000016
+        },
+        {
+          "stage": "Fast PDF preparation",
+          "ms": 214.92579999999998
+        },
+        {
+          "stage": "AI blueprint adaptation",
+          "ms": 7739.1523
+        },
+        {
+          "stage": "Blueprint fallback",
+          "ms": 0,
+          "reason": "No supplied blueprint fits the requested 5 V to 3.3 V, 100 mA linear regulator. Supply a fixed-output LDO blueprint or use the full-design fallback."
+        },
+        {
+          "stage": "AI page selection",
+          "ms": 4210.973699999999
+        },
+        {
+          "stage": "PDF preparation including page selection",
+          "ms": 5143.2811
+        },
+        {
+          "stage": "AI circuit design",
+          "ms": 36319.793000000005
+        },
+        {
+          "stage": "Wiring layout",
+          "ms": 316.00769999999466
+        }
+      ]
+    },
+    {
+      "kind": "buck regulator",
+      "searchId": 31,
+      "request": "Generate a 12 V input to 5.1 V output buck regulator circuit, up to 2 A.",
+      "part": "TPS5430DDAR",
+      "totalMs": 17186,
+      "generated": true,
+      "path": "blueprint",
+      "parts": 8,
+      "calculations": 3,
+      "source": "https://datasheet.lcsc.com/datasheet/pdf/7850812068ea4d9ea7625566993d56e4.pdf?productCode=C9864",
+      "answer": "Ready: 12 V to nominal 5.1 V buck regulator, up to 2 A. Click Place application circuit to add it.",
+      "error": "",
+      "timings": [
+        {
+          "stage": "CAD lookup",
+          "ms": 427.34149999999994
+        },
+        {
+          "stage": "Model/session setup",
+          "ms": 117.83220000000006
+        },
+        {
+          "stage": "Datasheet retrieval",
+          "ms": 2432.4129000000003
+        },
+        {
+          "stage": "Fast PDF preparation",
+          "ms": 420.2972999999997
+        },
+        {
+          "stage": "AI blueprint adaptation",
+          "ms": 13022.687399999999
+        },
+        {
+          "stage": "Blueprint calculations + wiring",
+          "ms": 308.47060000000056
+        }
+      ]
+    },
+    {
+      "kind": "op-amp",
+      "searchId": 36,
+      "request": "Generate a non-inverting amplifier with gain 11, plus and minus 12 V supplies, and a 10 kilohm gain resistor to ground. Input signal is centered on ground.",
+      "part": "OPA1655DBVR",
+      "totalMs": 17381,
+      "generated": true,
+      "path": "blueprint",
+      "parts": 5,
+      "calculations": 2,
+      "source": "https://www.ti.com/lit/ds/symlink/opa1655.pdf",
+      "answer": "Ready: Ground-centered non-inverting amplifier targeting gain 11, with ±12 V supplies and a 10 kΩ resistor to ground. Click Place application circuit to add it.",
+      "error": "",
+      "timings": [
+        {
+          "stage": "CAD lookup",
+          "ms": 373.8608
+        },
+        {
+          "stage": "Model/session setup",
+          "ms": 102.8904
+        },
+        {
+          "stage": "Datasheet retrieval",
+          "ms": 2350.3708
+        },
+        {
+          "stage": "Fast PDF preparation",
+          "ms": 1041.1513999999997
+        },
+        {
+          "stage": "AI blueprint adaptation",
+          "ms": 13104.944
+        },
+        {
+          "stage": "Blueprint calculations + wiring",
+          "ms": 340.4923000000017
+        }
+      ]
+    },
+    {
+      "kind": "timer",
+      "searchId": 41,
+      "request": "Generate a 5 V astable timer circuit with approximately 1 Hz output. No LED or output load needed.",
+      "part": "NE555P",
+      "totalMs": 23965,
+      "generated": true,
+      "path": "blueprint",
+      "parts": 6,
+      "calculations": 3,
+      "source": "https://datasheet.lcsc.com/datasheet/pdf/bf41a18b474249308084584192c5b6ae.pdf?productCode=C46749",
+      "answer": "Ready: 5 V NE555P astable timer targeting approximately 1 Hz, with unloaded output. Click Place application circuit to add it.",
+      "error": "",
+      "timings": [
+        {
+          "stage": "CAD lookup",
+          "ms": 359.7773
+        },
+        {
+          "stage": "Model/session setup",
+          "ms": 117.00240000000002
+        },
+        {
+          "stage": "Datasheet retrieval",
+          "ms": 683.4730999999999
+        },
+        {
+          "stage": "Fast PDF preparation",
+          "ms": 476.78639999999996
+        },
+        {
+          "stage": "AI blueprint adaptation",
+          "ms": 22038.2553
+        },
+        {
+          "stage": "Blueprint calculations + wiring",
+          "ms": 222.4354999999996
+        }
+      ]
+    },
+    {
+      "kind": "CAN transceiver",
+      "searchId": 47,
+      "request": "Generate a basic 3.3 V CAN transceiver application circuit, with bypass capacitor, high-speed mode, and 120 ohm bus termination. Expose TX, RX, CANH and CANL connections.",
+      "part": "SN65HVD230DR",
+      "totalMs": 14411,
+      "generated": true,
+      "path": "blueprint",
+      "parts": 5,
+      "calculations": 0,
+      "source": "https://datasheet.lcsc.com/datasheet/pdf/5f0a15e636e3498a8a69f46b0b740274.pdf?productCode=C12084",
+      "answer": "Ready: 3.3 V CAN transceiver with high-speed mode, bypassing, 120 ohm termination, and exposed TX/RX/CANH/CANL. Click Place application circuit to add it.",
+      "error": "",
+      "timings": [
+        {
+          "stage": "CAD lookup",
+          "ms": 297.56679999999994
+        },
+        {
+          "stage": "Model/session setup",
+          "ms": 133.24060000000003
+        },
+        {
+          "stage": "Datasheet retrieval",
+          "ms": 688.3484
+        },
+        {
+          "stage": "Fast PDF preparation",
+          "ms": 377.85940000000005
+        },
+        {
+          "stage": "AI blueprint adaptation",
+          "ms": 12062.058500000001
+        },
+        {
+          "stage": "Blueprint calculations + wiring",
+          "ms": 783.1468999999997
+        }
+      ]
+    }
+  ]
+}

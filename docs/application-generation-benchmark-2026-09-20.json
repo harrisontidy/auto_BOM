@@ -1,0 +1,62 @@
+[
+  {
+    "part": "TPS5430DDAR",
+    "request": "Generate a 12 V input to 5.1 V output buck regulator circuit, up to 2 A.",
+    "totalMs": 78602.9249,
+    "stages": {
+      "CAD lookup": 392.32349999999997,
+      "Model/session setup": 106.85070000000002,
+      "Datasheet retrieval": 218.94539999999995,
+      "AI page selection": 6322.8989,
+      "AI circuit design": 70032.37150000001,
+      "Wiring layout": 197.20410000000265,
+      "PDF text + image processing": 1328.7713999999996,
+      "Other local work": 3.559399999983725
+    },
+    "success": true,
+    "parts": 8,
+    "calculations": 7,
+    "source": "https://www.ti.com/lit/ds/symlink/tps5430.pdf",
+    "answer": "Generated a datasheet-based draft for TPS5430DDAR. Click Place application circuit to add it. Calculations and assumptions are in the design notes."
+  },
+  {
+    "part": "NE555P",
+    "request": "Generate a 5 V astable timer circuit with approximately 1 Hz output. No LED or output load needed.",
+    "totalMs": 55480.8797,
+    "stages": {
+      "CAD lookup": 352.5718,
+      "Model/session setup": 122.41919999999999,
+      "Datasheet retrieval": 499.69489999999996,
+      "AI page selection": 4608.3648,
+      "AI circuit design": 48593.135200000004,
+      "Wiring layout": 156.7401000000027,
+      "PDF text + image processing": 1144.1104999999998,
+      "Other local work": 3.8431999999884283
+    },
+    "success": true,
+    "parts": 6,
+    "calculations": 6,
+    "source": "https://www.ti.com/lit/ds/symlink/ne555.pdf",
+    "answer": "Generated a datasheet-based draft for NE555P. Click Place application circuit to add it. Calculations and assumptions are in the design notes."
+  },
+  {
+    "part": "OPA1655DBV",
+    "request": "Generate a non-inverting amplifier with gain 11, plus and minus 12 V supplies, and a 10 kilohm gain resistor to ground. Input signal is centered on ground.",
+    "totalMs": 54158.907400000004,
+    "stages": {
+      "CAD lookup": 388.61889999999994,
+      "Model/session setup": 132.52840000000003,
+      "Datasheet retrieval": 451.9277000000001,
+      "AI page selection": 4579.6676,
+      "AI circuit design": 46959.8382,
+      "Wiring layout": 198.66799999999785,
+      "PDF text + image processing": 1444.4527000000007,
+      "Other local work": 3.205900000008114
+    },
+    "success": true,
+    "parts": 5,
+    "calculations": 6,
+    "source": "https://www.ti.com/lit/ds/symlink/opa1655.pdf",
+    "answer": "Generated a datasheet-based draft for OPA1655DBV. Click Place application circuit to add it. Source and key assumptions are in the design notes."
+  }
+]
