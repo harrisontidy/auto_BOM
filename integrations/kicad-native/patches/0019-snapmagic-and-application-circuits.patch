@@ -1,0 +1,239 @@
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -65,6 +65,10 @@
+ #include <sch_painter.h>
+ #include <sch_marker.h>
+ #include <sch_symbol.h>
++#include <sch_line.h>
++#include <sch_label.h>
++#include <sch_junction.h>
++#include <sch_pin.h>
+ #include <sch_reference_list.h>
+ #include <sch_sheet_pin.h>
+ #include <sch_commit.h>
+@@ -126,6 +130,8 @@
+ #include <wx/textdlg.h>
+ #include <wx/generic/treectlg.h>
+ #include <nlohmann/json.hpp>
++#include <map>
++#include <stdexcept>
+ #include <libraries/library_manager.h>
+ #include <remote_symbol_import_utils.h>
+ 
+@@ -282,9 +288,11 @@
+     const wxString nickname = jsonString( aAssets, "libraryName" );
+     const wxString symbolPath = jsonString( aAssets, "symbolLibraryPath" );
+     const wxString footprintPath = jsonString( aAssets, "footprintLibraryPath" );
+-    const wxString id = nickname.Mid( 9 );
+-    if( !nickname.StartsWith( wxS( "AutoBOM_C" ) ) || id.IsEmpty()
+-        || id.find_first_not_of( wxS( "0123456789" ) ) != wxString::npos
++    const bool isDigiKey = nickname.StartsWith( wxS( "AutoBOM_DK_" ) );
++    const wxString id = nickname.Mid( isDigiKey ? 11 : 9 );
++    if( ( !isDigiKey && !nickname.StartsWith( wxS( "AutoBOM_C" ) ) ) || id.IsEmpty()
++        || ( isDigiKey && id.length() != 24 )
++        || id.find_first_not_of( isDigiKey ? wxS( "0123456789abcdef" ) : wxS( "0123456789" ) ) != wxString::npos
+         || wxFileName( symbolPath ).GetFullName() != nickname + wxS( ".kicad_sym" )
+         || !wxFileExists( symbolPath ) || !wxDirExists( footprintPath ) )
+     {
+@@ -324,12 +332,142 @@
+ }
+ 
+ 
++static bool placeAutoBomCircuit( SCH_EDIT_FRAME* aFrame, const nlohmann::json& aMessage,
++                                 wxString& aError )
++{
++    const auto& circuit = aMessage.at( "typicalApplication" );
++    if( circuit.value( "id", std::string() ) != "mcp1700-sot23"
++        || circuit.at( "parts" ).size() != 3 || circuit.at( "wires" ).size() > 30 )
++        throw std::runtime_error( "Unsupported application circuit" );
++
++    auto* manager = aFrame->GetToolManager();
++    if( !manager )
++        throw std::runtime_error( "Placement tool unavailable" );
++
++    std::vector<std::unique_ptr<SCH_ITEM>> items;
++    std::map<std::string, SCH_SYMBOL*> symbols;
++    const auto coordinate = []( const nlohmann::json& point )
++    {
++        const int x = point.at( "x" ).get<int>();
++        const int y = point.at( "y" ).get<int>();
++        if( std::abs( x ) > 10000 || std::abs( y ) > 10000 )
++            throw std::runtime_error( "Circuit coordinate out of range" );
++        return VECTOR2I( schIUScale.MilsToIU( x ), schIUScale.MilsToIU( y ) );
++    };
++
++    for( const auto& part : circuit.at( "parts" ) )
++    {
++        const wxString text = jsonString( part, "symbolId" );
++        if( text != wxS( "Device:C" ) && text != wxS( "Regulator_Linear:MCP1700x-300xxTT" ) )
++            throw std::runtime_error( "Unsupported circuit symbol" );
++        const int separator = text.Find( ':' );
++        const LIB_ID id( text.Left( separator ), text.Mid( separator + 1 ) );
++        const auto status = Pgm().GetLibraryManager().LoadLibraryEntry(
++                LIBRARY_TABLE_TYPE::SYMBOL, text.Left( separator ) );
++        if( !status || status->load_status != LOAD_STATUS::LOADED )
++            throw std::runtime_error( "Could not load application circuit library" );
++        LIB_SYMBOL* definition = aFrame->GetLibSymbol( id );
++        if( !definition )
++            throw std::runtime_error( "Application circuit symbol is missing" );
++        auto symbol = std::make_unique<SCH_SYMBOL>( *definition, id, &aFrame->GetCurrentSheet(), 1 );
++        symbol->SetParent( aFrame->GetScreen() );
++        symbol->SetPosition( coordinate( part ) );
++        symbol->SetValueFieldText( jsonString( part, "value" ) );
++        symbol->SetFootprintFieldText( jsonString( part, "footprintId" ) );
++        symbol->ClearAnnotation( nullptr, false );
++        if( part.value( "primary", false ) )
++        {
++            for( const char* field : { "Manufacturer", "Manufacturer Part Number", "Datasheet" } )
++            {
++                const char* key = std::string( field ) == "Manufacturer" ? "manufacturer"
++                                  : std::string( field ) == "Datasheet" ? "datasheetUrl" : "manufacturerPartNumber";
++                setAutoBomField( symbol.get(), wxString::FromUTF8( field ), jsonString( aMessage, key ) );
++            }
++            const bool lcsc = aMessage.value( "supplier", std::string() ) == "lcsc";
++            setAutoBomField( symbol.get(), lcsc ? wxS( "LCSC Part #" ) : wxS( "DigiKey Part Number" ),
++                            jsonString( aMessage, lcsc ? "lcscPartNumber" : "digiKeyPartNumber" ) );
++            setAutoBomField( symbol.get(), wxS( "Application Source" ), jsonString( circuit, "source" ) );
++            setAutoBomField( symbol.get(), wxS( "Application Notes" ), jsonString( circuit, "notes" ) );
++        }
++        const auto fields = part.value( "fields", nlohmann::json::object() );
++        for( const auto& [name, value] : fields.items() )
++            setAutoBomField( symbol.get(), wxString::FromUTF8( name.c_str() ), wxString::FromUTF8( value.get<std::string>().c_str() ) );
++        symbol->AutoplaceFields( nullptr, AUTOPLACE_AUTO );
++        symbols.emplace( part.at( "ref" ).get<std::string>(), symbol.get() );
++        items.push_back( std::move( symbol ) );
++    }
++
++    const auto endpoint = [&]( const nlohmann::json& point )
++    {
++        if( !point.contains( "ref" ) )
++            return coordinate( point );
++        auto* symbol = symbols.at( point.at( "ref" ).get<std::string>() );
++        auto* pin = symbol->GetPin( jsonString( point, "pin" ) );
++        if( !pin )
++            throw std::runtime_error( "Application circuit pin is missing" );
++        return symbol->GetPinPhysicalPosition( pin );
++    };
++    const auto wire = [&]( VECTOR2I a, VECTOR2I b )
++    {
++        if( a == b ) return;
++        auto line = std::make_unique<SCH_LINE>( a, LAYER_WIRE );
++        line->SetEndPoint( b );
++        items.push_back( std::move( line ) );
++    };
++    for( const auto& route : circuit.at( "wires" ) )
++    {
++        const auto a = endpoint( route.at( "a" ) );
++        const auto b = endpoint( route.at( "b" ) );
++        const VECTOR2I corner( a.x, b.y );
++        wire( a, corner );
++        wire( corner, b );
++    }
++    for( const auto& point : circuit.at( "junctions" ) )
++        items.push_back( std::make_unique<SCH_JUNCTION>( coordinate( point ) ) );
++    const wxString prefix = wxS( "APP_" ) + wxString::FromUTF8( KIID().AsString().c_str() ).Left( 8 ) + wxS( "_" );
++    for( const auto& label : circuit.at( "labels" ) )
++        items.push_back( std::make_unique<SCH_LABEL>( endpoint( label.at( "at" ) ), prefix + jsonString( label, "name" ) ) );
++
++    manager->RunAction( ACTIONS::selectionClear );
++    SCH_COMMIT commit( manager );
++    std::vector<SCH_ITEM*> placed;
++    for( auto& owned : items )
++    {
++        SCH_ITEM* item = owned.release();
++        item->SetParent( aFrame->GetScreen() );
++        item->SetFlags( IS_NEW );
++        aFrame->AddToScreen( item, aFrame->GetScreen() );
++        commit.Added( item, aFrame->GetScreen() );
++        manager->RunAction<EDA_ITEM*>( ACTIONS::selectItem, item );
++        placed.push_back( item );
++    }
++    const auto& cfg = aFrame->Schematic().Settings();
++    NULL_REPORTER reporter;
++    aFrame->AnnotateSymbols( &commit, ANNOTATE_SELECTION,
++                            static_cast<ANNOTATE_ORDER_T>( cfg.m_AnnotateSortOrder ),
++                            static_cast<ANNOTATE_ALGO_T>( cfg.m_AnnotateMethod ),
++                            true, cfg.m_AnnotateStartNum, false, false, false,
++                            reporter, SYMBOL_FILTER_NON_POWER );
++    for( SCH_ITEM* item : placed )
++        manager->RunAction<EDA_ITEM*>( ACTIONS::selectItem, item );
++    aFrame->Raise();
++    if( manager->RunSynchronousAction( SCH_ACTIONS::move, &commit ) )
++        commit.Push( _( "Place typical application circuit" ) );
++    else
++        commit.Revert();
++    return true;
++}
++
++
+ static bool placeAutoBomSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aPayload,
+                                 wxString& aError )
+ {
+     try
+     {
+         const nlohmann::json message = nlohmann::json::parse( jsonUtf8( aPayload ) );
++
++        if( jsonString( message, "command" ) == wxS( "placeCircuit" ) )
++            return placeAutoBomCircuit( aFrame, message, aError );
+ 
+         if( jsonString( message, "command" ) != wxS( "place" ) )
+         {
+@@ -464,6 +602,7 @@
+                                { "name", jsonUtf8( pin->GetName() ) } } );
+         symbols.push_back( {
+             { "pins", std::move( pins ) },
++            { "sourcingRequirements", jsonUtf8( autoBomFieldText( symbol, wxS( "Sourcing Requirements" ), &sheetPath, variant ) ) },
+             { "reference", jsonUtf8( reference.GetFullRef( false ) ) },
+             { "value", jsonUtf8( symbol->GetValue( true, &sheetPath, false, variant ) ) },
+             { "footprint", jsonUtf8( symbol->GetFootprintFieldText( true, &sheetPath, false,
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -298,6 +298,12 @@
+     m_supplierCtrl->SetSelection( 0 );
+     settingsSizer->Add( makeLabel( settingsPane, _( "Parts supplier" ), true ), 0, wxTOP | wxBOTTOM, FromDIP( 6 ) );
+     settingsSizer->Add( m_supplierCtrl, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
++    auto* snapMagicButton = new wxButton( settingsPane, wxID_ANY, _( "Connect SnapMagic for DigiKey CAD" ) );
++    snapMagicButton->Bind( wxEVT_BUTTON, []( wxCommandEvent& )
++    {
++        wxLaunchDefaultBrowser( wxS( "http://localhost:4173/snapmagic" ) );
++    } );
++    settingsSizer->Add( snapMagicButton, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
+     m_preferBasicCtrl = new wxCheckBox( settingsPane, wxID_ANY, _( "Prefer JLCPCB Basic parts" ) );
+     m_preferBasicCtrl->SetValue( true );
+     settingsSizer->Add( m_preferBasicCtrl, 0 );
+@@ -1031,6 +1037,35 @@
+                        } );
+     actionSizer->Add( placeButton, 1, wxEXPAND );
+ 
++    if( !m_bomSelection && candidate.contains( "typicalApplication" )
++        && candidate["typicalApplication"].is_object() )
++    {
++        const auto circuit = candidate["typicalApplication"];
++        auto* details = new wxCollapsiblePane( card, wxID_ANY, _( "Typical application circuit" ),
++                wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
++        auto* pane = details->GetPane();
++        auto* layout = new wxBoxSizer( wxVERTICAL );
++        layout->Add( makeLabel( pane, jsonText( circuit, "description" ) ), 0, wxEXPAND | wxBOTTOM, margin );
++        layout->Add( makeLabel( pane, jsonText( circuit, "notes" ) ), 0, wxEXPAND | wxBOTTOM, margin );
++        auto* source = new wxButton( pane, wxID_ANY, _( "View datasheet circuit" ) );
++        source->Bind( wxEVT_BUTTON, [circuit]( wxCommandEvent& ) { wxLaunchDefaultBrowser( jsonText( circuit, "source" ) ); } );
++        layout->Add( source, 0, wxBOTTOM, margin );
++        auto* placeCircuit = new wxButton( pane, wxID_ANY, _( "Place application circuit" ) );
++        placeCircuit->Bind( wxEVT_BUTTON, [this, candidate]( wxCommandEvent& )
++        {
++            auto payload = candidate;
++            payload["command"] = "placeCircuit";
++            wxString error;
++            if( m_placementCallback && !m_placementCallback( wxString::FromUTF8( payload.dump().c_str() ), error ) )
++                setStatus( error, true );
++        } );
++        layout->Add( placeCircuit, 0, wxEXPAND );
++        pane->SetSizer( layout );
++        details->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this]( wxCollapsiblePaneEvent& )
++        { m_resultsWindow->Layout(); m_resultsWindow->FitInside(); } );
++        cardSizer->Add( details, 0, wxEXPAND | wxALL, margin );
++    }
++
+     const wxString productUrl = jsonText( candidate, "productUrl" );
+ 
+     if( !productUrl.IsEmpty() )

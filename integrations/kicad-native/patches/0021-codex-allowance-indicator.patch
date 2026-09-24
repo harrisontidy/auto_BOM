@@ -1,0 +1,123 @@
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -53,6 +53,7 @@
+ {
+ const int ID_AUTO_BOM_SEARCH_RESULT = wxWindow::NewControlId();
+ const int ID_AUTO_BOM_MODELS = wxWindow::NewControlId();
++const int ID_AUTO_BOM_USAGE = wxWindow::NewControlId();
+ 
+ 
+ // Model content is text, never a source of embedded browser resources.
+@@ -351,7 +352,14 @@
+     m_searchButton->SetFont( actionFont );
+     updateSendButton();
+     composerSizer->Add( m_searchButton, 0, wxALIGN_BOTTOM | wxRIGHT | wxBOTTOM, FromDIP( 8 ) );
+-    composer->SetSizer( composerSizer );
++    auto* composerLayout = new wxBoxSizer( wxVERTICAL );
++    composerLayout->Add( composerSizer, 1, wxEXPAND );
++    m_usageLabel = new wxStaticText( composer, wxID_ANY, _( "Codex allowance..." ) );
++    wxFont usageFont = GetFont();
++    usageFont.SetPointSize( std::max( 8, usageFont.GetPointSize() - 1 ) );
++    m_usageLabel->SetFont( usageFont );
++    composerLayout->Add( m_usageLabel, 0, wxLEFT | wxRIGHT | wxBOTTOM, FromDIP( 8 ) );
++    composer->SetSizer( composerLayout );
+     mainSizer->Add( composer, 0, wxEXPAND | wxALL, margin );
+     SetSizer( mainSizer );
+ 
+@@ -360,7 +368,13 @@
+         updateSendButton();
+         m_historyJson = "[]"; renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
+     } );
+-    m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { loadModels(); } );
++    m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) {
++        loadModels();
++        const bool codex = m_providerCtrl->GetSelection() == 0;
++        m_usageLabel->Show( codex );
++        m_usageLabel->GetParent()->Layout(); Layout();
++        if( codex ) loadUsage();
++    } );
+     m_modelCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { updateEfforts(); } );
+     m_queryCtrl->Bind( wxEVT_CHAR_HOOK, [this]( wxKeyEvent& event ) {
+         if( event.GetKeyCode() == WXK_RETURN && !event.ShiftDown() ) {
+@@ -383,7 +397,21 @@
+         m_modelCtrl->SetSelection( 0 ); updateEfforts();
+         if( !m_busy ) setStatus( _( "Ready" ) );
+     }, ID_AUTO_BOM_MODELS );
++    Bind( wxEVT_THREAD, [this]( wxThreadEvent& event ) {
++        m_usageLoading = false;
++        const auto data = nlohmann::json::parse( toUtf8( event.GetString() ), nullptr, false );
++        if( !data.is_object() ) return;
++        m_usageLabel->SetLabel( data.contains( "remainingLabel" ) ? jsonText( data, "remainingLabel" )
++                                : _( "Codex allowance unavailable" ) );
++        const wxString tip = data.contains( "tooltip" ) ? jsonText( data, "tooltip" ) : jsonText( data, "error" );
++        m_usageLabel->SetToolTip( tip );
++        m_usageLabel->GetParent()->Layout(); Layout();
++    }, ID_AUTO_BOM_USAGE );
++    m_usageTimer.SetOwner( this );
++    Bind( wxEVT_TIMER, [this]( wxTimerEvent& ) { loadUsage(); }, m_usageTimer.GetId() );
++    m_usageTimer.Start( 60000 );
+     loadModels();
++    loadUsage();
+ 
+ }
+ 
+@@ -391,6 +419,8 @@
+ PANEL_AUTO_BOM_ASSISTANT::~PANEL_AUTO_BOM_ASSISTANT()
+ {
+     m_revealTimer.Stop();
++    m_usageTimer.Stop();
++    if( m_usageThread.joinable() ) { m_usageThread.request_stop(); m_usageThread.join(); }
+     ++m_searchGeneration;
+     if( m_modelThread.joinable() ) { m_modelThread.request_stop(); m_modelThread.join(); }
+ 
+@@ -500,6 +530,29 @@
+     }
+     m_effortCtrl->SetSelection( 0 );
+ }
++
++void PANEL_AUTO_BOM_ASSISTANT::loadUsage()
++{
++    if( m_usageLoading || m_providerCtrl->GetSelection() != 0 ) return;
++    m_usageLoading = true;
++    if( m_usageThread.joinable() ) m_usageThread.join();
++    m_usageThread = std::jthread( [this]( std::stop_token stop ) {
++        nlohmann::json data;
++        try {
++            KICAD_CURL_EASY request;
++            request.SetURL( "http://127.0.0.1:4173/api/ask/usage" );
++            request.SetConnectTimeout( 3 ); request.SetTimeout( 15 );
++            request.SetTransferCallback( [stop]( size_t,size_t,size_t,size_t ) { return stop.stop_requested() ? 1 : 0; }, 0 );
++            if( request.Perform() != 0 ) throw std::runtime_error( "Allowance unavailable; retrying automatically." );
++            data = nlohmann::json::parse( request.GetBuffer() );
++        } catch( const std::exception& error ) { data = { { "error", error.what() } }; }
++        if( stop.stop_requested() ) return;
++        auto* event = new wxThreadEvent( wxEVT_THREAD, ID_AUTO_BOM_USAGE );
++        event->SetString( fromUtf8( data.dump() ) );
++        wxQueueEvent( this, event );
++    } );
++}
++
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::loadModels()
+ {
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -81,6 +81,7 @@
+     void setBusy( bool aBusy );
+     void updateSendButton();
+     void setStatus( const wxString& aMessage, bool aError = false );
++    void loadUsage();
+     void loadModels();
+     void updateEfforts();
+     void renderConversation();
+@@ -101,6 +102,10 @@
+     std::atomic<uint64_t>     m_modelGeneration{ 0 };
+     bool                      m_busy = false;
+     wxTimer                   m_revealTimer;
++    wxTimer                   m_usageTimer;
++    wxStaticText*             m_usageLabel;
++    std::jthread              m_usageThread;
++    bool                      m_usageLoading = false;
+     wxString                  m_revealAnswer;
+     size_t                    m_revealChars = 0;
+     double                    m_wheelRemainder = 0;

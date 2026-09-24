@@ -76,6 +76,11 @@ export async function completeSchematicBom(symbols, environment = process.env, d
 }
 
 async function completePart(part, byReference, environment, services, demand) {
+  const sourcingRequirements = part.references.map(ref => byReference.get(ref)?.sourcingRequirements).filter(Boolean);
+  if (sourcingRequirements.length) {
+    part = {...part, requirements:[...(part.requirements || []), ...new Set(sourcingRequirements)]};
+    if (/capacitor/i.test(part.componentType) && sourcingRequirements.some(text => /ceramic/i.test(text))) part.capacitorTechnology='ceramic';
+  }
   const field = supplierField(part.supplier);
   const label = supplierLabel(part.supplier);
   const sourceSymbols = part.references.map((reference) => byReference.get(reference)).filter(Boolean);
@@ -291,7 +296,7 @@ export function validateSymbols(symbols) {
     const reference = String(symbol.reference || "").trim();
     if (!reference) throw new Error("Every schematic symbol needs a reference.");
     if (reference.length > 128) throw new Error("A schematic symbol reference is too long.");
-    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "lcscPartNumber", "datasheetUrl"]) {
+    for (const field of ["value", "footprint", "manufacturerPartNumber", "digiKeyPartNumber", "lcscPartNumber", "datasheetUrl", "sourcingRequirements"]) {
       if (symbol[field] != null && typeof symbol[field] !== "string") throw new Error(`${field} must be text for ${reference}.`);
     }
     if(symbol.pins!==undefined && (!Array.isArray(symbol.pins)||symbol.pins.length>5000

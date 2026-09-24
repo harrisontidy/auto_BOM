@@ -1,0 +1,495 @@
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.cpp b/eeschema/widgets/panel_auto_bom_assistant.cpp
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -29,6 +29,8 @@
+ #include <wx/activityindicator.h>
+ #include <wx/button.h>
+ #include <wx/choice.h>
++#include <wx/collpane.h>
++#include <wx/html/htmlwin.h>
+ #include <wx/checkbox.h>
+ #include <wx/intl.h>
+ #include <wx/numformatter.h>
+@@ -48,6 +50,7 @@
+ namespace
+ {
+ const int ID_AUTO_BOM_SEARCH_RESULT = wxWindow::NewControlId();
++const int ID_AUTO_BOM_MODELS = wxWindow::NewControlId();
+ 
+ 
+ std::string toUtf8( const wxString& aText )
+@@ -174,105 +177,135 @@ PANEL_AUTO_BOM_ASSISTANT::PANEL_AUTO_BOM_ASSISTANT(
+         m_resultsSizer( nullptr ),
+         m_searchGeneration( 0 )
+ {
+-    SetName( wxS( "Component Finder" ) );
++    SetName( wxS( "Design Assistant" ) );
+     SetFont( KIUI::GetDockedPaneFont( this ) );
+     SetMinSize( FromDIP( wxSize( 340, 300 ) ) );
+ 
+     const int margin = FromDIP( 12 );
+     wxBoxSizer* mainSizer = new wxBoxSizer( wxVERTICAL );
+ 
+-    wxStaticText* title = makeLabel( this, _( "Component Finder" ), true );
+-    wxFont titleFont = title->GetFont();
+-    titleFont.SetPointSize( titleFont.GetPointSize() + 2 );
+-    title->SetFont( titleFont );
+-    mainSizer->Add( title, 0, wxLEFT | wxRIGHT | wxTOP, margin );
+ 
+-    wxStaticText* introduction = makeLabel(
+-            this, _( "Describe the component you need. AI interprets the request, then your selected supplier "
+-                     "finds in-stock parts you can place directly." ) );
+-    introduction->Wrap( FromDIP( 300 ) );
+-    mainSizer->Add( introduction, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
++    wxBoxSizer* header = new wxBoxSizer( wxHORIZONTAL );
++    header->Add( makeLabel( this, _( "Design Assistant" ), true ), 1, wxALIGN_CENTER_VERTICAL );
++    m_newChatButton = new wxButton( this, wxID_ANY, _( "+ New chat" ) );
++    header->Add( m_newChatButton, 0 );
++    mainSizer->Add( header, 0, wxEXPAND | wxALL, margin );
+ 
+     m_modeCtrl = new wxChoice( this, wxID_ANY );
+-    m_modeCtrl->Append( _( "Search" ) );
+-    m_modeCtrl->Append( _( "Ask - discuss requirements" ) );
+-    m_modeCtrl->SetSelection( 0 );
+-    mainSizer->Add( m_modeCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_providerCtrl = new wxChoice( this, wxID_ANY );
+-    m_providerCtrl->Append( _( "Codex account (uses Codex allowance)" ) );
+-    m_providerCtrl->Append( _( "OpenAI API (separate API billing)" ) );
++    m_modeCtrl->Append( _( "Find parts" ) );
++    m_modeCtrl->Append( _( "Chat" ) );
++    m_modeCtrl->SetSelection( 1 );
++    m_modeCtrl->SetToolTip( _( "Chat keeps your conversation. Find parts runs a standalone supplier search." ) );
++    mainSizer->Add( m_modeCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
++
++    m_chatCtrl = new wxHtmlWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO | wxBORDER_NONE );
++    m_chatCtrl->SetMinSize( FromDIP( wxSize( 0, 100 ) ) );
++    mainSizer->Add( m_chatCtrl, 2, wxEXPAND | wxLEFT | wxRIGHT, margin );
++    renderConversation();
++    m_resultHeading = makeLabel( this, _( "Parts to review" ), true );
++    m_resultHeading->Hide();
++    mainSizer->Add( m_resultHeading, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
++    m_resultsWindow = new wxScrolledWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxBORDER_NONE );
++    m_resultsWindow->SetMinSize( FromDIP( wxSize( 0, 80 ) ) );
++    m_resultsWindow->SetScrollRate( 0, FromDIP( 10 ) );
++    m_resultsSizer = new wxBoxSizer( wxVERTICAL );
++    m_resultsWindow->SetSizer( m_resultsSizer );
++    m_resultsWindow->Hide();
++    mainSizer->Add( m_resultsWindow, 2, wxEXPAND );
++
++    auto* settings = new wxCollapsiblePane( this, wxID_ANY, _( "Connection & sourcing" ), wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE );
++    wxWindow* settingsPane = settings->GetPane();
++    auto* settingsSizer = new wxBoxSizer( wxVERTICAL );
++    m_providerCtrl = new wxChoice( settingsPane, wxID_ANY );
++    m_providerCtrl->Append( _( "Codex account - Codex allowance" ) );
++    m_providerCtrl->Append( _( "OpenAI API - separate API billing" ) );
+     m_providerCtrl->SetSelection( 0 );
+-    m_providerCtrl->Hide();
+-    mainSizer->Add( m_providerCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_chatCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+-        FromDIP( wxSize( -1, 150 ) ), wxTE_MULTILINE | wxTE_READONLY );
+-    m_chatCtrl->Hide();
+-    mainSizer->Add( m_chatCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_newChatButton = new wxButton( this, wxID_ANY, _( "New conversation" ) );
+-    m_newChatButton->Hide();
+-    mainSizer->Add( m_newChatButton, 0, wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_newChatButton->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) {
+-        m_historyJson = "[]"; m_chatCtrl->Clear(); m_queryCtrl->Clear(); clearResults();
+-    } );
+-    m_modeCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) {
+-        const bool ask = m_modeCtrl->GetSelection() == 1;
+-        m_providerCtrl->Show( ask ); m_chatCtrl->Show( ask ); m_newChatButton->Show( ask );
+-        m_searchButton->SetLabel( ask ? _( "Send" ) : _( "Find Parts" ) );
+-        clearResults(); Layout();
+-    } );
+-
+-    m_supplierCtrl = new wxChoice( this, wxID_ANY );
++    settingsSizer->Add( m_providerCtrl, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
++    m_supplierCtrl = new wxChoice( settingsPane, wxID_ANY );
+     m_supplierCtrl->Append( _( "JLCPCB / LCSC" ) );
+     m_supplierCtrl->Append( _( "DigiKey" ) );
+     m_supplierCtrl->SetSelection( 0 );
+-    mainSizer->Add( m_supplierCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_supplierCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { clearResults(); } );
+-    m_preferBasicCtrl = new wxCheckBox( this, wxID_ANY, _( "Prefer JLCPCB Basic parts" ) );
++    settingsSizer->Add( m_supplierCtrl, 0, wxEXPAND | wxBOTTOM, FromDIP( 6 ) );
++    m_preferBasicCtrl = new wxCheckBox( settingsPane, wxID_ANY, _( "Prefer JLCPCB Basic parts" ) );
+     m_preferBasicCtrl->SetValue( true );
+-    mainSizer->Add( m_preferBasicCtrl, 0, wxLEFT | wxRIGHT | wxTOP, margin );
+-    m_preferBasicCtrl->Bind( wxEVT_CHECKBOX, [this]( wxCommandEvent& ) { clearResults(); } );
++    settingsSizer->Add( m_preferBasicCtrl, 0 );
++    settingsPane->SetSizer( settingsSizer );
++    mainSizer->Add( settings, 0, wxEXPAND | wxALL, margin );
++    settings->Bind( wxEVT_COLLAPSIBLEPANE_CHANGED, [this]( wxCollapsiblePaneEvent& ) { Layout(); } );
+ 
+     m_queryCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+-                                  wxDefaultSize, wxTE_PROCESS_ENTER );
+-    m_queryCtrl->SetHint( _( "Example: efficient 5 V 3 A buck regulator" ) );
+-    mainSizer->Add( m_queryCtrl, 0, wxEXPAND | wxALL, margin );
+-
+-    m_searchButton = new wxButton( this, wxID_ANY, _( "Find Parts" ) );
+-    mainSizer->Add( m_searchButton, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
+-
+-    wxBoxSizer* statusSizer = new wxBoxSizer( wxHORIZONTAL );
+-    m_activity = new wxActivityIndicator( this );
+-    m_activity->Hide();
+-    statusSizer->Add( m_activity, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP( 8 ) );
+-    m_statusLabel = makeLabel( this, _( "Ready." ) );
+-    m_statusLabel->Wrap( FromDIP( 290 ) );
+-    statusSizer->Add( m_statusLabel, 1, wxALIGN_CENTER_VERTICAL );
+-    mainSizer->Add( statusSizer, 0, wxEXPAND | wxALL, margin );
+-    mainSizer->Add( new wxStaticLine( this ), 0, wxEXPAND );
+-
+-    m_resultHeading = makeLabel( this, _( "Suggestions" ), true );
+-    m_resultHeading->Hide();
+-    mainSizer->Add( m_resultHeading, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, margin );
+-
+-    m_resultsWindow = new wxScrolledWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+-                                            wxVSCROLL | wxBORDER_NONE );
+-    m_resultsWindow->SetScrollRate( 0, FromDIP( 10 ) );
+-    m_resultsSizer = new wxBoxSizer( wxVERTICAL );
+-    m_resultsWindow->SetSizer( m_resultsSizer );
+-    mainSizer->Add( m_resultsWindow, 1, wxEXPAND );
+-
++        FromDIP( wxSize( -1, 80 ) ), wxTE_MULTILINE );
++    m_queryCtrl->SetHint( _( "Ask about your circuit or describe a part..." ) );
++    m_queryCtrl->SetToolTip( _( "Enter to send. Shift+Enter for a new line." ) );
++    mainSizer->Add( m_queryCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT, margin );
++    auto* controls = new wxBoxSizer( wxHORIZONTAL );
++    m_modelCtrl = new wxChoice( this, wxID_ANY );
++    m_modelCtrl->Append( _( "Latest available" ) ); m_modelCtrl->SetSelection( 0 );
++    m_modelIds = { "latest" };
++    m_modelCtrl->SetMinSize( wxSize( 0, -1 ) );
++    m_modelCtrl->SetToolTip( _( "Model. Latest follows the newest available GPT generation for this connection." ) );
++    controls->Add( m_modelCtrl, 2, wxRIGHT, FromDIP( 6 ) );
++    m_effortCtrl = new wxChoice( this, wxID_ANY );
++    m_effortCtrl->Append( _( "Auto reasoning" ) ); m_effortCtrl->SetSelection( 0 );
++    m_effortIds = { "auto" };
++    m_effortCtrl->SetMinSize( wxSize( 0, -1 ) );
++    m_effortCtrl->SetToolTip( _( "Reasoning depth. Higher levels can take longer and use more allowance." ) );
++    controls->Add( m_effortCtrl, 1, wxRIGHT, FromDIP( 6 ) );
++    m_searchButton = new wxButton( this, wxID_ANY, _( "Send" ), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT );
++    controls->Add( m_searchButton, 0 );
++    mainSizer->Add( controls, 0, wxEXPAND | wxALL, margin );
++
++    auto* statusSizer = new wxBoxSizer( wxHORIZONTAL );
++    m_activity = new wxActivityIndicator( this ); m_activity->Hide();
++    statusSizer->Add( m_activity, 0, wxRIGHT, FromDIP( 6 ) );
++    m_statusLabel = makeLabel( this, _( "Enter to send | Shift+Enter for a new line" ) );
++    m_statusLabel->Wrap( FromDIP( 300 ) );
++    statusSizer->Add( m_statusLabel, 1 );
++    mainSizer->Add( statusSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, margin );
+     SetSizer( mainSizer );
+ 
+-    m_queryCtrl->Bind( wxEVT_TEXT_ENTER, &PANEL_AUTO_BOM_ASSISTANT::onSearch, this );
++    m_newChatButton->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) {
++        m_historyJson = "[]"; renderConversation(); m_queryCtrl->Clear(); clearResults(); FocusSearch();
++    } );
++    m_modeCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) {
++        const bool chat = m_modeCtrl->GetSelection() == 1;
++        m_chatCtrl->Show( chat ); m_modelCtrl->Show( chat ); m_effortCtrl->Show( chat );
++        m_providerCtrl->Enable( chat );
++        m_searchButton->SetLabel( chat ? _( "Send" ) : _( "Find parts" ) );
++        clearResults(); Layout();
++    } );
++    m_providerCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { loadModels(); } );
++    m_modelCtrl->Bind( wxEVT_CHOICE, [this]( wxCommandEvent& ) { updateEfforts(); } );
++    m_queryCtrl->Bind( wxEVT_CHAR_HOOK, [this]( wxKeyEvent& event ) {
++        if( event.GetKeyCode() == WXK_RETURN && !event.ShiftDown() ) {
++            if( !m_busy ) beginSearch( m_queryCtrl->GetValue() );
++        } else event.Skip();
++    } );
+     m_searchButton->Bind( wxEVT_BUTTON, &PANEL_AUTO_BOM_ASSISTANT::onSearch, this );
+-    Bind( wxEVT_THREAD, &PANEL_AUTO_BOM_ASSISTANT::onSearchComplete, this,
+-          ID_AUTO_BOM_SEARCH_RESULT );
++    Bind( wxEVT_THREAD, &PANEL_AUTO_BOM_ASSISTANT::onSearchComplete, this, ID_AUTO_BOM_SEARCH_RESULT );
++    Bind( wxEVT_THREAD, [this]( wxThreadEvent& event ) {
++        const auto result = nlohmann::json::parse( toUtf8( event.GetString() ), nullptr, false );
++        if( !result.is_object() || result.value( "generation", uint64_t( 0 ) ) != m_modelGeneration.load() ) return;
++        const auto data = result.value( "data", nlohmann::json::object() );
++        if( !data.contains( "models" ) ) { setStatus( jsonText( data, "error" ), true ); return; }
++        m_modelsJson = data.dump(); m_modelCtrl->Clear(); m_modelIds = { "latest" };
++        m_modelCtrl->Append( _( "Latest: " ) + jsonText( data, "latest" ) );
++        for( const auto& model : data["models"] ) {
++            m_modelIds.push_back( model.value( "id", std::string() ) );
++            m_modelCtrl->Append( jsonText( model, "name" ) );
++        }
++        m_modelCtrl->SetSelection( 0 ); updateEfforts();
++        if( !m_busy ) setStatus( _( "Enter to send | Shift+Enter for a new line" ) );
++    }, ID_AUTO_BOM_MODELS );
++    loadModels();
++
+ }
+ 
+ 
+ PANEL_AUTO_BOM_ASSISTANT::~PANEL_AUTO_BOM_ASSISTANT()
+ {
+     ++m_searchGeneration;
++    if( m_modelThread.joinable() ) { m_modelThread.request_stop(); m_modelThread.join(); }
+ 
+     if( m_searchThread.joinable() )
+     {
+@@ -290,9 +323,87 @@ void PANEL_AUTO_BOM_ASSISTANT::FocusSearch()
+     m_queryCtrl->SelectAll();
+ }
+ 
++void PANEL_AUTO_BOM_ASSISTANT::renderConversation()
++{
++    auto escape = []( wxString text ) {
++        text.Replace( wxS( "&" ), wxS( "&amp;" ) ); text.Replace( wxS( "<" ), wxS( "&lt;" ) );
++        text.Replace( wxS( ">" ), wxS( "&gt;" ) ); text.Replace( wxS( "\n" ), wxS( "<br>" ) );
++        return text;
++    };
++    const auto history = nlohmann::json::parse( m_historyJson );
++    const wxString background = GetBackgroundColour().GetAsString( wxC2S_HTML_SYNTAX );
++    const wxString foreground = GetForegroundColour().GetAsString( wxC2S_HTML_SYNTAX );
++    wxString html = wxS( "<html><body bgcolor='" ) + background + wxS( "' text='" ) + foreground + wxS( "'>" );
++    if( history.empty() )
++        html += _( "<h3>What are you designing?</h3><p>Describe a part, compare options, or work through a circuit question.</p><p>Try: <i>Find an easy-to-solder MCU with Wi-Fi and Bluetooth.</i></p><p>Parts appear here when a search is useful. Review a result, then place it in your schematic.</p>" );
++    for( const auto& message : history )
++    {
++        wxString content = jsonText( message, "content" );
++        const int context = content.Find( wxS( "\nSearch context:" ) );
++        if( context != wxNOT_FOUND ) content = content.Left( context );
++        html += wxS( "<p><b>" ) + ( message.value( "role", std::string() ) == "user" ? _( "You" ) : _( "Assistant" ) )
++             + wxS( "</b><br>" ) + escape( content ) + wxS( "</p><hr>" );
++    }
++    if( m_busy && !m_pendingQuestion.empty() )
++        html += wxS( "<p><b>" ) + _( "You" ) + wxS( "</b><br>" ) + escape( fromUtf8( m_pendingQuestion ) )
++             + wxS( "</p><p><i>" ) + _( "Working on your request..." ) + wxS( "</i></p>" );
++    html += wxS( "</body></html>" );
++    m_chatCtrl->SetPage( html );
++    m_chatCtrl->Scroll( 0, m_chatCtrl->GetScrollRange( wxVERTICAL ) );
++}
++
++void PANEL_AUTO_BOM_ASSISTANT::updateEfforts()
++{
++    m_effortCtrl->Clear(); m_effortCtrl->Append( _( "Auto reasoning" ) ); m_effortIds = { "auto" };
++    const auto data = nlohmann::json::parse( m_modelsJson, nullptr, false );
++    if( data.is_object() && data.contains( "models" ) )
++    {
++        std::string id = m_modelIds.at( m_modelCtrl->GetSelection() );
++        if( id == "latest" ) id = data.value( "latest", std::string() );
++        for( const auto& model : data["models"] ) if( model.value( "id", std::string() ) == id )
++        {
++            m_effortCtrl->SetString( 0, _( "Auto: " ) + jsonText( model, "defaultEffort" ) );
++            for( const auto& level : model["efforts"] ) {
++                const auto value = level.get<std::string>(); m_effortIds.push_back( value );
++                const wxString label = value == "low" ? _( "Low - faster" ) : value == "medium" ? _( "Medium" )
++                    : value == "high" ? _( "High" ) : value == "xhigh" ? _( "Extra high" )
++                    : value == "max" ? _( "Maximum" ) : fromUtf8( value );
++                m_effortCtrl->Append( label );
++            }
++        }
++    }
++    m_effortCtrl->SetSelection( 0 );
++}
++
++void PANEL_AUTO_BOM_ASSISTANT::loadModels()
++{
++    if( m_modelThread.joinable() ) { m_modelThread.request_stop(); m_modelThread.join(); }
++    const auto generation = ++m_modelGeneration;
++    const std::string provider = m_providerCtrl->GetSelection() == 0 ? "codex" : "api";
++    m_modelsJson.clear(); m_modelCtrl->Clear(); m_modelCtrl->Append( _( "Latest available" ) );
++    m_modelCtrl->SetSelection( 0 ); m_modelIds = { "latest" }; updateEfforts();
++    m_modelThread = std::jthread( [this,generation,provider]( std::stop_token stop ) {
++        nlohmann::json data;
++        try {
++            KICAD_CURL_EASY request;
++            request.SetURL( "http://127.0.0.1:4173/api/ask/models?provider=" + provider );
++            request.SetConnectTimeout( 3 ); request.SetTimeout( 20 );
++            request.SetTransferCallback( [stop]( size_t,size_t,size_t,size_t ) { return stop.stop_requested() ? 1 : 0; }, 0 );
++            if( request.Perform() != 0 ) throw std::runtime_error( "Model list unavailable. Check the local service." );
++            data = nlohmann::json::parse( request.GetBuffer() );
++        } catch( const std::exception& error ) { data = { { "error", error.what() } }; }
++        if( stop.stop_requested() ) return;
++        auto* event = new wxThreadEvent( wxEVT_THREAD, ID_AUTO_BOM_MODELS );
++        event->SetString( fromUtf8( nlohmann::json( { { "generation", generation }, { "data", data } } ).dump() ) );
++        wxQueueEvent( this, event );
++    } );
++}
++
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::StartSearch( const wxString& aQuery )
+ {
++    m_modeCtrl->SetSelection( 0 ); m_chatCtrl->Hide(); m_modelCtrl->Hide(); m_effortCtrl->Hide();
++    m_pendingQuestion.clear();
+     m_queryCtrl->SetValue( aQuery );
+     beginSearch( aQuery );
+ }
+@@ -300,6 +411,7 @@ void PANEL_AUTO_BOM_ASSISTANT::StartSearch( const wxString& aQuery )
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::onSearch( wxCommandEvent& aEvent )
+ {
++    if( m_busy ) { ++m_searchGeneration; m_searchThread.request_stop(); setBusy( false ); setStatus( _( "Stopped. Your message is preserved." ) ); return; }
+     beginSearch( m_queryCtrl->GetValue() );
+ }
+ 
+@@ -333,10 +445,13 @@ void PANEL_AUTO_BOM_ASSISTANT::beginSearch( const wxString& aQuery )
+     if( m_bomSelection ) request["bomContext"] = nlohmann::json::parse( m_bomContext );
+     if( m_modeCtrl->GetSelection() == 1 )
+     {
++        request["model"] = m_modelIds.at( m_modelCtrl->GetSelection() );
++        request["effort"] = m_effortIds.at( m_effortCtrl->GetSelection() );
+         request["mode"] = "ask";
+         request["provider"] = m_providerCtrl->GetSelection() == 0 ? "codex" : "api";
+         request["history"] = nlohmann::json::parse( m_historyJson );
+         m_pendingQuestion = toUtf8( query );
++        renderConversation();
+     }
+     const uint64_t generation = ++m_searchGeneration;
+     m_searchThread = std::jthread(
+@@ -510,8 +625,8 @@ void PANEL_AUTO_BOM_ASSISTANT::onSearchComplete( wxThreadEvent& aEvent )
+         history.push_back( { { "role", "assistant" }, { "content", answer + "\nSearch context: "
+             + assistant.value( "context", assistant.value( "query", std::string() ) ) } } );
+         m_historyJson = history.dump();
+-        m_chatCtrl->AppendText( wxS( "You: " ) + fromUtf8( m_pendingQuestion )
+-            + wxS( "\nAssistant: " ) + fromUtf8( answer ) + wxS( "\n\n" ) );
++        m_pendingQuestion.clear();
++        renderConversation();
+         m_queryCtrl->Clear();
+     }
+     m_resultsWindow->Scroll( scrollX, scrollY );
+@@ -525,6 +640,7 @@ void PANEL_AUTO_BOM_ASSISTANT::clearResults()
+     m_componentJson.clear();
+     m_candidateJson.clear();
+     m_resultsSizer->Clear( true );
++    m_resultsWindow->Hide();
+     m_resultHeading->Hide();
+     m_resultsWindow->FitInside();
+     Layout();
+@@ -548,6 +664,7 @@ void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody
+     if( !candidates.is_array() )
+         candidates = nlohmann::json::array();
+ 
++    m_resultsWindow->Show( !response.value( "conversationOnly", false ) );
+     m_componentJson = component.dump();
+     const wxString selectedDigiKey = jsonText( review, "selectedSupplierPartNumber" );
+     const wxString selectedManufacturer = jsonText( review, "selectedManufacturerPartNumber" );
+@@ -578,7 +695,7 @@ void PANEL_AUTO_BOM_ASSISTANT::renderResponse( const std::string& aResponseBody
+     m_resultHeading->Wrap( FromDIP( 300 ) );
+     m_resultHeading->Show();
+ 
+-    if( response.contains( "assistant" ) )
++    if( response.contains( "assistant" ) && response.value( "pending", false ) )
+     {
+         wxStaticText* answer = makeLabel( m_resultsWindow, jsonText( response["assistant"], "answer" ) );
+         answer->Wrap( FromDIP( 280 ) );
+@@ -848,20 +965,24 @@ void PANEL_AUTO_BOM_ASSISTANT::ConfigureBomSelection( const wxString& aContext,
+ 
+ void PANEL_AUTO_BOM_ASSISTANT::setBusy( bool aBusy )
+ {
++    m_busy = aBusy;
++    if( !aBusy && m_chatCtrl ) renderConversation();
++    m_modelCtrl->Enable( !aBusy );
++    m_effortCtrl->Enable( !aBusy );
+     m_modeCtrl->Enable( !aBusy );
+-    m_providerCtrl->Enable( !aBusy );
++    m_providerCtrl->Enable( !aBusy && m_modeCtrl->GetSelection() == 1 );
+     m_newChatButton->Enable( !aBusy );
+     m_supplierCtrl->Enable( !aBusy );
+     m_preferBasicCtrl->Enable( !aBusy );
+     m_queryCtrl->Enable( true );
+     m_searchButton->Enable( true );
+-    if( m_modeCtrl->GetSelection() == 1 ) m_searchButton->Enable( !aBusy );
++    if( m_modeCtrl->GetSelection() == 1 ) m_queryCtrl->Enable( !aBusy );
+ 
+     if( aBusy )
+     {
+         m_activity->Show();
+         m_activity->Start();
+-        m_searchButton->SetLabel( _( "Search again" ) );
++        m_searchButton->SetLabel( _( "Stop" ) );
+     }
+     else
+     {
+diff --git a/eeschema/widgets/panel_auto_bom_assistant.h b/eeschema/widgets/panel_auto_bom_assistant.h
+--- a/eeschema/widgets/panel_auto_bom_assistant.h
++++ b/eeschema/widgets/panel_auto_bom_assistant.h
+@@ -40,6 +40,7 @@ class wxScrolledWindow;
+ class wxStaticText;
+ class wxTextCtrl;
+ class wxThreadEvent;
++class wxHtmlWindow;
+ 
+ 
+ /**
+@@ -79,13 +80,24 @@ private:
+     void placeCandidate( size_t aCandidateIndex );
+     void setBusy( bool aBusy );
+     void setStatus( const wxString& aMessage, bool aError = false );
++    void loadModels();
++    void updateEfforts();
++    void renderConversation();
+ 
+ private:
+     PLACEMENT_CALLBACK        m_placementCallback;
+     wxChoice*                 m_supplierCtrl;
+     wxChoice*                 m_modeCtrl;
+     wxChoice*                 m_providerCtrl;
+-    wxTextCtrl*               m_chatCtrl;
++    wxHtmlWindow*             m_chatCtrl;
++    wxChoice*                 m_modelCtrl;
++    wxChoice*                 m_effortCtrl;
++    std::vector<std::string>  m_modelIds;
++    std::vector<std::string>  m_effortIds;
++    std::string               m_modelsJson;
++    std::jthread              m_modelThread;
++    std::atomic<uint64_t>     m_modelGeneration{ 0 };
++    bool                      m_busy = false;
+     wxButton*                 m_newChatButton;
+     std::string               m_historyJson = "[]";
+     std::string               m_pendingQuestion;
+diff --git a/eeschema/sch_edit_frame.cpp b/eeschema/sch_edit_frame.cpp
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -724,7 +724,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+ 
+     m_auimgr.AddPane( m_autoBomPanel, EDA_PANE()
+                       .Name( AutoBomPaneName() )
+-                      .Caption( _( "Component Finder" ) )
++                      .Caption( _( "Design Assistant" ) )
+                       .Right().Layer( 3 ).Position( 1 )
+                       .TopDockable( false )
+                       .BottomDockable( false )
+@@ -761,7 +761,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
+     RestoreAuiLayout();
+     // Older Auto BOM builds stored the previous pane caption in the saved AUI layout.
+     // Keep the current native panel name after restoring that layout.
+-    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Component Finder" ) );
++    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Design Assistant" ) );
+     FinishAUIInitialization();
+ 
+     wxAuiPaneInfo& hierarchy_pane = m_auimgr.GetPane( SchematicHierarchyPaneName() );
+@@ -2545,7 +2545,7 @@ void SCH_EDIT_FRAME::ShowChangedLanguage()
+     m_auimgr.GetPane( m_propertiesPanel ).Caption( _( "Properties" ) );
+     m_auimgr.GetPane( m_designBlocksPane ).Caption( _( "Design Blocks" ) );
+     m_auimgr.GetPane( RemoteSymbolPaneName() ).Caption( _( "Remote Symbols" ) );
+-    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Component Finder" ) );
++    m_auimgr.GetPane( AutoBomPaneName() ).Caption( _( "Design Assistant" ) );
+     m_auimgr.Update();
+     m_hierarchy->UpdateHierarchyTree();
+ 
+diff --git a/eeschema/menubar.cpp b/eeschema/menubar.cpp
+--- a/eeschema/menubar.cpp
++++ b/eeschema/menubar.cpp
+@@ -186,7 +186,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
+ 
+     showHidePanels->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+     wxMenuItem* remoteSymbolItem = showHidePanels->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
+-    showHidePanels->Add( SCH_ACTIONS::showAutoBomPanel, ACTION_MENU::CHECK, _( "Component Finder" ) );
++    showHidePanels->Add( SCH_ACTIONS::showAutoBomPanel, ACTION_MENU::CHECK, _( "Design Assistant" ) );
+ 
+     if( m_remoteSymbolPane && !m_remoteSymbolPane->HasDataSources() )
+     {
+diff --git a/eeschema/tools/sch_actions.cpp b/eeschema/tools/sch_actions.cpp
+--- a/eeschema/tools/sch_actions.cpp
++++ b/eeschema/tools/sch_actions.cpp
+@@ -135,7 +135,7 @@ TOOL_ACTION SCH_ACTIONS::showAutoBomPanel( TOOL_ACTION_ARGS()
+         .Name( "eeschema.AutoBom.showPanel" )
+         .Scope( AS_GLOBAL )
+         .DefaultHotkey( MD_CTRL + MD_ALT + 'A' )
+-        .FriendlyName( _( "Component Finder" ) )
++        .FriendlyName( _( "Design Assistant" ) )
+         .Tooltip( _( "Show/hide the Auto BOM component finder" ) )
+         .ToolbarState( TOOLBAR_STATE::TOGGLE )
+         .Icon( BITMAPS::post_bom ) );

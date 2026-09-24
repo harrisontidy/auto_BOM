@@ -1,6 +1,8 @@
+import { documentedAxialAssets } from './documented-passive-cad.js';
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { importEasyEda, parseSexpr } from "./easyeda.js";
+import { importDigiKeyCad } from './digikey-cad.js';
 import { assessSchematicPins } from './specification-checks.js';
 import { planPinRemap, remapExternalFootprint } from './footprint-remap.js';
 
@@ -20,7 +22,7 @@ export async function resolveKiCadAssets(component, candidate, environment = pro
 async function resolveAssets(component, candidate, environment = process.env) {
   let importError = "";
   const componentType = String(component.componentType || "").toLowerCase();
-  const packageText = [component.package, component.footprint, candidate?.parameters?.["Package / Case"], candidate?.description].filter(Boolean).join(" ");
+  const packageText = [component.package, component.footprint, candidate?.parameters?.["Package / Case"], candidate?.parameters?.["Supplier Device Package"], candidate?.description].filter(Boolean).join(" ");
   const manufacturerPartNumber = candidate?.manufacturerPartNumber || "";
   const symbolDirectory = environment.KICAD10_SYMBOL_DIR
     || (environment.LOCALAPPDATA ? join(environment.LOCALAPPDATA, "Programs", "KiCad", "10.0", "share", "kicad", "symbols") : "");
@@ -30,9 +32,9 @@ async function resolveAssets(component, candidate, environment = process.env) {
   const standardPassive = /^(resistor|capacitor|inductor)$/.test(componentType)
     && /(?:^|[^0-9])(0201|0402|0603|0805|1206|1210)(?:[^0-9]|$)/.test(packageText)
     && !/array|network|variable|trimmer|polar|electrolytic/i.test(packageText);
-  const exactSymbol = standardPassive ? null : await findExactSymbol(manufacturerPartNumber, symbolDirectory);
+  const exactSymbol = standardPassive ? null : await findExactSymbol(manufacturerPartNumber, symbolDirectory, packageText);
   const symbolId = exactSymbol?.symbolId || genericSymbol(componentType, packageText, component.pinCount);
-  const footprintId = exactSymbol?.footprintId || footprintFor(componentType, packageText, component.pinCount);
+  const footprintId = exactSymbol?.footprintId || dimensionFootprint(componentType,candidate) || footprintFor(componentType, packageText, component.pinCount);
   const modelExpected = await footprintHasModel(footprintId, footprintDirectory);
   const localAssets = {
     symbolId,
@@ -41,11 +43,17 @@ async function resolveAssets(component, candidate, environment = process.env) {
     symbolSource: exactSymbol ? "Exact KiCad library match" : symbolId ? "KiCad generic symbol" : "No safe symbol match",
     footprintSource: exactSymbol?.footprintId ? "Footprint from KiCad symbol library" : footprintId ? "Matched KiCad footprint" : "No safe footprint match",
     modelExpected,
-    placeable: Boolean(symbolId && footprintId),
+    placeable: Boolean(symbolId && footprintId && (!dimensionFootprint(componentType,candidate) || await installedFootprint(footprintId,footprintDirectory))),
     importError,
-    ...(component.bomContext?.length ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
+    ...((component.bomContext?.length || component.applicationCircuit) ? {pinMap:standardPassive?{'1':'~','2':'~'}:await installedPinMap(symbolId,symbolDirectory)} : {}),
   };
   if (localAssets.placeable) return localAssets;
+  if (candidate?.supplier === 'digikey') {
+    const documented=await documentedAxialAssets(candidate,symbolDirectory,environment);
+    if(documented)return documented;
+    try { return await importDigiKeyCad(candidate, environment); }
+    catch (error) { localAssets.importError = `DigiKey CAD: ${error.message}`; }
+  }
   if (candidate?.supplier === "lcsc" && candidate.lcscPartNumber && environment.EASYEDA_DOWNLOADS !== "false") {
     try { return await importEasyEda(candidate, environment); }
     catch (error) { localAssets.importError = `EasyEDA import unavailable: ${error.message}`; }
@@ -73,6 +81,11 @@ async function installedPinMap(symbolId,directory) {
     return {...(parent?resolve(parent):{}),...Object.fromEntries(collect(node).map(pin=>[children(pin,'number')[0]?.[1],children(pin,'name')[0]?.[1]||'']).filter(([number])=>number))};
   }
   const pins=resolve(name);return Object.keys(pins).length?pins:null;
+}
+
+async function installedFootprint(id,directory) {
+  const [library,name]=String(id).split(':');
+  try { await readFile(join(directory,library+'.pretty',name+'.kicad_mod'));return true; } catch { return false; }
 }
 
 async function footprintHasModel(footprintId, directory) {
@@ -109,19 +122,42 @@ export function footprintFor(type, packageText = "", pinCount = 0) {
   if (metric && /inductor|choke/.test(type)) return `Inductor_SMD:L_${metric}_${dimensions[metric]}`;
   if (/\bsma\b/.test(text)) return "Diode_SMD:D_SMA";
   if (/\bsmb\b/.test(text)) return "Diode_SMD:D_SMB";
-  if (/soic8|so8/.test(text)) return "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm";
+  if (/16soic|soic16/.test(text) && /3[.]9|0[.]154/.test(text)) return "Package_SO:SOIC-16_3.9x9.9mm_P1.27mm";
+  if (/sot235|sot753/.test(text)) return "Package_TO_SOT_SMD:SOT-23-5";
+  if (/8soic|soic8|so8/.test(text)) return "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm";
   if (/sot23(?!\d)/.test(text)) return "Package_TO_SOT_SMD:SOT-23";
   if (isSafeGenericPinHeader(type, packageText, pinCount)) return `Connector_PinHeader_2.54mm:PinHeader_1x${String(pinCount).padStart(2, "0")}_P2.54mm_Vertical`;
   return "";
 }
 
-async function findExactSymbol(partNumber, symbolDirectory) {
+async function findExactSymbol(partNumber, symbolDirectory, packageText = "") {
   if (!partNumber || !symbolDirectory) return "";
   const index = await getSymbolIndex(symbolDirectory);
-  for (const key of partNumberKeys(partNumber)) {
+  for (const key of [...partNumberKeys(partNumber),...packageSymbolKeys(partNumber,packageText)]) {
     if (index.has(key)) return index.get(key);
   }
   return "";
+}
+
+// Package-qualified aliases cover library naming conventions, never a fuzzy IC prefix.
+export function packageSymbolKeys(partNumber,packageText) {
+  const n=partNumber.toUpperCase(),p=packageText.toUpperCase().replaceAll('-','');
+  if(/^MCP\d+T?-[IE]\/(SN|SO|ST|MS|MC|P)$/.test(n))return [n.replace(/T?-[IE]\//,'X').replace(/[^A-Z0-9]/g,'')];
+  if(/^LM317T$/.test(n)&&/TO220/.test(p))return ['LM317TO220'];
+  if(/^LMV321IDBVR?$/.test(n)&&/SOT235|SOT753/.test(p))return ['LMV321'];
+  if(/^SN74HC595DR?$/.test(n)&&/(?:16SOIC|SOIC16)/.test(p))return ['74HC595'];
+  if(/^MAX3485ESA\+?$/.test(n)&&/(?:8SOIC|SOIC8)/.test(p))return ['MAX3485'];
+  return [];
+}
+
+export function dimensionFootprint(type,candidate) {
+  const p=candidate?.parameters||{};
+  if(/capacitor/i.test(type)&&/radial/i.test(p['Package / Case']||'')) {
+    const diameter=String(p['Size / Dimension']||'').match(/\((\d+(?:\.\d+)?)mm\)/)?.[1];
+    const pitch=String(p['Lead Spacing']||'').match(/\((\d+(?:\.\d+)?)mm\)/)?.[1];
+    if(diameter&&pitch)return `Capacitor_THT:CP_Radial_D${Number(diameter).toFixed(1)}mm_P${Number(pitch).toFixed(2)}mm`;
+  }
+  return '';
 }
 
 function partNumberKeys(value) {

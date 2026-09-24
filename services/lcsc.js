@@ -1,4 +1,4 @@
-import { buildSearchQueries, candidateCanFulfill, isCompatibleCandidate, isExactPartNumberMatch } from "./digikey.js";
+import { requestedPartNumber, buildSearchQueries, candidateCanFulfill, isCompatibleCandidate, isExactPartNumberMatch } from "./digikey.js";
 import { catalogQueries, matchesRelayRequirements } from './component-request.js';
 import { matchesCatalogRules } from './catalog-rules.js';
 import { discoveryIntent } from './search-intent.js';
@@ -24,14 +24,19 @@ const successfulQueries = new Map();
 
 export async function searchJlcpcb(component, environment = process.env, fetchImpl = fetch) {
   const rejectedSpecifications = new Set();
+  let exactListed=false;
   const quantity = Math.max(1, Number(component.quantity) || 1);
-  const explicit = String(component.supplierPartNumber || "").trim();
+  const explicit = requestedPartNumber(component);
   const intent = !explicit && (!component.fastPath || component.fastPath==='category')
     ? component.discoveryRetry ? supplierCategoryIntent({...component,originalQuery:''})
       : discoveryIntent(component) || supplierCategoryIntent(component) : null;
   const planned = Array.isArray(component.searchQueries) ? component.searchQueries.filter(q => typeof q === 'string' && q.trim()).slice(0, 3) : [];
-  let queries = explicit ? [explicit] : intent ? [...new Set([...intent.queries,...planned])]
+  let queries = explicit ? [explicit] : intent ? [...new Set([...planned,...intent.queries])]
     : catalogQueries(component, [...new Set([...planned, passiveQuery(component), ...buildSearchQueries(component)].filter(Boolean))]);
+  if(!explicit) {
+    const familyQueries=planned.map(q=>q.split(/\s+/)[0]).filter(q=>(/^[A-Z][A-Z0-9-]*\d[A-Z0-9-]*$/i.test(q)&&!/^\d/.test(q))||(/trimmer|potentiometer/i.test(component.componentType||'')&&/^\d{4}[A-Z]?$/i.test(q)));
+    if(familyQueries.length)queries=[...new Set([...familyQueries,...queries])];
+  }
   const queryKey=JSON.stringify(queries), remembered=successfulQueries.get(queryKey);
   if(remembered?.expires>Date.now() && queries.includes(remembered.query))queries=[remembered.query,...queries.filter(q=>q!==remembered.query)];
   if (!queries.length) throw new Error("Enter an LCSC C-number, manufacturer part number, or component description.");
@@ -64,17 +69,20 @@ export async function searchJlcpcb(component, environment = process.env, fetchIm
         const candidate = normalizeJlcpcbProduct(item, quantity);
         if (libraryFilter === "base" && candidate.libraryType !== "Basic") continue;
         if (!candidate.lcscPartNumber || !candidate.manufacturerPartNumber || seen.has(candidate.lcscPartNumber)) continue;
+        if(explicit && isExactPartNumberMatch(explicit,candidate))exactListed=true;
         if (!candidateCanFulfill(candidate, quantity) || candidate.checks.length) continue;
         const exactMatch = /^C\d+$/i.test(explicit) ? candidate.lcscPartNumber === explicit.toUpperCase() : isExactPartNumberMatch(explicit, candidate);
         if (explicit ? !exactMatch : !isCompatibleCandidate(component, candidate)) continue;
         if (!explicit && !matchesRelayRequirements(component, candidate)) continue;
         if (!explicit && !matchesCatalogRules(component, candidate)) continue;
         const specifications=assessSpecifications(component,candidate);
-        if (specifications.mismatches.length) {
-          for(const note of specifications.mismatches)if(rejectedSpecifications.size<4)rejectedSpecifications.add(note);
+        if (specifications.mismatches.length || specifications.requiredEvidenceMissing?.length) {
+          for(const note of [...specifications.mismatches,...(specifications.requiredEvidenceMissing || []).map(s=>`Required evidence missing: ${s}`)])if(rejectedSpecifications.size<4)rejectedSpecifications.add(note);
           continue;
         }
-        if (intent && !intent.category.test(candidate.description || '')) continue;
+        if (intent && !intent.category.test(candidate.description || '')
+          && !(/trimmer|potentiometer/i.test(component.componentType||'')&&/potentiometer|variable resistor|trimmer/i.test(candidate.description))
+          && !(/common.?mode/i.test(component.componentType||'')&&/common.?mode/i.test(candidate.description))) continue;
         if (intent) candidate.discoveryNote = [intent.note, intent.alternative?.(candidate)].filter(Boolean).join(' ');
         if (component.discoveryRetry) candidate.discoveryNote = `Broader related search result for "${component.originalQuery}". This is an alternative to review against the original requirements. ${candidate.discoveryNote || ''}`;
         seen.add(candidate.lcscPartNumber);
@@ -94,7 +102,8 @@ export async function searchJlcpcb(component, environment = process.env, fetchIm
     }
   }
   }
-  return { query: lastQuery, supplier: "lcsc", candidates: [], searchNotes: rejectedSpecifications.size
+  const availabilityReason=explicit?(exactListed?`${explicit} is listed in the JLCPCB catalog but is not currently orderable at quantity ${quantity}.`:`The JLCPCB catalog did not return an orderable exact match for ${explicit}. Similar part numbers have not been substituted.`):'';
+  return { query: lastQuery, supplier: "lcsc", candidates: [], availabilityReason, searchNotes:availabilityReason?[availabilityReason]: rejectedSpecifications.size
     ? ['Returned parts did not satisfy the original specifications.',...rejectedSpecifications]
     : intent ? ['No stocked matching category was found in the searched JLCPCB catalog pages. Some displays, motors and modules may need separate sourcing.'] : [] };
 }

@@ -1,6 +1,10 @@
 // Retrieval categories broaden discovery; the original request still governs review.
 export function discoveryIntent(component) {
   const text = String(component.originalQuery || '');
+  // A requested IC may drive a display or read a sensor. Its application is not its category.
+  if (/\b(mcu|microcontroller|microprocessor)\b/i.test(component.componentType || '')
+    || (/^(?:component|integrated circuit|IC)?$/i.test(component.componentType || '')
+      && /\b(?:find|get|need|want|looking for)\b[^.!?]*?\b(?:mcu|microcontroller|microprocessor)\b/i.test(text))) return null;
   if (/\b(lcd|oled|display|screen)\b/i.test(text) && !/\b(driver|controller|connector)\b/i.test(text)) {
     const lcd = /\bLCD\b/i.test(text), oled = /\bOLED\b/i.test(text);
     return { queries: lcd ? ['LCD Screens', 'LCD Display', 'OLED Display'] : oled ? ['OLED Display'] : ['OLED Display', 'LCD Screens'],

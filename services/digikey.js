@@ -1,4 +1,18 @@
+import { assessSpecifications } from './specification-checks.js';
 let cachedToken = null;
+
+// Preserve an explicitly requested identifier before supplier keyword expansion.
+export function requestedPartNumber(component) {
+  if(component.supplierPartNumber)return String(component.supplierPartNumber).trim();
+  for(const text of (component.userRequests || []).slice(-1)) {
+    const match=String(text).trim().match(/^(?:find|search for|get me)\s+([A-Za-z0-9][A-Za-z0-9/+_.-]*[A-Za-z0-9+])\.?$/i);
+    if(match && /[A-Za-z]/.test(match[1]) && /\d/.test(match[1])
+      && !/^\d+(?:[.]\d+)?(?:[pnumk]?F|[pnumk]?H|[kM]?ohm)$/i.test(match[1])
+      && match[1]!==component.manufacturerFamily)return match[1];
+  }
+  const line=(component.requirements||[]).find(x=>/^Exact part number:/i.test(x));
+  return line?line.replace(/^Exact part number:\s*/i,'').trim():'';
+}
 
 export function buildSearchQuery(component) {
   if (component.supplierPartNumber) return component.supplierPartNumber.trim();
@@ -17,11 +31,12 @@ export async function searchDigiKey(component, environment = process.env) {
     lastResult = await runKeywordSearch(host, token, query, component, environment);
     if (lastResult.candidates.length) return lastResult;
   }
+  if(requestedPartNumber(component))return runKeywordSearch(host,token,queries[0],component,environment,true);
   return lastResult;
 }
 
 export function buildSearchQueries(component) {
-  const explicitPartNumber = String(component.supplierPartNumber || "").trim();
+  const explicitPartNumber = requestedPartNumber(component);
   if (explicitPartNumber) return [explicitPartNumber];
   const fallbackFirst = component.componentType === "Capacitor";
   return [...new Set([
@@ -40,10 +55,10 @@ export function isExactPartNumberMatch(requestedPartNumber, candidate) {
 }
 
 export function isCompatibleCandidate(component, candidate) {
-  const explicitPartNumber = String(component.supplierPartNumber || "").trim();
+  const explicitPartNumber = requestedPartNumber(component);
   if (explicitPartNumber) return isExactPartNumberMatch(explicitPartNumber, candidate);
   const type = String(component.componentType || "").toLowerCase();
-  const parameterName = /resistor/.test(type) ? "Resistance"
+  const parameterName = /resistor|potentiometer|trimmer/.test(type) ? "Resistance"
     : /capacitor/.test(type) ? "Capacitance"
       : /inductor|choke/.test(type) ? "Inductance" : "";
   if (parameterName) {
@@ -77,7 +92,7 @@ export function buildSpecializedQuery(component) {
   return [outputVoltage && `${outputVoltage}V`, outputCurrent && `${outputCurrent}A`, topology, "regulator"].filter(Boolean).join(" ");
 }
 
-async function runKeywordSearch(host, token, query, component, environment) {
+async function runKeywordSearch(host, token, query, component, environment, diagnose = false) {
   const requestedQuantity = Math.max(Number(component.quantity) || 1, 1);
   const response = await fetch(`${host}/products/v4/search/keyword`, {
     method: "POST",
@@ -86,7 +101,7 @@ async function runKeywordSearch(host, token, query, component, environment) {
       "X-DIGIKEY-Locale-Site": environment.DIGIKEY_SITE || "CA", "X-DIGIKEY-Locale-Language": environment.DIGIKEY_LANGUAGE || "en",
       "X-DIGIKEY-Locale-Currency": environment.DIGIKEY_CURRENCY || "CAD",
     },
-    body: JSON.stringify({ Keywords: query, Limit: 12, Offset: 0, FilterOptionsRequest: {
+    body: JSON.stringify({ Keywords: query, Limit: 50, Offset: 0, FilterOptionsRequest: diagnose ? {MarketPlaceFilter:"ExcludeMarketPlace"} : {
       MinimumQuantityAvailable: requestedQuantity, MarketPlaceFilter: "ExcludeMarketPlace", SearchOptions: ["InStock", "NormallyStocking"],
     } }),
   });
@@ -96,10 +111,18 @@ async function runKeywordSearch(host, token, query, component, environment) {
   const candidates = [...(data.ExactMatches || []), ...(data.Products || [])].map((product) => normalizeProduct(product, requestedQuantity)).filter((candidate) => {
     const key = candidate.digiKeyPartNumber || candidate.manufacturerPartNumber;
     if (!key || seen.has(key) || !candidateCanFulfill(candidate, requestedQuantity)
-        || !isCompatibleCandidate(component, candidate)) return false;
+        || !isCompatibleCandidate(component, candidate) || assessSpecifications(component,candidate).mismatches.length) return false;
     seen.add(key); return true;
   }).sort(compareCandidates).slice(0, 8);
-  return { query, candidates };
+  const exact=(data.ExactMatches||[]).concat(data.Products||[]).filter(p=>isExactPartNumberMatch(requestedPartNumber(component),{manufacturerPartNumber:p.ManufacturerProductNumber}));
+  const canSupply=exact.some(p=>candidateCanFulfill(normalizeProduct(p,requestedQuantity),requestedQuantity));
+  const stock=exact.flatMap(p=>p.ProductVariations||[]).some(v=>Number(v.QuantityAvailableforPackageType)>0);
+  const availabilityReason=diagnose&&!candidates.length?(exact.length
+    ? canSupply?`${requestedPartNumber(component)} is listed by DigiKey, but the returned specifications do not meet the other requested requirements.`
+      :stock?`${requestedPartNumber(component)} is listed by DigiKey, but the available packaging requires a larger minimum order than ${requestedQuantity}.`
+      :`${requestedPartNumber(component)} is listed by DigiKey, but its API currently reports zero stock for this exact part.`
+    : `DigiKey did not return the exact part ${requestedPartNumber(component)}. Related products are not substitutes for the requested component.`):'';
+  return { query, candidates, ...(availabilityReason?{availabilityReason,searchNotes:[availabilityReason]}:{}) };
 }
 
 export function buildFallbackQuery(component) {

@@ -1,0 +1,88 @@
+--- a/eeschema/sch_edit_frame.cpp
++++ b/eeschema/sch_edit_frame.cpp
+@@ -439,7 +439,9 @@
+         auto* pin = symbol->GetPin( jsonString( point, "pin" ) );
+         if( !pin )
+             throw std::runtime_error( "Application circuit pin is missing" );
+-        return symbol->GetPinPhysicalPosition( pin );
++        // GetPin returns an instance pin: its position already includes the
++        // symbol transform and translation. Do not apply them a second time.
++        return pin->GetPosition();
+     };
+     const auto wire = [&]( VECTOR2I a, VECTOR2I b )
+     {
+--- a/eeschema/widgets/panel_auto_bom_assistant.cpp
++++ b/eeschema/widgets/panel_auto_bom_assistant.cpp
+@@ -196,12 +196,70 @@
+ }
+ 
+ 
++// Native Wrap() does not split long identifiers, so footprint names can force
++// the entire card wider than the sidebar.
++class AUTO_BOM_FACT_TEXT : public wxStaticText
++{
++public:
++    AUTO_BOM_FACT_TEXT( wxWindow* parent, const wxString& text ) :
++            wxStaticText( parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
++                          wxDefaultSize, wxST_NO_AUTORESIZE ), m_text( text )
++    {
++        SetToolTip( text );
++        Rewrap( FromDIP( 170 ) );
++        Bind( wxEVT_SIZE, [this]( wxSizeEvent& event ) {
++            Rewrap( event.GetSize().x );
++            event.Skip();
++        } );
++    }
++
++private:
++    void Rewrap( int width )
++    {
++        if( width < 1 || width == m_width )
++            return;
++        m_width = width;
++        wxString result, line;
++        for( const auto ch : m_text )
++        {
++            if( ch == '\n' )
++            {
++                result += line + wxS( "\n" );
++                line.clear();
++                continue;
++            }
++            wxString next = line + ch;
++            if( !line.IsEmpty() && GetTextExtent( next ).x > width )
++            {
++                const int space = line.Find( ' ', true );
++                if( space > 0 )
++                {
++                    result += line.Left( space ) + wxS( "\n" );
++                    line = line.Mid( space + 1 );
++                }
++                else
++                {
++                    result += line + wxS( "\n" );
++                    line.clear();
++                }
++            }
++            line += ch;
++        }
++        SetLabelText( result + line );
++        SetMinSize( wxSize( 1, GetBestSize().y ) );
++        if( GetParent()->GetSizer() )
++            GetParent()->Layout();
++    }
++
++    wxString m_text;
++    int m_width = -1;
++};
++
+ void addFact( wxFlexGridSizer* aSizer, wxWindow* aParent, const wxString& aName,
+               const wxString& aValue )
+ {
+     wxStaticText* name = makeLabel( aParent, aName, true );
+-    wxStaticText* value = makeLabel( aParent, aValue.IsEmpty() ? wxS( "\u2014" ) : aValue );
+-    value->Wrap( aParent->FromDIP( 170 ) );
++    wxStaticText* value = new AUTO_BOM_FACT_TEXT( aParent, aValue.IsEmpty() ? wxS( "\u2014" ) : aValue );
+     aSizer->Add( name, 0, wxALIGN_TOP );
+     aSizer->Add( value, 1, wxEXPAND );
+ }

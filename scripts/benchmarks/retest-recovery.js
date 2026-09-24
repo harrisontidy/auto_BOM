@@ -1,0 +1,3 @@
+import {mkdir,writeFile,readFile} from 'node:fs/promises';import {spawn} from 'node:child_process';
+const root='.runtime/component-recovery-2026-09-22';await mkdir(root,{recursive:true});const ids=[4,5,11,12,15,26,32,37,39,44,45,48];let next=0;
+await Promise.all(Array.from({length:2},async()=>{while(next<ids.length){const id=ids[next++];await new Promise(done=>{const p=spawn(process.execPath,['scripts/benchmarks/run-components.js','worker',root,String(id),'search'],{windowsHide:true,stdio:['ignore','pipe','pipe']});let log='';p.stdout.on('data',b=>log+=b);p.stderr.on('data',b=>log+=b);const t=setTimeout(()=>p.kill(),190000);p.on('exit',async()=>{clearTimeout(t);await writeFile(root+'/'+id+'.log',log);console.log(log.trim().split('\n').at(-1));done()})})}}));

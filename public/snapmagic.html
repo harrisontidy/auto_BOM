@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connect SnapMagic · AutoBOM</title>
+<style>body{font:16px system-ui;background:#18191b;color:#eee;max-width:440px;margin:12vh auto;padding:24px}h1{font-size:24px}p{line-height:1.5;color:#bcc0c8}label{display:block;margin:20px 0 6px}input,button{box-sizing:border-box;width:100%;padding:12px;border-radius:7px;border:1px solid #555;font:inherit}input{background:#25272b;color:white}button{margin-top:22px;background:#98baff;color:#10151e;cursor:pointer}#status{white-space:pre-wrap}a{color:#98baff}</style>
+<h1>Connect SnapMagic</h1>
+<p>AutoBOM will download available KiCad symbols and footprints for your selected DigiKey parts.</p>
+<form id="login"><label for="username">SnapMagic username or email</label><input id="username" autocomplete="username" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button id="connect">Connect</button></form>
+<p>Your credentials are sent only to SnapMagic. Your password is not saved. On Windows, the login session is encrypted with your Windows account and kept between restarts.</p>
+<p id="status" role="status"></p><button id="disconnect" hidden>Disconnect</button>
+<script src="/snapmagic.js"></script></html>

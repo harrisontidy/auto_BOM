@@ -43,6 +43,8 @@ export function interpretCategoryRequest(query){
     supplierCategoryId:category.id,supplierCategory:category.name,fastPath:'category',requirements:[],assumptions:[],pinCount:0};
 }
 export function supplierCategoryIntent(component){
+  // Preserve explicit part-family searches instead of replacing ESP32, etc. with a whole category.
+  if (component.manufacturerFamily || /\b(?:mcu|microcontroller|microprocessor)\b/i.test(component.componentType || '')) return null;
   if(!component.supplierCategoryId && /relay/i.test(component.componentType||''))return null;
   const category=categoryCatalog.categories.find(c=>c.id===component.supplierCategoryId)
     || matchSupplierCategory(component.originalQuery||'')

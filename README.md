@@ -1,126 +1,137 @@
 # auto_BOM
 
-`auto_BOM` brings component search, supplier inventory, and BOM autofill directly into KiCad. Describe what you need—for example, a **3.3 V regulator, at least 1 A, small SMD package**—compare available JLCPCB/LCSC or DigiKey parts, then import the selected part's symbol and footprint when compatible CAD is available and place it with its sourcing information.
+**An AI design assistant for finding parts, building a circuit, and finishing your BOM in KiCad.**
 
-For components already in a schematic, **BOM autofill** suggests missing manufacturer and supplier part numbers based on values, packages, and other requirements. Review the suggestions before applying them. Preferences include JLCPCB Basic parts and passive packages such as 0805 SMT.
+auto_BOM now feels more like working with a design assistant than filling in a search form. Ask about a part or circuit, talk through the requirements, review supplier options, and place the result on the schematic. When you are ready to build out the design, ask for a typical application circuit, then review and place it. Existing schematics can get the same treatment through BOM completion, with each suggested change available to inspect before applying it.
 
-See [the project summary](PROJECT-SUMMARY.md) for the complete workflow, current validation limits, and contact information.
+This is a working prototype built around patched KiCad 10.0.6 and a local Node.js service. The native assistant requires a custom Windows build and appears inside KiCad's Schematic Editor.
 
-## Current prototype
+## A quick tour
 
-The KiCad integration has two native workflows:
+Start with the Design Assistant in KiCad. Ask a question, discuss an idea, or describe the part you need.
 
-### Component Finder
+![The Design Assistant open beside a demo schematic](docs/images/design-assistant.png)
 
-- Opens as a docked wxWidgets panel in the Schematic Editor. It is not an embedded webpage.
-- Accepts requests such as `efficient 5 V 3 A buck regulator` or `10 kOhm 0805 resistor`.
-- Uses AI to turn natural language into concise requirements, then searches JLCPCB / LCSC by default, or DigiKey Product Information V4.
-- Shows in-stock candidates with manufacturer part number, supplier part number, stock, unit price, package, and a short recommendation.
-- Resolves symbols, footprints, and standard 3D models from the KiCad libraries installed on this computer.
-- Places a selected result on the cursor and writes its manufacturer, supplier, pricing, product URL, and datasheet fields into the symbol.
-- Uses exact installed symbols for known ICs and safe generic symbols for ordinary passives. It does not invent IC pinouts.
+Search for a part in plain language. In this demo run, the ESP32-S3 search took just a few seconds, and the assistant showed the supplier match and its stock, price, package, and CAD details.
 
-### BOM completion
+![ESP32-S3 search result in the Design Assistant](docs/images/esp32-search.png)
 
-- Lives inside KiCad's existing **Tools → Generate Bill of Materials...** dialog.
-- Adds **Fill Missing Parts** and **Use AI when filling missing part numbers** controls to the normal BOM editor and exporter.
-- Reads the open schematic directly, respects the active variant and BOM/DNP exclusions, and preserves part numbers already chosen by the designer.
-- Searches missing lines automatically, fills the schematic fields as one undoable edit, refreshes KiCad's BOM preview, and then uses KiCad's normal export formats.
-- Can run automatically when **Export** is pressed; unresolved lines stay visible for review instead of being silently exported.
+Once you have a suitable part, ask for its typical application circuit. This 3.3 V CAN transceiver circuit was generated in under 10 seconds in the demo run. The assistant shows the proposed circuit and components before you place them.
 
-The component panel contains only the finder. BOM tables, CSV import controls, and final checks are kept in KiCad's normal BOM window.
+![CAN transceiver application circuit ready to place](docs/images/application-circuit-ready.png)
 
-## Run it in KiCad
+Place the application circuit into the schematic, then carry on with your design.
 
-The first build is large. Build the patched KiCad applications and required runtime files once:
+![Placed CAN transceiver circuit in the schematic](docs/images/application-circuit-placed.png)
+
+Finally, open the BOM editor and choose **Fill Missing Parts**. The before-and-after view shows supplier and manufacturer part details filled in for the parts in the schematic.
+
+| Before filling missing parts | After filling missing parts |
+| --- | --- |
+| <img src="docs/images/bom-before.png" alt="BOM before filling remaining part numbers" width="700"> | <img src="docs/images/bom-filled.png" alt="BOM after filling part numbers and supplier details" width="700"> |
+
+The timing above is from this demo run. Search and circuit-generation times vary with the connection, supplier response, and whether a circuit recipe has already been generated.
+
+## What you can do
+
+### Find a part by describing the job
+
+Open the **Design Assistant** and ask for something like:
+
+> Find a small 3.3 V CAN transceiver to connect a microcontroller to an external CAN bus.
+
+You can ask follow-up questions, change a requirement, or talk through a circuit idea before searching. Results include supplier stock, price, package, and the reasons a part was suggested. The assistant normally presents one recommendation or up to three options.
+
+- Search **JLCPCB / LCSC** or **DigiKey**, with a preference for JLCPCB Basic parts enabled by default.
+- Import symbols and footprints from EasyEDA for LCSC parts, or SnapMagic for DigiKey parts. Compatible installed KiCad libraries are also used.
+- Click **Place in Schematic** when CAD is ready. Manufacturer and supplier part numbers, pricing, product links, and datasheets come with the symbol.
+
+Direct search also handles exact LCSC C-numbers, common value/package passives, and simple relay requests without AI. Stock is checked again on each search.
+
+### Start from a typical application circuit
+
+A recommended part can be the starting point for a circuit, too. Choose **Generate typical application circuit** to prepare a draft from its datasheet, then review the component list and design notes before placing it.
+
+The generator supports common regulator, op-amp, timer, and digital-IC support circuits. It can adapt values to your requested operating point, check the arithmetic, and place supporting components with wires and labels as a movable block. Validated recipes are cached, so repeating the same request is much faster.
+
+This feature is experimental. Some parts and datasheets are unsupported, and a generated circuit still needs engineering review. Pin and connectivity checks help catch mistakes; they do not establish that a design will work. See [application generation and its limits](docs/ASK.md#generate-typical-application-circuit).
+
+### Finish the BOM you already have
+
+In **Tools → Generate Bill of Materials...**, click **Fill Missing Parts**. auto_BOM reads the active schematic, groups quantities, and looks for parts that match the existing values and packages.
+
+Review proposed changes line by line, search for alternatives, and select which rows to apply. Accepted changes form one undoable edit. Existing part numbers and assigned footprints are preserved, and DNP and BOM-excluded parts are skipped. Unresolved lines stay visible for review.
+
+Unspecified resistors and generic capacitors default to 0805 SMT, with controls for other sizes or through-hole parts. Explicit part numbers, footprints, and component requirements take priority.
+
+**Export** exports the current table. It does not start a new sourcing search. The patched PCB Editor also includes JLCPCB BOM and placement CSV output. Update the board from the schematic after sourcing changes, then check the uploaded parts and rotations in the assembly preview.
+
+## Try it
+
+### Local service and browser interface
+
+Install a recent Node.js LTS release, then run from the repository root:
+
+```powershell
+npm install
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+npm start
+```
+
+If you already have a `.env`, keep it. Open [localhost:4173](http://localhost:4173) for the standalone browser interface. It is useful for trying searches and conversations; schematic placement and the integrated BOM workflow require the custom KiCad build.
+
+Choose your connection in **Connection & sourcing** in the browser, or **Settings** in the native assistant:
+
+| Feature | What you need |
+| --- | --- |
+| JLCPCB / LCSC catalog search | No supplier API key. This is the default supplier. |
+| Assistant through your Codex account | An installed Codex app/CLI with a signed-in account. Uses your Codex allowance. |
+| Assistant through the OpenAI API | `OPENAI_API_KEY` in `.env`. API usage is billed separately. |
+| DigiKey search | `DIGIKEY_CLIENT_ID` and `DIGIKEY_CLIENT_SECRET` in `.env`. Use `DIGIKEY_ENV=production` for live catalog data. |
+| EasyEDA CAD imports | Run `& ".\Setup EasyEDA.ps1"` once. |
+| DigiKey CAD imports | Connect SnapMagic through assistant Settings or the browser's connection link. |
+
+Assistant model and reasoning choices live in the interface. Standalone AI-assisted search and BOM completion use the API configuration, including `OPENAI_MODEL`. The app does not silently switch from Codex to API billing. Codex requests currently use Fast mode, which consumes allowance at the higher Fast-mode rate.
+
+### Inside KiCad
+
+Install KiCad 10 with its standard libraries and prepare the patched source checkout and MSYS2/UCRT64 build dependencies using the [native integration guide](integrations/kicad-native/README.md). Then build and launch:
 
 ```powershell
 & ".\integrations\kicad-native\Build custom KiCad.ps1"
-```
-
-Then launch the integrated KiCad manager:
-
-```powershell
 & ".\Start KiCad.ps1"
 ```
 
-If setup has retargeted the regular **KiCad 10.0** desktop or Start-menu shortcut, opening that shortcut runs the same launcher. The original stock shortcut can be kept alongside it as **KiCad 10.0 (Stock)**.
+The first build is large. The launcher starts the local service and opens the custom KiCad manager with the required libraries and runtime paths.
 
-In the Schematic Editor, press **Ctrl+Alt+A**, click the Component Finder toolbar button, or use **View → Panels → Component Finder**. Type a request and press Enter or click **Find Parts**. When a candidate has an installed symbol and footprint, click **Place in Schematic** and place it normally on the sheet.
+In the Schematic Editor, press **Ctrl+Alt+A** to open the assistant. Enter sends a message; Shift+Enter adds a new line. Use **Settings** to choose your connection and supplier. Open **Tools → Generate Bill of Materials...** when you are ready to complete the BOM.
 
-Open **Tools → Generate Bill of Materials...** to complete missing part numbers and export the finished BOM.
+The [small sourcing demo](examples/sourcing-demo/README.md) is a useful first project.
 
-Build, patch, and launcher details are in [integrations/kicad-native/README.md](integrations/kicad-native/README.md).
+## A few things to know
 
-## Sourcing options
-
-The native Component Finder and BOM dialog now have a **JLCPCB / LCSC** or **DigiKey** selector. JLCPCB / LCSC is the default. The browser finder remembers its selection locally. The finder places one component at a time; copy and paste for more. BOM completion uses the actual grouped quantity in the current schematic.
-
-The finder handles exact LCSC C-numbers, simple value/package passives (`10k 0805 resistor`), and simple relay requests (`10A relay with 5V coil`) without AI. More detailed requests retain AI interpretation and specification review. Language interpretations are reused briefly, but stock is checked again on every search. The finder automatically downloads CAD for a shortlist of up to three candidates while AI review runs concurrently. BOM completion still operates on the full sourcing results.
-
-Relay searches use JLCPCB's Power Relays category and verify catalog switching current, explicit coil voltage and contact form. When AC/DC load voltage is specified, the current and voltage must appear together in a suitable contact rating; independent maximum ratings are insufficient. Unspecified coil voltage and load-rating limitations are displayed for review. Catalog checks are not a replacement for the chosen part's datasheet and load-specific ratings.
-
-**Prefer JLCPCB Basic parts** is enabled in both workflows. It searches the Basic catalog first, then falls back to Extended parts if no matching, in-stock Basic part is found. Exact C-numbers and existing manufacturer selections remain authoritative. Clear the checkbox to search without the Basic preference.
-
-JLCPCB / LCSC uses the public JLCPCB assembly parts catalog without an API key. It checks reported JLCPCB stock, excludes insufficient stock and order minima above the requested quantity, and shows Basic/Extended library type. Prices are USD component estimates, excluding assembly/setup fees, shipping, and taxes. LCSC warehouse stock and presale stock are not substituted for JLCPCB stock. Confirm availability in the final assembly order.
-
-The website catalog endpoint is not the credentialed LCSC partner API and has no guaranteed interface or availability. Failures are reported; the app never silently falls back to DigiKey. Requests are serialized and searches are bounded to two pages per query.
-
-An exact **C-number**, such as `C2040`, can be searched without an OpenAI key. Natural-language requests still use the existing OpenAI configuration. Exact C-numbers are matched exactly, not as substrings.
-
-BOM completion writes **LCSC Part #**, **JLCPCB Stock**, **JLCPCB Unit Price**, and **JLCPCB Product URL**. Existing DigiKey fields remain separate. Existing LCSC assignments are rechecked during completion; unavailable or conflicting selections stay unresolved rather than being replaced. KiCad's normal BOM exporter is retained: review its column mapping against JLCPCB's upload requirements. Board quantities and assembly attrition are not inferred from the schematic.
-
-Sources: [JLCImport catalog client](https://github.com/jvanderberg/kicad_jlcimport/blob/main/src/kicad_jlcimport/easyeda/api.py), [LCSC partner API](https://www.lcsc.com/agent).
-
-## API configuration
-
-Copy `.env.example` to `.env`. LCSC/JLCPCB sourcing needs no key; add an OpenAI key for natural-language interpretation. DigiKey credentials are optional and only used when DigiKey is selected. `.env` is ignored by Git and the local server only listens on `127.0.0.1`.
-
-```text
-SOURCING_SUPPLIER=lcsc
-DIGIKEY_CLIENT_ID=...
-DIGIKEY_CLIENT_SECRET=...
-DIGIKEY_ENV=production
-OPENAI_API_KEY=...
-```
-
-DigiKey sandbox credentials are useful for authentication testing, but the sandbox catalog contains sample data. Live price and stock results require an approved production application subscribed to Product Information V4 and `DIGIKEY_ENV=production`.
-
-`OPENAI_MODEL` defaults to `gpt-5-mini`. AI interprets requests and reviews meaningful choices; deterministic checks enforce common passive values and packages and prevent approximate DigiKey matches from replacing exact manufacturer part-number searches. The circuit designer still needs to verify electrical compatibility against the datasheet.
-
-## Architecture
-
-The patched KiCad UI communicates with a local Node.js service at `http://127.0.0.1:4173`:
-
-```text
-Native KiCad panel ── component request ──► local service ──► OpenAI + selected supplier
-Native KiCad BOM dialog ── schematic BOM ─► local service ──► completed fields
-```
-
-Credentials stay in the local `.env` file and are never compiled into KiCad. A small standalone browser finder remains available at `http://localhost:4173` for backend development, but schematic placement and integrated BOM completion require the patched KiCad build.
-
-LCSC results automatically download EasyEDA symbols and footprints using the pinned [easyeda2kicad converter](https://github.com/uPesy/easyeda2kicad.py). Run `Setup EasyEDA.ps1` once on a new installation; setup is already done on this computer. No EasyEDA API key is required. Files are cached under `%LOCALAPPDATA%/autoBOM/easyeda-v1`, with a separate `AutoBOM_C...` library per part. Placement and BOM completion register the downloaded libraries in KiCad. Existing schematic symbols and assigned footprints are preserved during BOM completion; downloaded footprints fill empty footprint fields.
-
-The importer verifies the LCSC number, manufacturer part number, symbol-to-footprint link, and pin/pad number correspondence before exposing the pair for placement. These checks do not verify every geometric or electrical detail against a datasheet. Failures are shown in the finder; compatible installed KiCad assets remain available as fallback. Cached files are revalidated before reuse. 3D-model downloads are not included. Keep the cached libraries when sharing/moving projects, or copy them and update the library paths.
-
-Configuration overrides: `EASYEDA_PYTHON` selects the converter's Python interpreter, `EASYEDA_LIBRARY_DIR` selects its library directory, and `EASYEDA_DOWNLOADS=false` uses installed KiCad libraries only. The converter is installed in an isolated `.runtime/easyeda` environment and does not modify KiCad's Python packages.
-
-Run `npm test` for offline checks. `node scripts/live-sourcing-check.mjs` runs opt-in integration checks against the running local service, JLCPCB, configured DigiKey credentials, and configured AI service.
+- **Supplier data is a snapshot.** JLCPCB results use reported assembly stock, not LCSC warehouse or presale stock. Prices are component estimates and exclude assembly fees, shipping, and taxes. Board counts and assembly attrition are not inferred from the schematic.
+- **CAD is checked, but still needs a look.** Imported libraries are checked for part identity, symbol/footprint links, and pin/pad agreement. Review geometry and electrical details against the datasheet. Downloaded 3D models are not included.
+- **Keep imported libraries with your project.** Downloads are cached under `%LOCALAPPDATA%/autoBOM`. Copy the libraries and update paths when sharing or moving a design.
+- **Online services can fail.** The JLCPCB catalog and SnapMagic connections use website endpoints that may change. Failures are shown rather than silently switching suppliers.
+- **The app runs locally, but requests use online services.** The service listens on `127.0.0.1:4173`. Credentials stay out of the KiCad build and `.env` is ignored by Git. Conversation history is temporary and is sent to the selected AI connection with each question.
 
 ## Development
 
-Run the local service and automated checks with Node.js:
+The native wxWidgets interface talks to the local Node.js service, which handles supplier searches, AI requests, CAD imports, and proposed BOM changes. The browser interface uses the same backend.
 
 ```powershell
-npm start
 npm test
 ```
 
-Changes to the Node service, AI logic, or DigiKey logic do not require a KiCad rebuild. Changes to the native panel or BOM dialog do.
+The test suite covers search constraints, supplier handling, CAD validation, BOM completion, conversations, and circuit generation. For opt-in checks against the running service and configured providers, run `node scripts/live-sourcing-check.mjs`.
 
-## Planned milestones
+Backend changes need a service restart. Changes to the native interface need a KiCad rebuild. Automated checks and recorded netlist tests cover more ground than the current native UI checks; see the reports for what was actually exercised.
 
-1. Add 3D-model imports and additional CAD providers.
-2. Add more deterministic electrical and package constraints.
-3. Save projects and approved selections in SQLite.
-4. Create a DigiKey cart from the approved final BOM.
+- [Repository guide](docs/REPOSITORY.md): source layout and developer utilities.
+- [Native integration](integrations/kicad-native/README.md): builds, launchers, and the patch sequence.
+- [Assistant and circuit generation](docs/ASK.md): connections, behavior, and known limits.
+- [Test reports](docs/testing/): recorded checks and remaining validation work.
+- [Circuit generation benchmarks](docs/application-fast-path-benchmark-2026-09-20.md): measured cold and cached timings.
+
+The KiCad source patches are distributed under KiCad's GPL terms.

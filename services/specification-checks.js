@@ -3,25 +3,72 @@ import {normalizeValue, inferComponentType} from '../parser.js';
 export function assessSpecifications(component, candidate) {
   const sources=component.bomContext?.length?component.bomContext:[null];
   const reports=sources.map(source=>assessOne({...component,bomContext:source?[source]:undefined},candidate));
-  return Object.fromEntries(['checked','unknown','mismatches','limitations'].map(key=>[key,[...new Set(reports.flatMap(report=>report[key]))]]));
+  return Object.fromEntries(['checked','unknown','mismatches','limitations','requiredEvidenceMissing'].map(key=>[key,[...new Set(reports.flatMap(report=>report[key]))]]));
 }
 
 function assessOne(component, candidate) {
-  const checked=[], unknown=[], mismatches=[];
+  const checked=[], unknown=[], mismatches=[], requiredEvidenceMissing=[];
   const parameters=candidate.parameters||{};
   const source=component.bomContext?.[0];
   const text=[component.originalQuery, source?.value, ...(component.requirements||[])].filter(Boolean).join(' ');
   const sourceType=source?inferComponentType([source.reference],source.footprint):'';
   const type=String(sourceType||component.componentType||'').toLowerCase();
   const attribute=(...names)=>names.map(name=>parameters[name]).find(value=>value!=null && value!=='');
-  if (component.passiveMounting) {
+  if (/microcontroller|microprocessor|\bmcu\b/i.test(type)) {
+    const category = String(attribute('Category','Product Type') || candidate.description || '');
+    if (/OLED Display|LCD Screens|LCD Display|Display Panels|Resistors|Capacitors/i.test(category)
+      && !/microcontroller|microprocessor|\bMCUs?\b/i.test(category))
+      mismatches.push('Component type: a processor was requested; the catalog describes another component type.');
+    const gpio = text.match(/(?:at least|minimum|min\.?|>=)\s*(\d+)\s*(?:usable\s+)?GPIO/i)
+      || text.match(/\b(\d+)\s*(?:usable\s+)?GPIO/i);
+    if (gpio) {
+      const raw = attribute('Number of I/O','Number of GPIO','GPIO Count','I/O Count');
+      const actual = /^\d+$/.test(String(raw ?? '').trim()) ? Number(raw) : null;
+      if (actual == null) unknown.push(`GPIO: at least ${gpio[1]} requested; catalog count unavailable.`);
+      else if (actual < Number(gpio[1])) mismatches.push(`GPIO: ${gpio[1]} minimum requested; catalog lists ${actual}.`);
+      else checked.push(`GPIO total: catalog lists ${actual}.`);
+      unknown.push('Verify usable GPIO after assigning the requested peripherals and reserved pins.');
+    }
+    for (const [name, pattern, names] of [
+      ['Wi-Fi', /\bwi[ -]?fi\b/i, ['Wi-Fi','WiFi','Wireless Protocol']],
+      ['Bluetooth', /\b(?:bluetooth|BLE)\b/i, ['Bluetooth','Bluetooth Version','Wireless Protocol']],
+      ['MIPI DSI', /\bMIPI[ -]?DSI\b/i, ['MIPI DSI','Display Interface','Interface']],
+    ]) {
+      if (!pattern.test(text)) continue;
+      const raw = attribute(...names);
+      if (raw != null && (/^(?:no|none|not supported|false)$/i.test(String(raw)))) mismatches.push(`${name}: catalog explicitly lists no support.`);
+      else if (raw != null && (pattern.test(String(raw)) || (parameters[names[0]] != null && /^(?:yes|true|supported)$/i.test(String(raw))))) checked.push(`${name}: catalog ${raw}.`);
+      else unknown.push(`${name}: not verified by the available catalog attributes; check the manufacturer datasheet.`);
+    }
+    if (/easy to solder|hand.?solder/i.test(text)) unknown.push('Hand soldering: review lead pitch, exposed pads and assembly method for this package.');
+  }
+  if (/display|screen|oled|lcd/i.test(type) || (!/microcontroller|microprocessor|mcu/i.test(type) && /\b(display|screen)\b/i.test(text))) {
+    const evidence = [candidate.description, attribute('Display Type','Display Technology'),
+      attribute('Display Color','Display Colour','Color','Colour','Colors','Colours')].filter(Boolean).join(' ');
+    const wantsColor = /\b(?:full[ -]?colou?r|RGB|colou?r(?:ed)? (?:OLED|LCD|display|screen))\b/i.test(text);
+    const mono = /\b(?:monochrome|white|blue|yellow|green)\b/i.test(evidence);
+    const fullColor = /\b(?:full[ -]?colou?r|RGB|65K|262K|16[.,]7M)\b|(?:65536|262144|16[,.]?777[,.]?216)\s*colou?rs/i.test(evidence);
+    if (wantsColor) {
+      if (mono && !fullColor) mismatches.push('Display color: full color requested; catalog describes a single-color display.');
+      else if (fullColor) checked.push('Display color: catalog explicitly supports full color.');
+      else { unknown.push('Full-color capability is not documented in the supplier listing.'); requiredEvidenceMissing.push('full-color display capability'); }
+    }
+    const technologyRequest = text.replace(/\b(?:not|no|without|rather than)\s+(?:an?\s+)?(?:OLED|LCD)\b/gi, '');
+    const acceptsEither = /\b(?:LCD\s*(?:or|\/)\s*OLED|OLED\s*(?:or|\/)\s*LCD)\b/i.test(technologyRequest);
+    const lcdOnly = /\bLCD\b/i.test(technologyRequest) && !/\bOLED\b/i.test(technologyRequest) && !acceptsEither;
+    const oledOnly = /\bOLED\b/i.test(technologyRequest) && !/\bLCD\b/i.test(technologyRequest) && !acceptsEither;
+    if (oledOnly && /\bLCD\b/i.test(evidence) && !/\bOLED|PMOLED|AMOLED\b/i.test(evidence)) mismatches.push('Display technology: OLED requested; catalog lists LCD.');
+    if (lcdOnly && /\bOLED|PMOLED|AMOLED\b/i.test(evidence)) mismatches.push('Display technology: LCD requested; catalog lists OLED.');
+  }
+  const requestedMounting=component.passiveMounting || (/resistor|capacitor|inductor|trimmer|potentiometer/.test(type)?(/through.?hole|\bTHT\b/i.test(text)?'tht':/surface.?mount|\bSMD\b|\bSMT\b/i.test(text)?'smt':''):'');
+  if (requestedMounting) {
     const mountingText = [attribute('Mounting Type','Mounting Style'),candidate.packageType,candidate.description].filter(Boolean).join(' ');
     const throughHole = /through.?hole|\bTHT\b|\bDIP\b|axial|radial/i.test(mountingText);
     const smt = /surface.?mount|\bSMD\b|\bSMT\b|\b(?:0201|0402|0603|0805|1206|1210)\b/i.test(mountingText);
     if (!throughHole && !smt) unknown.push('Mounting: supplier mounting evidence missing.');
-    else if (component.passiveMounting === 'smt' ? !smt || throughHole : !throughHole || smt)
-      mismatches.push(`Mounting: ${component.passiveMounting} requested; catalog ${mountingText}.`);
-    else checked.push(`Mounting: ${component.passiveMounting} confirmed by catalog.`);
+    else if (requestedMounting === 'smt' ? !smt || throughHole : !throughHole || smt)
+      mismatches.push(`Mounting: ${requestedMounting} requested; catalog ${mountingText}.`);
+    else checked.push(`Mounting: ${requestedMounting} confirmed by catalog.`);
   }
   if (component.capacitorTechnology === 'ceramic') {
     const technology = [candidate.description, ...Object.values(parameters)].filter(Boolean).join(' ');
@@ -56,10 +103,22 @@ function assessOne(component, candidate) {
   const fraction=text.match(/\b(\d+)\s*\/\s*(\d+)\s*W\b/i);
   if((power||fraction)&&/resistor/.test(type)) {
     const required=fraction?Number(fraction[1])/Number(fraction[2]):Number(power[1])*(power[2].toLowerCase()==='mw'?0.001:1);
-    const raw=attribute('Power(Watts)','Power','Power Rating','Rated Power');
+    const raw=attribute('Power (Watts)','Power(Watts)','Power','Power Rating','Rated Power');
     const ratio=String(raw??'').match(/^(\d+)\/(\d+)W$/);
-    const actual=ratio?Number(ratio[1])/Number(ratio[2]):numeric(raw);
+    const watts=String(raw??'').match(/^(\d+(?:\.\d+)?)\s*(m?W)\b/i);
+    const actual=ratio?Number(ratio[1])/Number(ratio[2]):watts?Number(watts[1])*(watts[2].toLowerCase()==='mw'?0.001:1):numeric(raw);
     verify('Power',`${required}W minimum`,actual,value=>value>=required);
+  }
+  if (/inductor/.test(type)) {
+    const current=text.match(/(?:at least|minimum|rated(?: for)?|rating:?)\s*(?:at least\s*)?(\d+(?:\.\d+)?)\s*(m?A)\b/i);
+    const raw=String(attribute('Current Rating (Amps)','Current Rating','Rated Current')||'');
+    const actual=raw.match(/^(\d+(?:\.\d+)?)\s*(m?A)\b/i);
+    if(current)verify('Current rating',Number(current[1])*(current[2].toLowerCase()==='ma'?0.001:1),actual?Number(actual[1])*(actual[2].toLowerCase()==='ma'?0.001:1):null,value=>value>=Number(current[1])*(current[2].toLowerCase()==='ma'?0.001:1));
+    if(/\bshielded\b/i.test(text)) {
+      const shielding=String(attribute('Shielding','Type')||'');
+      if(/unshielded|non.?shielded/i.test(shielding))mismatches.push('Shielded construction requested; catalog lists unshielded.');
+      else if(!/shielded|shielding/i.test(shielding))requiredEvidenceMissing.push('Shielded construction');
+    }
   }
   const voltages=[...text.matchAll(/\b(\d+(?:\.\d+)?)\s*V\b/gi)];
   if(voltages.length && /capacitor|resistor|fuse/.test(type)) {
@@ -89,7 +148,7 @@ function assessOne(component, candidate) {
     actual=>new RegExp(`(?:^|[^0-9])${size}(?:[^0-9]|$)`).test(actual));
   const quantity=Number(component.quantity)||1;
   if(Number.isFinite(candidate.quantityAvailable))verify('Stock',`${quantity} minimum`,candidate.quantityAvailable,value=>value>=quantity);
-  return {checked,unknown,mismatches,
+  return {checked,unknown,mismatches,requiredEvidenceMissing,
     limitations:['Catalog checks do not verify pin functions, application suitability, or every datasheet condition.']};
 }
 
