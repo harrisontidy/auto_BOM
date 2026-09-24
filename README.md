@@ -8,10 +8,6 @@ This is a working prototype built around patched KiCad 10.0.6 and a local Node.j
 
 ## A quick tour
 
-Start with the Design Assistant in KiCad. Ask a question, discuss an idea, or describe the part you need.
-
-![The Design Assistant open beside a demo schematic](docs/images/design-assistant.png)
-
 Search for a part in plain language. In this demo run, the ESP32-S3 search took just a few seconds, and the assistant showed the supplier match and its stock, price, package, and CAD details.
 
 ![ESP32-S3 search result in the Design Assistant](docs/images/esp32-search.png)
@@ -23,6 +19,10 @@ Once you have a suitable part, ask for its typical application circuit. This 3.3
 Place the application circuit into the schematic, then carry on with your design.
 
 ![Placed CAN transceiver circuit in the schematic](docs/images/application-circuit-placed.png)
+
+The Design Assistant stays beside your schematic while you search, ask follow-up questions, and place parts.
+
+![The Design Assistant open beside a demo schematic](docs/images/design-assistant.png)
 
 Finally, open the BOM editor and choose **Fill Missing Parts**. The before-and-after view shows supplier and manufacturer part details filled in for the parts in the schematic.
 
