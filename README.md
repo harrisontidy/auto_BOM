@@ -12,13 +12,13 @@ Search for a part in plain language. In this demo run, the ESP32-S3 search took 
 
 ![ESP32-S3 search result in the Design Assistant](docs/images/esp32-search.png)
 
-Once you have a suitable part, ask for its typical application circuit. This 3.3 V CAN transceiver circuit was generated in under 10 seconds in the demo run. The assistant shows the proposed circuit and components before you place them.
+Once you have a suitable part, ask for its typical application circuit. This 3.3 V CAN transceiver circuit was generated in under 10 seconds in the demo run, then placed into the schematic.
 
-![CAN transceiver application circuit ready to place](docs/images/application-circuit-ready.png)
+![CAN transceiver application circuit placed in the schematic](docs/images/application-circuit-placed.png)
 
-Place the application circuit into the schematic, then carry on with your design.
+The assistant also keeps the generated circuit's parts list, design notes, and placement controls beside the schematic.
 
-![Placed CAN transceiver circuit in the schematic](docs/images/application-circuit-placed.png)
+![Generated CAN transceiver application circuit and placement controls](docs/images/application-circuit-ready.png)
 
 The Design Assistant stays beside your schematic while you search, ask follow-up questions, and place parts.
 
